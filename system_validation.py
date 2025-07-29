@@ -251,8 +251,8 @@ class SystemValidator:
         """Validate project directory structure"""
         try:
             required_dirs = [
-                'analysis', 'metrics', 'scenarios', 'llm_interface',
-                'agents', 'memory', 'bluesky_sim', 'solver', 'data'
+                'analysis', 'llm_atc', 'scenarios', 'llm_interface',
+                'agents', 'bluesky_sim', 'solver', 'data', 'testing'
             ]
             
             missing_dirs = []
@@ -260,6 +260,13 @@ class SystemValidator:
                 dir_path = os.path.join(project_root, dir_name)
                 if not os.path.exists(dir_path):
                     missing_dirs.append(dir_name)
+            
+            # Also check for llm_atc subdirectories
+            llm_atc_subdirs = ['metrics', 'memory']
+            for subdir in llm_atc_subdirs:
+                subdir_path = os.path.join(project_root, 'llm_atc', subdir)
+                if not os.path.exists(subdir_path):
+                    missing_dirs.append(f'llm_atc/{subdir}')
             
             if missing_dirs:
                 return ValidationResult(

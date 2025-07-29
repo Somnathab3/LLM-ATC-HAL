@@ -36,9 +36,9 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from scenarios.monte_carlo_framework import BlueSkyScenarioGenerator, ComplexityTier
 from llm_interface.ensemble import OllamaEnsembleClient
 from analysis.enhanced_hallucination_detection import EnhancedHallucinationDetector
-from metrics.safety_margin_quantifier import SafetyMarginQuantifier, calc_separation_margin, calc_efficiency_penalty, count_interventions
-from memory.experience_integrator import ExperienceIntegrator
-from memory.replay_store import VectorReplayStore
+from llm_atc.metrics.safety_margin_quantifier import SafetyMarginQuantifier, calc_separation_margin, calc_efficiency_penalty, count_interventions
+from llm_atc.memory.experience_integrator import ExperienceIntegrator
+from llm_atc.memory.replay_store import VectorReplayStore
 from analysis.metrics import calc_fp_fn, aggregate_thesis_metrics
 from analysis.shift_quantifier import compute_shift_score
 from analysis.visualisation import plot_cd_timeline, plot_cr_flowchart, plot_tier_comparison

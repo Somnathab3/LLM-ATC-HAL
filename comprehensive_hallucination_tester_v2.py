@@ -29,7 +29,7 @@ from analysis.enhanced_hallucination_detection import EnhancedHallucinationDetec
 from llm_atc.metrics.safety_margin_quantifier import SafetyMarginQuantifier
 from llm_atc.memory.experience_integrator import ExperienceIntegrator
 from llm_atc.memory.replay_store import VectorReplayStore
-from memory.replay_store import VectorReplayStore
+from llm_atc.memory.replay_store import VectorReplayStore
 from validation.input_validator import validator
 import system_validation
 

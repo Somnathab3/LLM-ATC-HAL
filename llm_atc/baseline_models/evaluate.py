@@ -19,7 +19,7 @@ sys.path.insert(0, str(project_root))
 from baseline_models.conflict_detector import BaselineConflictDetector
 from baseline_models.conflict_resolver import BaselineConflictResolver
 from analysis.metrics import calc_fp_fn, aggregate_thesis_metrics
-from metrics.safety_margin_quantifier import calc_separation_margin, calc_efficiency_penalty, count_interventions
+from llm_atc.metrics.safety_margin_quantifier import calc_separation_margin, calc_efficiency_penalty, count_interventions
 from analysis.shift_quantifier import compute_shift_score
 
 
