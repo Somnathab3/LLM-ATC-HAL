@@ -11,8 +11,8 @@ import time
 # Add parent directory for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from memory.experience_document_generator import ExperienceDocumentGenerator
-from memory.replay_store import VectorReplayStore
+from llm_atc.memory.experience_document_generator import ExperienceDocumentGenerator
+from llm_atc.memory.replay_store import VectorReplayStore
 
 
 def test_basic_functionality():

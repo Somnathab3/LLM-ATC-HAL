@@ -65,7 +65,7 @@ class TestModuleImports(unittest.TestCase):
     def test_analysis_import(self):
         """Test analysis module can be imported."""
         try:
-            from analysis.metrics import compute_metrics, create_empty_metrics
+            from llm_atc.metrics import compute_metrics, create_empty_metrics
             self.assertTrue(callable(compute_metrics))
             self.assertTrue(callable(create_empty_metrics))
         except ImportError as e:
@@ -107,7 +107,7 @@ class TestAnalysisMetrics(unittest.TestCase):
     """Test analysis metrics functionality."""
     
     def setUp(self):
-        from analysis.metrics import compute_metrics, create_empty_metrics
+        from llm_atc.metrics import compute_metrics, create_empty_metrics
         self.compute_metrics = compute_metrics
         self.create_empty_metrics = create_empty_metrics
     

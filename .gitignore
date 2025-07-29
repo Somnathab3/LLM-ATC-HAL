@@ -94,3 +94,12 @@ data/simulated/large/
 test_results/
 thesis_results/
 memory/replay_data/
+
+# generated
+.chroma_experience_library/
+docs/notebooks/**.ipynb
+outputs/
+__pycache__/
+*.pyc
+*.log
+*.png

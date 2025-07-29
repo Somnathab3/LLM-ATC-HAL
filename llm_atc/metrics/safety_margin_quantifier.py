@@ -7,7 +7,7 @@ Based on ICAO Doc 9689 and real-time safety assessment principles
 import numpy as np
 import json
 import logging
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional, Any
 from dataclasses import dataclass
 from enum import Enum
 import math
@@ -440,6 +440,136 @@ class SafetyMetricsAggregator:
             
         except Exception as e:
             logging.error(f"Failed to export metrics: {e}")
+
+
+def calc_separation_margin(trajectories: List[Dict[str, Any]]) -> Dict[str, float]:
+    """
+    Calculate horizontal and vertical separation margins from trajectories.
+    
+    Args:
+        trajectories: List of aircraft trajectories with format:
+                     [{'aircraft_id': str, 'path': [{'lat': float, 'lon': float, 
+                       'alt': float, 'time': float}]}]
+    
+    Returns:
+        Dict with 'hz' (horizontal) and 'vt' (vertical) margins in nm and ft
+    """
+    if len(trajectories) < 2:
+        return {'hz': float('inf'), 'vt': float('inf')}
+    
+    min_horizontal = float('inf')
+    min_vertical = float('inf')
+    
+    # Compare all pairs of aircraft
+    for i in range(len(trajectories)):
+        for j in range(i + 1, len(trajectories)):
+            traj1 = trajectories[i]['path']
+            traj2 = trajectories[j]['path']
+            
+            # Find closest approach between these two aircraft
+            for point1 in traj1:
+                for point2 in traj2:
+                    # Only compare points at similar times (±30 seconds)
+                    if abs(point1['time'] - point2['time']) <= 30:
+                        # Calculate horizontal distance in nautical miles
+                        lat1, lon1 = math.radians(point1['lat']), math.radians(point1['lon'])
+                        lat2, lon2 = math.radians(point2['lat']), math.radians(point2['lon'])
+                        
+                        dlat = lat2 - lat1
+                        dlon = lon2 - lon1
+                        a = (math.sin(dlat/2)**2 + 
+                             math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2)
+                        c = 2 * math.asin(math.sqrt(a))
+                        horizontal_dist = 3440.065 * c  # Convert to nautical miles
+                        
+                        # Calculate vertical distance in feet
+                        vertical_dist = abs(point1['alt'] - point2['alt'])
+                        
+                        min_horizontal = min(min_horizontal, horizontal_dist)
+                        min_vertical = min(min_vertical, vertical_dist)
+    
+    return {
+        'hz': max(0, min_horizontal - SeparationStandard.HORIZONTAL_MIN.value),
+        'vt': max(0, min_vertical - SeparationStandard.VERTICAL_MIN.value)
+    }
+
+
+def calc_efficiency_penalty(planned_path: List[Dict[str, Any]], 
+                           executed_path: List[Dict[str, Any]]) -> float:
+    """
+    Calculate efficiency penalty as extra distance traveled due to conflict resolution.
+    
+    Args:
+        planned_path: Original planned trajectory points
+                     [{'lat': float, 'lon': float, 'alt': float, 'time': float}]
+        executed_path: Actual executed trajectory points (same format)
+    
+    Returns:
+        Extra distance in nautical miles
+    """
+    def calculate_path_distance(path: List[Dict[str, Any]]) -> float:
+        """Calculate total distance of a path in nautical miles"""
+        total_distance = 0.0
+        
+        for i in range(len(path) - 1):
+            p1, p2 = path[i], path[i + 1]
+            lat1, lon1 = math.radians(p1['lat']), math.radians(p1['lon'])
+            lat2, lon2 = math.radians(p2['lat']), math.radians(p2['lon'])
+            
+            dlat = lat2 - lat1
+            dlon = lon2 - lon1
+            a = (math.sin(dlat/2)**2 + 
+                 math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2)
+            c = 2 * math.asin(math.sqrt(a))
+            distance = 3440.065 * c  # Convert to nautical miles
+            total_distance += distance
+        
+        return total_distance
+    
+    if not planned_path or not executed_path:
+        return 0.0
+    
+    planned_distance = calculate_path_distance(planned_path)
+    executed_distance = calculate_path_distance(executed_path)
+    
+    return max(0.0, executed_distance - planned_distance)
+
+
+def count_interventions(commands: List[Dict[str, Any]]) -> int:
+    """
+    Count the number of ATC interventions in a command sequence.
+    
+    Args:
+        commands: List of ATC commands with format:
+                 [{'type': str, 'aircraft_id': str, 'timestamp': float, ...}]
+    
+    Returns:
+        Number of intervention commands
+    """
+    if not commands:
+        return 0
+    
+    intervention_types = {
+        'heading_change', 'altitude_change', 'speed_change', 
+        'vector', 'climb', 'descend', 'turn', 'direct',
+        'hold', 'expedite', 'reduce_speed'
+    }
+    
+    intervention_count = 0
+    
+    for command in commands:
+        cmd_type = command.get('type', '').lower()
+        
+        # Count as intervention if it's a control command
+        if any(interv_type in cmd_type for interv_type in intervention_types):
+            intervention_count += 1
+        
+        # Also count based on specific fields
+        if any(key in command for key in ['heading_change', 'altitude_change', 'speed_change']):
+            intervention_count += 1
+    
+    return intervention_count
+
 
 # Example usage and testing
 if __name__ == "__main__":

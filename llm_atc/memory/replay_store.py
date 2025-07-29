@@ -17,6 +17,28 @@ from sentence_transformers import SentenceTransformer
 
 
 @dataclass
+class ConflictExperience:
+    """Container for conflict experience data"""
+    conflict_id: str
+    conflict_description: str
+    resolution_commands: List[str]
+    safety_score: float
+    conflict_type: str
+    num_aircraft: int
+    reasoning: str
+    outcome: str
+    metadata: Dict[str, Any]
+
+
+@dataclass
+class SimilarityResult:
+    """Container for similarity search results"""
+    experience: ConflictExperience
+    similarity_score: float
+    metadata: Dict[str, Any]
+
+
+@dataclass
 class RetrievedExperience:
     """Container for retrieved experience with similarity score"""
     experience_id: str

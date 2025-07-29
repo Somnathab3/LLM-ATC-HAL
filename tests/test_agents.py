@@ -9,12 +9,12 @@ from unittest.mock import patch, MagicMock
 from typing import Dict, Any
 
 # Import agent components
-from agents.planner import Planner, ConflictAssessment, ActionPlan, PlanType
-from agents.executor import Executor, ExecutionResult, ExecutionStatus
-from agents.verifier import Verifier, VerificationResult, VerificationStatus
-from agents.scratchpad import Scratchpad, ReasoningStep, StepType
-from agents.controller_interface import ControllerInterface
-from tools import bluesky_tools
+from llm_atc.agents.planner import Planner, ConflictAssessment, ActionPlan, PlanType
+from llm_atc.agents.executor import Executor, ExecutionResult, ExecutionStatus
+from llm_atc.agents.verifier import Verifier, VerificationResult, VerificationStatus
+from llm_atc.agents.scratchpad import Scratchpad, ReasoningStep, StepType
+from llm_atc.agents.controller_interface import ControllerInterface
+from llm_atc.tools import bluesky_tools
 
 
 class TestEmbodiedAgents(unittest.TestCase):

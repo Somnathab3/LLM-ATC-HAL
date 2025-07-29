@@ -10,6 +10,7 @@ Loops over distribution shift tiers × N simulations, capturing:
 - Hallucination detection results
 - Safety metrics and interventions
 - Performance timing
+- Baseline model comparisons
 
 Stores results in parquet format for statistical analysis.
 """
@@ -20,10 +21,12 @@ import logging
 import yaml
 import pandas as pd
 import numpy as np
+from datetime import datetime
 from typing import Dict, List, Any, Tuple, Optional
 from dataclasses import dataclass, asdict
 from pathlib import Path
 import json
+import argparse
 
 # LLM-ATC-HAL imports
 import sys
@@ -33,11 +36,13 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from scenarios.monte_carlo_framework import BlueSkyScenarioGenerator, ComplexityTier
 from llm_interface.ensemble import OllamaEnsembleClient
 from analysis.enhanced_hallucination_detection import EnhancedHallucinationDetector
-from metrics.safety_margin_quantifier import SafetyMarginQuantifier
+from metrics.safety_margin_quantifier import SafetyMarginQuantifier, calc_separation_margin, calc_efficiency_penalty, count_interventions
 from memory.experience_integrator import ExperienceIntegrator
 from memory.replay_store import VectorReplayStore
-from analysis.metrics import calc_fp_fn, calc_path_extra, aggregate_thesis_metrics
+from analysis.metrics import calc_fp_fn, aggregate_thesis_metrics
+from analysis.shift_quantifier import compute_shift_score
 from analysis.visualisation import plot_cd_timeline, plot_cr_flowchart, plot_tier_comparison
+from baseline_models.evaluate import BaselineEvaluator
 
 
 @dataclass
@@ -48,6 +53,37 @@ class ExperimentResult:
     scenario_id: str              # Unique scenario identifier
     complexity: str               # Scenario complexity level
     aircraft_count: int           # Number of aircraft
+    model_type: str               # 'llm' or 'baseline'
+    
+    # Detection metrics
+    fp_rate: float                # False positive rate
+    fn_rate: float                # False negative rate
+    detection_accuracy: float     # Overall detection accuracy
+    
+    # Safety metrics
+    avg_margin_hz: float          # Average horizontal separation margin
+    avg_margin_vt: float          # Average vertical separation margin
+    safety_score: float           # Overall safety score
+    icao_compliant: bool          # ICAO compliance
+    
+    # Efficiency metrics
+    extra_distance: float         # Extra distance due to resolution (nm)
+    interventions: int            # Number of ATC interventions
+    total_delay: float            # Total delay (seconds)
+    fuel_penalty: float           # Extra fuel consumption
+    
+    # Shift metrics
+    shift_score: float            # Distribution shift score
+    
+    # Performance metrics
+    response_time: float          # Response time (seconds)
+    hallucination_detected: bool  # Whether hallucination was detected
+    hallucination_score: float    # Hallucination confidence score
+    
+    # Additional metrics
+    conflict_count: int           # Number of conflicts detected
+    resolution_success: bool     # Whether conflicts were resolved
+    environmental_difficulty: float  # Environmental challenge score
     
     # LLM Performance
     hallucination_detected: bool  # Whether hallucination was detected
@@ -88,19 +124,22 @@ class DistributionShiftRunner:
     
     def __init__(self, 
                  config_file: str = "experiments/shift_experiment_config.yaml",
-                 output_dir: str = "experiments/results"):
+                 output_dir: str = "experiments/results",
+                 run_baseline: bool = False):
         """
         Initialize experiment runner.
         
         Args:
             config_file: Path to experiment configuration YAML
             output_dir: Directory to store results
+            run_baseline: Whether to run baseline models in addition to LLM
         """
         self.config_file = config_file
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         
         self.logger = logging.getLogger(__name__)
+        self.run_baseline = run_baseline
         
         # Load configuration
         self.config = self._load_config()
@@ -182,6 +221,11 @@ class DistributionShiftRunner:
         self.replay_store = VectorReplayStore()
         self.experience_integrator = ExperienceIntegrator(self.replay_store)
         
+        # Baseline evaluator (if needed)
+        if self.run_baseline:
+            self.baseline_evaluator = BaselineEvaluator()
+            self.logger.info("Baseline evaluator initialized")
+        
         self.logger.info("Components initialized successfully")
     
     def run_experiment(self) -> str:
@@ -260,6 +304,149 @@ class DistributionShiftRunner:
         self.logger.info(f"Completed {completed_sims}/{total_sims} simulations")
         self.logger.info(f"Results saved to: {results_file}")
         self.logger.info(f"Generated {len(self.generated_plots)} visualization plots")
+        
+        return results_file
+    
+    def run_baseline_experiment(self) -> str:
+        """
+        Run baseline model experiment using the same scenarios as LLM experiment.
+        
+        Returns:
+            Path to baseline results parquet file
+        """
+        if not self.run_baseline:
+            raise ValueError("Baseline experiment requested but run_baseline=False")
+        
+        experiment_start = time.time()
+        self.logger.info("Starting baseline model experiment")
+        
+        # Get experiment parameters
+        n_sims_per_tier = self.config['experiment']['n_sims_per_tier']
+        shift_tiers = self.config['experiment']['distribution_shift_tiers']
+        complexity_dist = self.config['experiment']['complexity_distribution']
+        
+        baseline_results = []
+        
+        # Loop over distribution shift tiers
+        for tier_idx, shift_tier in enumerate(shift_tiers):
+            self.logger.info(f"Processing baseline tier {tier_idx+1}/{len(shift_tiers)}: {shift_tier}")
+            
+            for sim_id in range(n_sims_per_tier):
+                if sim_id % 20 == 0:
+                    self.logger.info(f"  Baseline simulation {sim_id+1}/{n_sims_per_tier} in {shift_tier}")
+                
+                try:
+                    # Run single baseline simulation
+                    result = self._run_single_baseline_simulation(shift_tier, sim_id, complexity_dist)
+                    baseline_results.append(result)
+                    
+                except Exception as e:
+                    self.logger.error(f"Baseline simulation failed: {shift_tier}/{sim_id}: {e}")
+                    continue
+        
+        # Save baseline results
+        baseline_results_file = self._save_baseline_results(baseline_results)
+        
+        experiment_time = time.time() - experiment_start
+        self.logger.info(f"Baseline experiment completed in {experiment_time:.2f}s")
+        self.logger.info(f"Baseline results saved to: {baseline_results_file}")
+        
+        return baseline_results_file
+    
+    def _run_single_baseline_simulation(self, 
+                                      shift_tier: str, 
+                                      sim_id: int,
+                                      complexity_dist: Dict[str, float]) -> Dict:
+        """
+        Run a single baseline simulation within a distribution shift tier.
+        
+        Args:
+            shift_tier: Distribution shift tier
+            sim_id: Simulation ID within tier
+            complexity_dist: Complexity distribution for sampling
+            
+        Returns:
+            Dict containing baseline simulation results
+        """
+        sim_start = time.time()
+        
+        # Sample complexity tier
+        complexity_names = list(complexity_dist.keys())
+        complexity_weights = list(complexity_dist.values())
+        complexity_name = np.random.choice(complexity_names, p=complexity_weights)
+        complexity_tier = ComplexityTier(complexity_name)
+        
+        # Generate scenario with distribution shift
+        scenario = self.scenario_generator.generate_scenario(
+            complexity_tier=complexity_tier,
+            force_conflicts=True,
+            distribution_shift_tier=shift_tier
+        )
+        
+        scenario_id = f"{shift_tier}_{sim_id:03d}_{int(time.time())}"
+        
+        # Run baseline evaluation
+        baseline_start = time.time()
+        baseline_result = self.baseline_evaluator.evaluate_scenario(scenario, scenario_id)
+        baseline_time = time.time() - baseline_start
+        
+        simulation_time = time.time() - sim_start
+        
+        # Create result dictionary with baseline-specific structure
+        result = {
+            'scenario_id': scenario_id,
+            'shift_tier': shift_tier,
+            'complexity_tier': complexity_name,
+            'simulation_id': sim_id,
+            'baseline_time': baseline_time,
+            'total_time': simulation_time,
+            'timestamp': time.time(),
+            **baseline_result  # Include all baseline evaluation metrics
+        }
+        
+        return result
+    
+    def _save_baseline_results(self, results: List[Dict]) -> str:
+        """
+        Save baseline experiment results to CSV file.
+        
+        Args:
+            results: List of baseline result dictionaries
+            
+        Returns:
+            Path to saved results file
+        """
+        if not results:
+            self.logger.warning("No baseline results to save")
+            return ""
+        
+        # Create results DataFrame
+        df = pd.DataFrame(results)
+        
+        # Generate filename with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        results_file = os.path.join(
+            self.config['output_dir'], 
+            f"results_baseline_{timestamp}.csv"
+        )
+        
+        # Ensure output directory exists
+        os.makedirs(os.path.dirname(results_file), exist_ok=True)
+        
+        # Save to CSV
+        df.to_csv(results_file, index=False)
+        
+        # Log summary statistics
+        self.logger.info(f"Saved {len(results)} baseline results to {results_file}")
+        
+        # Log performance summary
+        if 'baseline_time' in df.columns:
+            avg_baseline_time = df['baseline_time'].mean()
+            self.logger.info(f"Average baseline evaluation time: {avg_baseline_time:.3f}s")
+        
+        if 'conflict_detection_accuracy' in df.columns:
+            avg_accuracy = df['conflict_detection_accuracy'].mean()
+            self.logger.info(f"Average conflict detection accuracy: {avg_accuracy:.3f}")
         
         return results_file
     
@@ -748,6 +935,12 @@ Examples:
     )
     
     parser.add_argument(
+        '--baseline',
+        action='store_true',
+        help='Run baseline models in addition to LLM models'
+    )
+    
+    parser.add_argument(
         '--config',
         type=str,
         default="experiments/shift_experiment_config.yaml",
@@ -801,7 +994,8 @@ Examples:
         # Create runner with custom configuration
         runner = DistributionShiftRunner(
             config_file=args.config,
-            output_dir=args.output
+            output_dir=args.output,
+            run_baseline=args.baseline
         )
         
         # Override configuration with CLI arguments
@@ -811,13 +1005,27 @@ Examples:
         # Run experiment
         results_file = runner.run_experiment()
         
+        # If baseline flag is set, also run baseline experiment
+        baseline_results_file = None
+        if args.baseline:
+            print(f"\n🔄 Running baseline models...")
+            baseline_results_file = runner.run_baseline_experiment()
+            print(f"✅ Baseline results: {baseline_results_file}")
+        
         print(f"\n✅ Experiment completed successfully!")
-        print(f"Results file: {results_file}")
+        print(f"LLM Results file: {results_file}")
+        if baseline_results_file:
+            print(f"Baseline Results file: {baseline_results_file}")
         
         # Load and display basic statistics
         df = pd.read_parquet(results_file)
-        print(f"\nBasic Statistics:")
+        print(f"\nLLM Model Statistics:")
         print(f"Total simulations: {len(df)}")
+        
+        if baseline_results_file:
+            baseline_df = pd.read_parquet(baseline_results_file)
+            print(f"\nBaseline Model Statistics:")
+            print(f"Total simulations: {len(baseline_df)}")
         
         if len(df) > 0:
             print(f"Tiers tested: {df['tier'].unique().tolist()}")

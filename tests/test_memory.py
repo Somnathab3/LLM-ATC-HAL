@@ -7,14 +7,15 @@ import os
 import tempfile
 import time
 import pytest
+import shutil
 from typing import Dict, Any
 
 # Add parent directory for imports
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from memory.experience_document_generator import ExperienceDocumentGenerator, ExperienceDocument
-from memory.replay_store import VectorReplayStore, RetrievedExperience
+from llm_atc.memory.experience_document_generator import ExperienceDocumentGenerator, ExperienceDocument
+from llm_atc.memory.replay_store import VectorReplayStore, RetrievedExperience, ConflictExperience
 
 
 class TestExperienceDocumentGenerator:

@@ -8,11 +8,11 @@ import time
 from unittest.mock import patch, MagicMock
 
 # Import agent components
-from agents.planner import Planner, ConflictAssessment, ActionPlan, PlanType
-from agents.executor import Executor, ExecutionResult, ExecutionStatus
-from agents.verifier import Verifier, VerificationResult, VerificationStatus
-from agents.scratchpad import Scratchpad, ReasoningStep, StepType
-from tools import bluesky_tools
+from llm_atc.agents.planner import Planner, ConflictAssessment, ActionPlan, PlanType
+from llm_atc.agents.executor import Executor, ExecutionResult, ExecutionStatus
+from llm_atc.agents.verifier import Verifier, VerificationResult, VerificationStatus
+from llm_atc.agents.scratchpad import Scratchpad, ReasoningStep, StepType
+from llm_atc.tools import bluesky_tools
 
 
 class TestEmbodiedAgentsCore(unittest.TestCase):
