@@ -41,8 +41,8 @@ class ConflictPrediction:
     has_conflict: bool
     confidence: float
     time_to_conflict: float
-    conflict_pairs: List[Tuple[str, str]]
-    risk_factors: Dict[str, float]
+    conflict_pairs: list[tuple[str, str]]
+    risk_factors: dict[str, float]
 
 
 class BaselineConflictDetector:
@@ -54,7 +54,7 @@ class BaselineConflictDetector:
     def __init__(self, model_type: str = "random_forest"):
         """
         Initialize baseline conflict detector.
-        
+
         Args:
             model_type: Either "random_forest" or "xgboost"
         """
@@ -94,13 +94,13 @@ class BaselineConflictDetector:
         else:
             raise ValueError(f"Unknown model type: {model_type}")
 
-    def extract_features(self, scenario: Dict[str, Any]) -> np.ndarray:
+    def extract_features(self, scenario: dict[str, Any]) -> np.ndarray:
         """
         Extract features from scenario for ML model.
-        
+
         Args:
             scenario: Scenario dictionary with aircraft states
-            
+
         Returns:
             Feature vector as numpy array
         """
@@ -164,15 +164,15 @@ class BaselineConflictDetector:
 
         return np.array(features, dtype=np.float32)
 
-    def train(self, training_data: List[Dict[str, Any]],
-              labels: List[bool]) -> Dict[str, float]:
+    def train(self, training_data: list[dict[str, Any]],
+              labels: list[bool]) -> dict[str, float]:
         """
         Train the baseline model.
-        
+
         Args:
             training_data: List of scenario dictionaries
             labels: List of boolean conflict labels
-            
+
         Returns:
             Training metrics
         """
@@ -222,13 +222,13 @@ class BaselineConflictDetector:
         self.logger.info("Model trained with metrics: %s", metrics)
         return metrics
 
-    def predict(self, scenario: Dict[str, Any]) -> ConflictPrediction:
+    def predict(self, scenario: dict[str, Any]) -> ConflictPrediction:
         """
         Predict conflicts in scenario.
-        
+
         Args:
             scenario: Scenario dictionary
-            
+
         Returns:
             ConflictPrediction object
         """
@@ -319,7 +319,7 @@ class BaselineConflictDetector:
         }
         return phase_mapping.get(flight_phase.lower(), 3.0)  # Default to cruise
 
-    def _estimate_time_to_conflict(self, scenario: Dict[str, Any],
+    def _estimate_time_to_conflict(self, scenario: dict[str, Any],
                                  features: np.ndarray) -> float:
         """Estimate time to conflict based on features"""
         # Simplified calculation based on approach rate
@@ -330,7 +330,7 @@ class BaselineConflictDetector:
             return max(0.0, horizontal_distance / approach_rate * 60)  # Convert to seconds
         return 600.0  # Default 10 minutes
 
-    def _analyze_risk_factors(self, features: np.ndarray) -> Dict[str, float]:
+    def _analyze_risk_factors(self, features: np.ndarray) -> dict[str, float]:
         """Analyze risk factors from features"""
         risk_factors = {}
 

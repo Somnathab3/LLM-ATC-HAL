@@ -30,24 +30,24 @@ class ConflictExperience:
     """Container for conflict experience data"""
     conflict_id: str = ""
     conflict_description: str = ""
-    resolution_commands: List[str] = None
+    resolution_commands: list[str] = None
     safety_score: float = 0.0
     conflict_type: str = ""
     num_aircraft: int = 0
     reasoning: str = ""
     outcome: str = ""
-    metadata: Dict[str, Any] = None
+    metadata: dict[str, Any] = None
     experience_id: str = ""  # Add experience_id field with default
     timestamp: float = 0.0   # Add timestamp field with default
-    scenario_context: Dict[str, Any] = None  # Add scenario_context field
-    conflict_geometry: Dict[str, Any] = None  # Add conflict_geometry field
-    environmental_conditions: Dict[str, Any] = None  # Add environmental_conditions field
-    llm_decision: Dict[str, Any] = None  # Add llm_decision field
-    baseline_decision: Dict[str, Any] = None  # Add baseline_decision field
-    actual_outcome: Dict[str, Any] = None  # Add actual_outcome field
-    safety_metrics: Dict[str, Any] = None  # Add safety_metrics field
+    scenario_context: dict[str, Any] = None  # Add scenario_context field
+    conflict_geometry: dict[str, Any] = None  # Add conflict_geometry field
+    environmental_conditions: dict[str, Any] = None  # Add environmental_conditions field
+    llm_decision: dict[str, Any] = None  # Add llm_decision field
+    baseline_decision: dict[str, Any] = None  # Add baseline_decision field
+    actual_outcome: dict[str, Any] = None  # Add actual_outcome field
+    safety_metrics: dict[str, Any] = None  # Add safety_metrics field
     hallucination_detected: bool = False  # Add hallucination_detected field
-    hallucination_types: List[str] = None  # Add hallucination_types field
+    hallucination_types: list[str] = None  # Add hallucination_types field
     controller_override: Any = None  # Add controller_override field
     lessons_learned: str = ""  # Add lessons_learned field
 
@@ -79,16 +79,16 @@ class SimilarityResult:
     """Container for similarity search results"""
     experience: ConflictExperience
     similarity_score: float
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
 
 
 @dataclass
 class RetrievedExperience:
     """Container for retrieved experience with similarity score"""
     experience_id: str
-    experience_data: Dict[str, Any]
+    experience_data: dict[str, Any]
     similarity_score: float
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
 
 
 class VectorReplayStore:
@@ -100,7 +100,7 @@ class VectorReplayStore:
     def __init__(self, storage_dir: str = "memory/chroma_experience_library"):
         """
         Initialize the replay store
-        
+
         Args:
             storage_dir: Directory for Chroma persistence
         """
@@ -156,10 +156,10 @@ class VectorReplayStore:
     def store_experience(self, experience: ConflictExperience) -> str:
         """
         Store a conflict experience in the vector store
-        
+
         Args:
             experience: ConflictExperience object to store
-            
+
         Returns:
             str: Experience ID if successful, empty string if failed
         """
@@ -224,16 +224,16 @@ class VectorReplayStore:
                           conflict_desc: str,
                           conflict_type: str,
                           num_ac: int,
-                          k: int = 5) -> List[dict]:
+                          k: int = 5) -> list[dict]:
         """
         Retrieve similar experiences using metadata filtering + vector search
-        
+
         Args:
             conflict_desc: Description of the conflict to search for
             conflict_type: Type of conflict to filter by
             num_ac: Number of aircraft to filter by
             k: Number of results to return
-            
+
         Returns:
             List of experience documents in score-ascending order
         """
@@ -244,7 +244,7 @@ class VectorReplayStore:
                 filtered_results = self.collection.get(
                     where={"conflict_type": conflict_type, "num_ac": num_ac},
                 )
-            except:
+            except Exception:
                 # If that fails, try $eq format
                 try:
                     filtered_results = self.collection.get(
@@ -255,7 +255,7 @@ class VectorReplayStore:
                             ],
                         },
                     )
-                except:
+                except Exception:
                     # If both fail, skip metadata filtering
                     self.logger.warning("Metadata filtering failed, retrieving all documents")
                     filtered_results = self.collection.get()
@@ -282,7 +282,7 @@ class VectorReplayStore:
                     n_results=min(k, len(filtered_results["ids"])),
                     where={"conflict_type": conflict_type, "num_ac": num_ac},
                 )
-            except:
+            except Exception:
                 # If that fails, try without where clause
                 search_results = self.collection.query(
                     query_embeddings=[query_embedding],
@@ -322,15 +322,15 @@ class VectorReplayStore:
     def get_all_experiences(self,
                            conflict_type: Optional[str] = None,
                            num_ac: Optional[int] = None,
-                           limit: Optional[int] = None) -> List[dict]:
+                           limit: Optional[int] = None) -> list[dict]:
         """
         Get all experiences, optionally filtered by metadata
-        
+
         Args:
             conflict_type: Optional conflict type filter
             num_ac: Optional number of aircraft filter  
             limit: Optional limit on number of results
-            
+
         Returns:
             List of experience documents
         """
@@ -342,7 +342,7 @@ class VectorReplayStore:
                         where={"conflict_type": conflict_type, "num_ac": num_ac},
                         limit=limit,
                     )
-                except:
+                except Exception:
                     # If database filtering fails, get all and filter manually
                     results = self.collection.get(limit=limit)
             elif conflict_type:
@@ -351,7 +351,7 @@ class VectorReplayStore:
                         where={"conflict_type": conflict_type},
                         limit=limit,
                     )
-                except:
+                except Exception:
                     results = self.collection.get(limit=limit)
             elif num_ac is not None:
                 try:
@@ -359,7 +359,7 @@ class VectorReplayStore:
                         where={"num_ac": num_ac},
                         limit=limit,
                     )
-                except:
+                except Exception:
                     results = self.collection.get(limit=limit)
             else:
                 results = self.collection.get(limit=limit)
@@ -389,7 +389,7 @@ class VectorReplayStore:
             self.logger.exception("Failed to get all experiences")
             return []
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get statistics about stored experiences"""
         try:
             total_count = self.collection.count()

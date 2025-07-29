@@ -32,11 +32,11 @@ class ReasoningStep:
     step_type: StepType
     timestamp: float
     description: str
-    input_data: Dict[str, Any]
-    output_data: Dict[str, Any]
+    input_data: dict[str, Any]
+    output_data: dict[str, Any]
     confidence: float
     reasoning: str
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
 
 
 @dataclass
@@ -51,8 +51,8 @@ class SessionSummary:
     conflicts_resolved: int
     commands_executed: int
     average_confidence: float
-    key_decisions: List[str]
-    lessons_learned: List[str]
+    key_decisions: list[str]
+    lessons_learned: list[str]
 
 
 class Scratchpad:
@@ -65,23 +65,23 @@ class Scratchpad:
         self.logger = logging.getLogger(__name__)
 
         # Current session data
-        self.current_steps: List[ReasoningStep] = []
+        self.current_steps: list[ReasoningStep] = []
         self.session_start_time = time.time()
-        self.session_metadata: Dict[str, Any] = {}
+        self.session_metadata: dict[str, Any] = {}
 
         # Historical data
-        self.session_history: List[SessionSummary] = []
-        self.all_steps_history: List[ReasoningStep] = []
+        self.session_history: list[SessionSummary] = []
+        self.all_steps_history: list[ReasoningStep] = []
 
         self.logger.info("Scratchpad initialized for session: %s", self.session_id)
 
-    def log_step(self, step_data: Dict[str, Any]) -> str:
+    def log_step(self, step_data: dict[str, Any]) -> str:
         """
         Log a reasoning step in the current session
-        
+
         Args:
             step_data: Dictionary containing step information
-            
+
         Returns:
             step_id of the logged step
         """
@@ -216,7 +216,7 @@ class Scratchpad:
         }
         return self.log_step(step_data)
 
-    def log_error_step(self, error_msg: str, error_data: Optional[Dict[str, Any]] = None) -> str:
+    def log_error_step(self, error_msg: str, error_data: Optional[dict[str, Any]] = None) -> str:
         """Log an error step"""
         step_data = {
             "type": "error",
@@ -229,7 +229,7 @@ class Scratchpad:
         }
         return self.log_step(step_data)
 
-    def log_monitoring_step(self, monitoring_data: Dict[str, Any]) -> str:
+    def log_monitoring_step(self, monitoring_data: dict[str, Any]) -> str:
         """Log a monitoring step"""
         step_data = {
             "type": "monitoring",
@@ -242,10 +242,10 @@ class Scratchpad:
         }
         return self.log_step(step_data)
 
-    def get_history(self) -> Dict[str, Any]:
+    def get_history(self) -> dict[str, Any]:
         """
         Get complete history of the current session
-        
+
         Returns:
             Dictionary containing session history and steps
         """
@@ -267,22 +267,22 @@ class Scratchpad:
                 return step
         return None
 
-    def get_steps_by_type(self, step_type: StepType) -> List[ReasoningStep]:
+    def get_steps_by_type(self, step_type: StepType) -> list[ReasoningStep]:
         """Get all steps of a specific type"""
         return [step for step in self.current_steps if step.step_type == step_type]
 
-    def get_recent_steps(self, count: int = 5) -> List[ReasoningStep]:
+    def get_recent_steps(self, count: int = 5) -> list[ReasoningStep]:
         """Get the most recent steps"""
         return self.current_steps[-count:] if count <= len(self.current_steps) else self.current_steps
 
     def complete_session(self, success: bool = True, final_status: str = "completed") -> SessionSummary:
         """
         Complete the current session and generate summary
-        
+
         Args:
             success: Whether the session completed successfully
             final_status: Final status description
-            
+
         Returns:
             SessionSummary of the completed session
         """
@@ -330,10 +330,10 @@ class Scratchpad:
     def start_new_session(self, session_id: Optional[str] = None) -> str:
         """
         Start a new reasoning session
-        
+
         Args:
             session_id: Optional custom session ID
-            
+
         Returns:
             New session ID
         """
@@ -350,7 +350,7 @@ class Scratchpad:
         self.logger.info("New session started: %s", self.session_id)
         return self.session_id
 
-    def _generate_session_summary(self) -> Dict[str, Any]:
+    def _generate_session_summary(self) -> dict[str, Any]:
         """Generate a summary of the current session"""
         if not self.current_steps:
             return {"summary": "No steps recorded"}
@@ -377,7 +377,7 @@ class Scratchpad:
         total_confidence = sum(step.confidence for step in self.current_steps)
         return total_confidence / len(self.current_steps)
 
-    def _extract_key_decisions(self) -> List[str]:
+    def _extract_key_decisions(self) -> list[str]:
         """Extract key decisions from the session"""
         key_decisions = []
 
@@ -388,7 +388,7 @@ class Scratchpad:
 
         return key_decisions
 
-    def _extract_lessons_learned(self) -> List[str]:
+    def _extract_lessons_learned(self) -> list[str]:
         """Extract lessons learned from errors and low-confidence steps"""
         lessons = []
 
@@ -404,13 +404,13 @@ class Scratchpad:
 
         return lessons
 
-    def export_session_data(self, format: str = "json") -> Union[str, Dict[str, Any]]:
+    def export_session_data(self, format: str = "json") -> Union[str, dict[str, Any]]:
         """
         Export session data in specified format
-        
+
         Args:
             format: Export format ('json', 'dict')
-            
+
         Returns:
             Session data in requested format
         """
@@ -420,11 +420,11 @@ class Scratchpad:
             return json.dumps(data, indent=2, default=str)
         return data
 
-    def set_session_metadata(self, metadata: Dict[str, Any]) -> None:
+    def set_session_metadata(self, metadata: dict[str, Any]) -> None:
         """Set metadata for the current session"""
         self.session_metadata.update(metadata)
 
-    def get_session_metrics(self) -> Dict[str, Any]:
+    def get_session_metrics(self) -> dict[str, Any]:
         """Get performance metrics for the current session"""
         if not self.current_steps:
             return {"error": "No steps recorded"}

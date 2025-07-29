@@ -23,13 +23,13 @@ class PlanType(Enum):
 class ConflictAssessment:
     """Assessment of a conflict situation"""
     conflict_id: str
-    aircraft_involved: List[str]
+    aircraft_involved: list[str]
     severity: str  # low, medium, high, critical
     time_to_conflict: float
     recommended_action: PlanType
     confidence: float
     reasoning: str
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
 
 
 @dataclass
@@ -38,10 +38,10 @@ class ActionPlan:
     plan_id: str
     conflict_id: str
     plan_type: PlanType
-    target_aircraft: List[str]
-    commands: List[str]
+    target_aircraft: list[str]
+    commands: list[str]
     priority: int
-    expected_outcome: Dict[str, Any]
+    expected_outcome: dict[str, Any]
     confidence: float
     reasoning: str
     created_at: float
@@ -55,16 +55,16 @@ class Planner:
     def __init__(self, llm_client=None):
         self.llm_client = llm_client
         self.logger = logging.getLogger(__name__)
-        self.assessment_history: List[ConflictAssessment] = []
-        self.plan_history: List[ActionPlan] = []
+        self.assessment_history: list[ConflictAssessment] = []
+        self.plan_history: list[ActionPlan] = []
 
-    def assess_conflict(self, aircraft_info: Dict[str, Any]) -> Optional[ConflictAssessment]:
+    def assess_conflict(self, aircraft_info: dict[str, Any]) -> Optional[ConflictAssessment]:
         """
         Assess current aircraft situation for potential conflicts
-        
+
         Args:
             aircraft_info: Dictionary containing all aircraft information
-            
+
         Returns:
             ConflictAssessment or None if no conflicts detected
         """
@@ -104,10 +104,10 @@ class Planner:
     def generate_action_plan(self, assessment: ConflictAssessment) -> Optional[ActionPlan]:
         """
         Generate detailed action plan based on conflict assessment
-        
+
         Args:
             assessment: ConflictAssessment from assess_conflict
-            
+
         Returns:
             ActionPlan with specific commands and expected outcomes
         """
@@ -147,7 +147,7 @@ class Planner:
             self.logger.exception("Error generating action plan")
             return None
 
-    def _detect_proximity_conflicts(self, aircraft_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def _detect_proximity_conflicts(self, aircraft_data: dict[str, Any]) -> list[dict[str, Any]]:
         """Detect proximity-based conflicts between aircraft"""
         conflicts = []
         aircraft_list = list(aircraft_data.keys())
@@ -175,7 +175,7 @@ class Planner:
 
         return conflicts
 
-    def _calculate_separation(self, ac1_data: Dict, ac2_data: Dict) -> Dict[str, float]:
+    def _calculate_separation(self, ac1_data: dict, ac2_data: dict) -> dict[str, float]:
         """Calculate horizontal and vertical separation between aircraft"""
         # Simplified calculation - in real implementation would use proper geodetic calculations
         lat1, lon1, alt1 = ac1_data.get("lat", 0), ac1_data.get("lon", 0), ac1_data.get("alt", 0)
@@ -192,7 +192,7 @@ class Planner:
             "vertical": vertical_ft,
         }
 
-    def _assess_severity(self, separation: Dict[str, float]) -> str:
+    def _assess_severity(self, separation: dict[str, float]) -> str:
         """Assess conflict severity based on separation"""
         if separation["horizontal"] < 1.0 or separation["vertical"] < 200:
             return "critical"
@@ -202,13 +202,13 @@ class Planner:
             return "medium"
         return "low"
 
-    def _estimate_time_to_conflict(self, ac1_data: Dict, ac2_data: Dict) -> float:
+    def _estimate_time_to_conflict(self, ac1_data: dict, ac2_data: dict) -> float:
         """Estimate time to conflict in seconds"""
         # Simplified calculation based on current trajectories
         # In real implementation would use proper trajectory prediction
         return 120.0  # Default 2 minutes
 
-    def _prioritize_conflicts(self, conflicts: List[Dict]) -> Dict[str, Any]:
+    def _prioritize_conflicts(self, conflicts: list[dict]) -> dict[str, Any]:
         """Select the most critical conflict to address first"""
         if not conflicts:
             return None
@@ -221,7 +221,7 @@ class Planner:
             -c["time_to_conflict"],  # Negative to prioritize shorter times
         ))
 
-    def _generate_assessment(self, conflict: Dict, aircraft_data: Dict) -> ConflictAssessment:
+    def _generate_assessment(self, conflict: dict, aircraft_data: dict) -> ConflictAssessment:
         """Generate comprehensive conflict assessment"""
         conflict_id = f"conflict_{int(time.time() * 1000)}"
 
@@ -245,7 +245,7 @@ class Planner:
             },
         )
 
-    def _determine_recommended_action(self, conflict: Dict, aircraft_data: Dict) -> PlanType:
+    def _determine_recommended_action(self, conflict: dict, aircraft_data: dict) -> PlanType:
         """Determine the most appropriate action type for conflict resolution"""
         severity = conflict["severity"]
 
@@ -257,7 +257,7 @@ class Planner:
             return PlanType.VECTOR_CHANGE
         return PlanType.MONITOR
 
-    def _generate_reasoning(self, conflict: Dict, action: PlanType) -> str:
+    def _generate_reasoning(self, conflict: dict, action: PlanType) -> str:
         """Generate human-readable reasoning for the recommended action"""
         aircraft = ", ".join(conflict["aircraft"])
         severity = conflict["severity"]
@@ -266,7 +266,7 @@ class Planner:
         return f"Detected {severity} conflict between {aircraft} with {time_to_conflict:.0f}s to impact. " \
                f"Recommended {action.value} to ensure safe separation."
 
-    def _generate_commands(self, assessment: ConflictAssessment) -> List[str]:
+    def _generate_commands(self, assessment: ConflictAssessment) -> list[str]:
         """Generate specific BlueSky commands for conflict resolution"""
         commands = []
         aircraft = assessment.aircraft_involved
@@ -297,7 +297,7 @@ class Planner:
 
         return commands
 
-    def _calculate_expected_outcome(self, assessment: ConflictAssessment, commands: List[str]) -> Dict[str, Any]:
+    def _calculate_expected_outcome(self, assessment: ConflictAssessment, commands: list[str]) -> dict[str, Any]:
         """Calculate expected outcome of executing the commands"""
         return {
             "expected_separation_increase": 2.0,  # nm
@@ -325,10 +325,10 @@ class Planner:
 
         return min(base_priority, 10)
 
-    def get_assessment_history(self) -> List[ConflictAssessment]:
+    def get_assessment_history(self) -> list[ConflictAssessment]:
         """Get history of conflict assessments"""
         return self.assessment_history.copy()
 
-    def get_plan_history(self) -> List[ActionPlan]:
+    def get_plan_history(self) -> list[ActionPlan]:
         """Get history of generated plans"""
         return self.plan_history.copy()

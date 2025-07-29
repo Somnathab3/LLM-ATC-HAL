@@ -35,8 +35,8 @@ class ExperienceDocument:
     safety_margin: float
     icao_compliant: bool
     hallucination_detected: bool
-    hallucination_types: List[str]
-    metadata: Dict[str, Any]
+    hallucination_types: list[str]
+    metadata: dict[str, Any]
 
 
 class ExperienceDocumentGenerator:
@@ -45,7 +45,7 @@ class ExperienceDocumentGenerator:
     def __init__(self, persist_directory: str = "memory/chroma_experience_library"):
         """
         Initialize the experience document generator with E5-large-v2 embeddings
-        
+
         Args:
             persist_directory: Directory for Chroma persistence
         """
@@ -57,7 +57,7 @@ class ExperienceDocumentGenerator:
             self.embedding_model = SentenceTransformer("intfloat/e5-large-v2")
             self.embedding_dim = 1024
             self.logger.info("Loaded E5-large-v2 model successfully")
-        except Exception as e:
+        except Exception:
             self.logger.exception("Failed to load E5-large-v2 model")
             raise
 
@@ -80,7 +80,7 @@ class ExperienceDocumentGenerator:
                 name=self.collection_name,
             )
             self.logger.info("Connected to existing collection: %s", self.collection_name)
-        except:
+        except Exception:
             self.collection = self.chroma_client.create_collection(
                 name=self.collection_name,
                 embedding_function=None,  # Use local embeddings
@@ -94,15 +94,15 @@ class ExperienceDocumentGenerator:
 
     def generate_experience(self,
                           conflict_desc: str,
-                          commands_do: List[str],
-                          commands_dont: List[str],
+                          commands_do: list[str],
+                          commands_dont: list[str],
                           reasoning: str,
                           conflict_type: str,
                           num_ac: int,
                           **kwargs) -> dict:
         """
         Generate a structured experience document
-        
+
         Args:
             conflict_desc: Description of the conflict situation
             commands_do: List of recommended commands/actions
@@ -111,7 +111,7 @@ class ExperienceDocumentGenerator:
             conflict_type: Type of conflict ('convergent', 'parallel', 'crossing', 'overtaking')
             num_ac: Number of aircraft involved
             **kwargs: Additional metadata fields
-            
+
         Returns:
             Dict containing the experience document and metadata
         """
@@ -167,7 +167,7 @@ class ExperienceDocumentGenerator:
     def embed_and_store(self, exp_doc: dict) -> None:
         """
         Embed the experience document and store in Chroma
-        
+
         Args:
             exp_doc: Experience document dictionary
         """
@@ -208,7 +208,7 @@ class ExperienceDocumentGenerator:
 
             self.logger.info("Successfully stored experience %s", exp_doc['experience_id'])
 
-        except Exception as e:
+        except Exception:
             self.logger.exception("Failed to embed and store experience")
             raise
 
@@ -216,13 +216,13 @@ class ExperienceDocumentGenerator:
         """Generate comprehensive scenario description"""
         return f"Conflict scenario involving {num_ac} aircraft in a {conflict_type} conflict situation. {conflict_desc}"
 
-    def _generate_decision_text(self, commands_do: List[str], commands_dont: List[str], reasoning: str) -> str:
+    def _generate_decision_text(self, commands_do: list[str], commands_dont: list[str], reasoning: str) -> str:
         """Generate decision description text"""
         do_text = "; ".join(commands_do) if commands_do else "No specific actions recommended"
         dont_text = "; ".join(commands_dont) if commands_dont else "No specific restrictions"
         return f"Recommended actions: {do_text}. Avoid: {dont_text}. Reasoning: {reasoning}"
 
-    def get_collection_stats(self) -> Dict[str, Any]:
+    def get_collection_stats(self) -> dict[str, Any]:
         """Get statistics about the stored experiences"""
         try:
             count = self.collection.count()

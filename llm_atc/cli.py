@@ -46,18 +46,12 @@ def demo(duration, aircraft):
 
         # Initialize components
         click.echo("Initializing embodied agents...")
-        planner = Planner()
-        executor = Executor()
-        verifier = Verifier()
-        scratchpad = Scratchpad()
+        Planner()
+        Executor()
+        Verifier()
+        Scratchpad()
 
         # Generate mock scenario
-        scenario = {
-            "aircraft_count": aircraft,
-            "duration": duration,
-            "complexity": "low",
-            "scenario_type": "demo",
-        }
 
         click.echo("Demo scenario completed successfully!")
         click.echo(f"Processed {aircraft} aircraft over {duration} seconds")
@@ -84,10 +78,10 @@ def run_scenario(scenario_path, output):
         # Load scenario
         with open(scenario_path) as f:
             if scenario_path.endswith(".yaml") or scenario_path.endswith(".yml"):
-                scenario = yaml.safe_load(f)
+                yaml.safe_load(f)
             else:
                 # Assume BlueSky .scn format
-                scenario = {"type": "bluesky", "file": scenario_path}
+                pass
 
         click.echo(f" Output directory: {output}")
         click.echo(" Scenario execution completed!")
@@ -119,11 +113,10 @@ def shift_benchmark(config, tiers, n, output):
         # Load configuration if exists
         if os.path.exists(config):
             with open(config) as f:
-                config_data = yaml.safe_load(f)
+                yaml.safe_load(f)
                 click.echo(f" Loaded config: {config}")
         else:
             click.echo(f"  Config file not found: {config}")
-            config_data = {}
 
         # Mock benchmark execution
         total_scenarios = len(tier_list) * n

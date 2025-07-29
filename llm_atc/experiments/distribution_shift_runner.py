@@ -131,7 +131,7 @@ class DistributionShiftRunner:
                  run_baseline: bool = False):
         """
         Initialize experiment runner.
-        
+
         Args:
             config_file: Path to experiment configuration YAML
             output_dir: Directory to store results
@@ -151,13 +151,13 @@ class DistributionShiftRunner:
         self._initialize_components()
 
         # Results storage
-        self.results: List[ExperimentResult] = []
+        self.results: list[ExperimentResult] = []
 
         # Visualization tracking
-        self.tier_random_sims: Dict[str, str] = {}  # Track one random sim per tier for plotting
-        self.generated_plots: List[str] = []  # Track generated plot files
+        self.tier_random_sims: dict[str, str] = {}  # Track one random sim per tier for plotting
+        self.generated_plots: list[str] = []  # Track generated plot files
 
-    def _load_config(self) -> Dict[str, Any]:
+    def _load_config(self) -> dict[str, Any]:
         """Load experiment configuration"""
         try:
             with open(self.config_file) as f:
@@ -168,7 +168,7 @@ class DistributionShiftRunner:
             self.logger.warning("Failed to load config %s: %s", self.config_file, e)
             return self._get_default_config()
 
-    def _get_default_config(self) -> Dict[str, Any]:
+    def _get_default_config(self) -> dict[str, Any]:
         """Default experiment configuration"""
         return {
             "experiment": {
@@ -234,7 +234,7 @@ class DistributionShiftRunner:
     def run_experiment(self) -> str:
         """
         Run complete distribution shift experiment.
-        
+
         Returns:
             Path to results parquet file
         """
@@ -291,7 +291,7 @@ class DistributionShiftRunner:
                         self.config["output"]["save_intermediate"]):
                         self._save_intermediate_results(completed_sims)
 
-                except Exception as e:
+                except Exception:
                     self.logger.exception("Simulation failed: %s/%d", shift_tier, sim_id)
                     # Continue with next simulation
                     continue
@@ -313,7 +313,7 @@ class DistributionShiftRunner:
     def run_baseline_experiment(self) -> str:
         """
         Run baseline model experiment using the same scenarios as LLM experiment.
-        
+
         Returns:
             Path to baseline results parquet file
         """
@@ -343,7 +343,7 @@ class DistributionShiftRunner:
                     result = self._run_single_baseline_simulation(shift_tier, sim_id, complexity_dist)
                     baseline_results.append(result)
 
-                except Exception as e:
+                except Exception:
                     self.logger.exception("Baseline simulation failed: %s/%d", shift_tier, sim_id)
                     continue
 
@@ -359,15 +359,15 @@ class DistributionShiftRunner:
     def _run_single_baseline_simulation(self,
                                       shift_tier: str,
                                       sim_id: int,
-                                      complexity_dist: Dict[str, float]) -> Dict:
+                                      complexity_dist: dict[str, float]) -> dict:
         """
         Run a single baseline simulation within a distribution shift tier.
-        
+
         Args:
             shift_tier: Distribution shift tier
             sim_id: Simulation ID within tier
             complexity_dist: Complexity distribution for sampling
-            
+
         Returns:
             Dict containing baseline simulation results
         """
@@ -396,7 +396,7 @@ class DistributionShiftRunner:
         simulation_time = time.time() - sim_start
 
         # Create result dictionary with baseline-specific structure
-        result = {
+        return {
             "scenario_id": scenario_id,
             "shift_tier": shift_tier,
             "complexity_tier": complexity_name,
@@ -407,15 +407,14 @@ class DistributionShiftRunner:
             **baseline_result,  # Include all baseline evaluation metrics
         }
 
-        return result
 
-    def _save_baseline_results(self, results: List[Dict]) -> str:
+    def _save_baseline_results(self, results: list[dict]) -> str:
         """
         Save baseline experiment results to CSV file.
-        
+
         Args:
             results: List of baseline result dictionaries
-            
+
         Returns:
             Path to saved results file
         """
@@ -456,15 +455,15 @@ class DistributionShiftRunner:
     def _run_single_simulation(self,
                               shift_tier: str,
                               sim_id: int,
-                              complexity_dist: Dict[str, float]) -> ExperimentResult:
+                              complexity_dist: dict[str, float]) -> ExperimentResult:
         """
         Run a single simulation within a distribution shift tier.
-        
+
         Args:
             shift_tier: Distribution shift tier
             sim_id: Simulation ID within tier
             complexity_dist: Complexity distribution for sampling
-            
+
         Returns:
             ExperimentResult for this simulation
         """
@@ -556,7 +555,7 @@ class DistributionShiftRunner:
         runtime = time.time() - sim_start
 
         # Create result record
-        result = ExperimentResult(
+        return ExperimentResult(
             tier=shift_tier,
             sim_id=sim_id,
             scenario_id=scenario_id,
@@ -595,9 +594,8 @@ class DistributionShiftRunner:
             detection_evidence=json.dumps(hallucination_result.evidence),
         )
 
-        return result
 
-    def _extract_conflict_geometry(self, scenario) -> Dict:
+    def _extract_conflict_geometry(self, scenario) -> dict:
         """Extract conflict geometry from scenario for safety calculation"""
         # Mock implementation - would need to extract actual aircraft positions and trajectories
         return {
@@ -607,7 +605,7 @@ class DistributionShiftRunner:
             "geometry_type": "convergent",
         }
 
-    def _convert_llm_response_to_maneuver(self, llm_response: str) -> Dict:
+    def _convert_llm_response_to_maneuver(self, llm_response: str) -> dict:
         """Convert LLM response text to structured maneuver for safety calculation"""
         # Mock implementation - would need to parse actual ATC commands
         return {
@@ -618,12 +616,12 @@ class DistributionShiftRunner:
             },
         }
 
-    def _extract_ground_truth_conflicts(self, scenario) -> List[Dict]:
+    def _extract_ground_truth_conflicts(self, scenario) -> list[dict]:
         """Extract ground truth conflicts from scenario"""
         # Mock implementation - would extract from scenario conflict data
         return [{"aircraft_pair": ["AC1", "AC2"], "time_to_conflict": 300}]
 
-    def _extract_predicted_conflicts(self, llm_response: str) -> List[Dict]:
+    def _extract_predicted_conflicts(self, llm_response: str) -> list[dict]:
         """Extract predicted conflicts from LLM response"""
         # Mock implementation - would parse LLM predictions
         return [{"aircraft_pair": ["AC1", "AC2"], "confidence": 0.85}]
@@ -638,7 +636,7 @@ class DistributionShiftRunner:
         # Mock implementation - would analyze intervention requirements
         return 1 if safety_result.safety_score < 0.7 else 0
 
-    def _prepare_conflict_context(self, scenario) -> Dict[str, Any]:
+    def _prepare_conflict_context(self, scenario) -> dict[str, Any]:
         """Prepare conflict context for LLM"""
         return {
             "aircraft_list": scenario.aircraft_list,
@@ -648,7 +646,7 @@ class DistributionShiftRunner:
             "distribution_shift_tier": scenario.distribution_shift_tier,
         }
 
-    def _generate_baseline_response(self, scenario) -> Dict[str, Any]:
+    def _generate_baseline_response(self, scenario) -> dict[str, Any]:
         """Generate baseline response for hallucination detection"""
         # Simple baseline: maintain current headings/altitudes
         baseline_actions = []
@@ -662,7 +660,7 @@ class DistributionShiftRunner:
 
         return {"actions": baseline_actions, "strategy": "maintain_course"}
 
-    def _extract_ground_truth_conflicts(self, scenario) -> List[Dict[str, Any]]:
+    def _extract_ground_truth_conflicts(self, scenario) -> list[dict[str, Any]]:
         """Extract ground truth conflicts from scenario"""
         # Would normally come from BlueSky execution
         # For now, use mock based on scenario properties
@@ -678,7 +676,7 @@ class DistributionShiftRunner:
                 })
         return conflicts
 
-    def _extract_predicted_conflicts(self, llm_response: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def _extract_predicted_conflicts(self, llm_response: dict[str, Any]) -> list[dict[str, Any]]:
         """Extract predicted conflicts from LLM response"""
         # Parse LLM response for conflict predictions
         predicted_conflicts = []
@@ -689,7 +687,7 @@ class DistributionShiftRunner:
 
         return predicted_conflicts
 
-    def _extract_original_trajectories(self, scenario) -> List[Dict[str, Any]]:
+    def _extract_original_trajectories(self, scenario) -> list[dict[str, Any]]:
         """Extract original aircraft trajectories"""
         trajectories = []
         for i, aircraft in enumerate(scenario.aircraft_list):
@@ -713,7 +711,7 @@ class DistributionShiftRunner:
             })
         return trajectories
 
-    def _extract_resolved_trajectories(self, llm_response: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def _extract_resolved_trajectories(self, llm_response: dict[str, Any]) -> list[dict[str, Any]]:
         """Extract resolved trajectories from LLM response"""
         # Parse LLM response for trajectory modifications
         # Mock implementation
@@ -773,7 +771,7 @@ class DistributionShiftRunner:
 
         return str(filepath)
 
-    def _generate_experiment_summary(self, df: pd.DataFrame) -> Dict[str, Any]:
+    def _generate_experiment_summary(self, df: pd.DataFrame) -> dict[str, Any]:
         """Generate experiment summary statistics"""
         if len(df) == 0:
             return {
@@ -872,7 +870,7 @@ class DistributionShiftRunner:
             except Exception as e:
                 self.logger.warning("Failed to generate visualization summary: %s", e)
 
-        except Exception as e:
+        except Exception:
             self.logger.exception("Visualization generation failed")
 
 
@@ -881,12 +879,12 @@ def run_distribution_shift_experiment(config_file: Optional[str] = None,
                                      n_sims_per_tier: Optional[int] = None) -> str:
     """
     Convenience function to run distribution shift experiment.
-    
+
     Args:
         config_file: Path to experiment configuration
         output_dir: Output directory for results
         n_sims_per_tier: Number of simulations per tier (overrides config)
-        
+
     Returns:
         Path to results file
     """
@@ -913,10 +911,10 @@ def main():
 Examples:
   # Smoke test with baseline tier only
   python experiments/distribution_shift_runner.py --tiers baseline --num 3
-  
+
   # Full thesis experiment with all tiers
   python experiments/distribution_shift_runner.py --tiers all --num 100
-  
+
   # Custom configuration
   python experiments/distribution_shift_runner.py --config custom_config.yaml --output custom_results/
         """,
@@ -1097,7 +1095,7 @@ Examples:
     except KeyboardInterrupt:
         logger.info("Experiment interrupted by user")
         return 1
-    except Exception as e:
+    except Exception:
         logger.exception("Experiment failed")
         import traceback
         traceback.print_exc()

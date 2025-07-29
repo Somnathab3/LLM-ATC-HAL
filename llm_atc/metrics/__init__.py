@@ -111,7 +111,7 @@ def compute_metrics(log_file):
                 efficiency_penalties.append(row["efficiency_penalty"])
 
         # Compute aggregate metrics
-        metrics = {
+        return {
             "total_tests": total_tests,
             "avg_llm_time": np.mean(llm_times) if llm_times else 0,
             "avg_baseline_time": np.mean(baseline_times) if baseline_times else 0,
@@ -124,9 +124,8 @@ def compute_metrics(log_file):
             "hallucination_analysis": hallucination_analysis,
         }
 
-        return metrics
 
-    except Exception as e:
+    except Exception:
         logging.exception("Error computing metrics from %s", log_file)
         return create_empty_metrics()
 
@@ -174,8 +173,8 @@ def print_metrics_summary(metrics):
 
     print("="*60)
 
-def calc_fp_fn(pred_conflicts: List[Dict[str, Any]],
-               gt_conflicts: List[Dict[str, Any]]) -> Tuple[float, float]:
+def calc_fp_fn(pred_conflicts: list[dict[str, Any]],
+               gt_conflicts: list[dict[str, Any]]) -> tuple[float, float]:
     """Calculate false positive and false negative rates."""
     if not pred_conflicts and not gt_conflicts:
         return 0.0, 0.0
@@ -205,8 +204,8 @@ def calc_fp_fn(pred_conflicts: List[Dict[str, Any]],
 
     return fp_rate, fn_rate
 
-def calc_path_extra(actual_traj: List[Dict[str, Any]],
-                   original_traj: List[Dict[str, Any]]) -> float:
+def calc_path_extra(actual_traj: list[dict[str, Any]],
+                   original_traj: list[dict[str, Any]]) -> float:
     """Calculate extra distance traveled due to resolution maneuvers."""
     if not actual_traj or not original_traj:
         return 0.0
@@ -233,7 +232,7 @@ def calc_path_extra(actual_traj: List[Dict[str, Any]],
 
     return max(0.0, actual_distance - original_distance)
 
-def aggregate_thesis_metrics(results_dir: str) -> Dict[str, Any]:
+def aggregate_thesis_metrics(results_dir: str) -> dict[str, Any]:
     """Aggregate metrics from multiple test result files for thesis analysis."""
     results_path = Path(results_dir)
     if not results_path.exists():
@@ -277,7 +276,7 @@ def aggregate_thesis_metrics(results_dir: str) -> Dict[str, Any]:
     return aggregated
 
 # Visualization functions (if plotting is available)
-def plot_metrics_comparison(llm_metrics: Dict, baseline_metrics: Dict, save_path: str = None):
+def plot_metrics_comparison(llm_metrics: dict, baseline_metrics: dict, save_path: str = None):
     """Create comparison plots between LLM and baseline metrics."""
     if not PLOTTING_AVAILABLE:
         logging.warning("Matplotlib not available, skipping plots")

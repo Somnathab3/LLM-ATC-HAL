@@ -25,10 +25,10 @@ class VerificationResult:
     verification_id: str
     execution_id: str
     status: VerificationStatus
-    checks_performed: List[str]
-    passed_checks: List[str]
-    failed_checks: List[str]
-    warnings: List[str]
+    checks_performed: list[str]
+    passed_checks: list[str]
+    failed_checks: list[str]
+    warnings: list[str]
     safety_score: float
     confidence: float
     verification_time: float
@@ -40,9 +40,9 @@ class Verifier:
     Verifier agent responsible for checking execution results and validating safety
     """
 
-    def __init__(self, safety_thresholds: Optional[Dict[str, float]] = None):
+    def __init__(self, safety_thresholds: Optional[dict[str, float]] = None):
         self.logger = logging.getLogger(__name__)
-        self.verification_history: List[VerificationResult] = []
+        self.verification_history: list[VerificationResult] = []
 
         # Default safety thresholds
         self.safety_thresholds = safety_thresholds or {
@@ -57,11 +57,11 @@ class Verifier:
     def check(self, execution_result: ExecutionResult, timeout_seconds: float = 5.0) -> bool:
         """
         Perform verification check on execution result
-        
+
         Args:
             execution_result: ExecutionResult to verify
             timeout_seconds: Maximum time to wait for verification
-            
+
         Returns:
             True if verification passes, False otherwise
         """
@@ -234,7 +234,7 @@ class Verifier:
 
         return False
 
-    def _is_valid_response(self, response: Dict[str, Any]) -> bool:
+    def _is_valid_response(self, response: dict[str, Any]) -> bool:
         """Check if a command response is valid"""
         # Check for required fields
         if "command" not in response or "timestamp" not in response:
@@ -285,11 +285,11 @@ class Verifier:
 
         return max(min(confidence, 1.0), 0.1)
 
-    def get_verification_history(self) -> List[VerificationResult]:
+    def get_verification_history(self) -> list[VerificationResult]:
         """Get history of all verification results"""
         return self.verification_history.copy()
 
-    def get_verification_metrics(self) -> Dict[str, Any]:
+    def get_verification_metrics(self) -> dict[str, Any]:
         """Get overall verification performance metrics"""
         if not self.verification_history:
             return {
@@ -312,7 +312,7 @@ class Verifier:
             "average_confidence": avg_confidence,
         }
 
-    def update_safety_thresholds(self, new_thresholds: Dict[str, float]) -> None:
+    def update_safety_thresholds(self, new_thresholds: dict[str, float]) -> None:
         """Update safety thresholds for verification"""
         self.safety_thresholds.update(new_thresholds)
         self.logger.info("Safety thresholds updated: %s", new_thresholds)

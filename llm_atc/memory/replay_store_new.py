@@ -20,9 +20,9 @@ from sentence_transformers import SentenceTransformer
 class RetrievedExperience:
     """Container for retrieved experience with similarity score"""
     experience_id: str
-    experience_data: Dict[str, Any]
+    experience_data: dict[str, Any]
     similarity_score: float
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
 
 
 class VectorReplayStore:
@@ -34,7 +34,7 @@ class VectorReplayStore:
     def __init__(self, storage_dir: str = "memory/chroma_experience_library"):
         """
         Initialize the replay store
-        
+
         Args:
             storage_dir: Directory for Chroma persistence
         """
@@ -85,16 +85,16 @@ class VectorReplayStore:
                           conflict_desc: str,
                           conflict_type: str,
                           num_ac: int,
-                          k: int = 5) -> List[dict]:
+                          k: int = 5) -> list[dict]:
         """
         Retrieve similar experiences using metadata filtering + vector search
-        
+
         Args:
             conflict_desc: Description of the conflict to search for
             conflict_type: Type of conflict to filter by
             num_ac: Number of aircraft to filter by
             k: Number of results to return
-            
+
         Returns:
             List of experience documents in score-ascending order
         """
@@ -164,15 +164,15 @@ class VectorReplayStore:
     def get_all_experiences(self,
                            conflict_type: Optional[str] = None,
                            num_ac: Optional[int] = None,
-                           limit: Optional[int] = None) -> List[dict]:
+                           limit: Optional[int] = None) -> list[dict]:
         """
         Get all experiences, optionally filtered by metadata
-        
+
         Args:
             conflict_type: Optional conflict type filter
             num_ac: Optional number of aircraft filter  
             limit: Optional limit on number of results
-            
+
         Returns:
             List of experience documents
         """
@@ -207,7 +207,7 @@ class VectorReplayStore:
             self.logger.exception("Failed to get all experiences")
             return []
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get statistics about stored experiences"""
         try:
             total_count = self.collection.count()

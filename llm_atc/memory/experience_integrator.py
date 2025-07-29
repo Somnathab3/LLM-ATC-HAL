@@ -30,14 +30,14 @@ class ExperienceIntegrator:
         logging.info("Experience integrator initialized")
 
     def process_conflict_resolution(self,
-                                  scenario_context: Dict[str, Any],
-                                  conflict_geometry: Dict[str, float],
-                                  environmental_conditions: Dict[str, Any],
-                                  llm_decision: Dict[str, Any],
-                                  baseline_decision: Dict[str, Any]) -> Tuple[Dict[str, Any], List[str]]:
+                                  scenario_context: dict[str, Any],
+                                  conflict_geometry: dict[str, float],
+                                  environmental_conditions: dict[str, Any],
+                                  llm_decision: dict[str, Any],
+                                  baseline_decision: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
         """
         Process a conflict resolution with experience replay integration
-        
+
         Returns:
             Tuple of (enhanced_decision, lessons_learned)
         """
@@ -70,9 +70,9 @@ class ExperienceIntegrator:
             return llm_decision, []
 
     def _find_relevant_experiences(self,
-                                 scenario_context: Dict[str, Any],
-                                 conflict_geometry: Dict[str, float],
-                                 environmental_conditions: Dict[str, Any]) -> List[SimilarityResult]:
+                                 scenario_context: dict[str, Any],
+                                 conflict_geometry: dict[str, float],
+                                 environmental_conditions: dict[str, Any]) -> list[SimilarityResult]:
         """Find experiences relevant to current scenario"""
 
         try:
@@ -94,19 +94,18 @@ class ExperienceIntegrator:
             )
 
             # Search for similar experiences
-            similar_experiences = self.replay_store.find_similar_experiences(
+            return self.replay_store.find_similar_experiences(
                 query_experience,
                 top_k=self.max_similar_experiences,
                 similarity_threshold=self.similarity_threshold,
             )
 
-            return similar_experiences
 
         except Exception:
             logging.exception("Failed to find relevant experiences")
             return []
 
-    def _extract_lessons(self, similar_experiences: List[SimilarityResult]) -> List[str]:
+    def _extract_lessons(self, similar_experiences: list[SimilarityResult]) -> list[str]:
         """Extract actionable lessons from similar experiences"""
 
         lessons = []
@@ -155,9 +154,9 @@ class ExperienceIntegrator:
             return []
 
     def _check_hallucination_patterns(self,
-                                    scenario_context: Dict[str, Any],
-                                    environmental_conditions: Dict[str, Any],
-                                    similar_experiences: List[SimilarityResult]) -> List[str]:
+                                    scenario_context: dict[str, Any],
+                                    environmental_conditions: dict[str, Any],
+                                    similar_experiences: list[SimilarityResult]) -> list[str]:
         """Check for hallucination risk patterns"""
 
         warnings = []
@@ -197,7 +196,7 @@ class ExperienceIntegrator:
             geom_factors = patterns.get("geometric_factors", {})
             if geom_factors:
                 avg_sep = geom_factors.get("avg_separation", 10)
-                min_sep = geom_factors.get("min_separation", 10)
+                geom_factors.get("min_separation", 10)
 
                 current_sep = 10  # Default if not available
                 for result in similar_experiences:
@@ -214,9 +213,9 @@ class ExperienceIntegrator:
             return []
 
     def _enhance_decision_with_experience(self,
-                                        llm_decision: Dict[str, Any],
-                                        baseline_decision: Dict[str, Any],
-                                        similar_experiences: List[SimilarityResult]) -> Dict[str, Any]:
+                                        llm_decision: dict[str, Any],
+                                        baseline_decision: dict[str, Any],
+                                        similar_experiences: list[SimilarityResult]) -> dict[str, Any]:
         """Enhance current decision using historical experience"""
 
         try:
@@ -303,15 +302,15 @@ class ExperienceIntegrator:
             return llm_decision
 
     def record_resolution_outcome(self,
-                                scenario_context: Dict[str, Any],
-                                conflict_geometry: Dict[str, float],
-                                environmental_conditions: Dict[str, Any],
-                                llm_decision: Dict[str, Any],
-                                baseline_decision: Dict[str, Any],
-                                actual_outcome: Dict[str, Any],
-                                safety_metrics: Dict[str, float],
-                                hallucination_result: Dict[str, Any],
-                                controller_override: Optional[Dict[str, Any]] = None,
+                                scenario_context: dict[str, Any],
+                                conflict_geometry: dict[str, float],
+                                environmental_conditions: dict[str, Any],
+                                llm_decision: dict[str, Any],
+                                baseline_decision: dict[str, Any],
+                                actual_outcome: dict[str, Any],
+                                safety_metrics: dict[str, float],
+                                hallucination_result: dict[str, Any],
+                                controller_override: Optional[dict[str, Any]] = None,
                                 lessons_learned: str = "") -> str:
         """Record the outcome of a conflict resolution for future learning"""
 
@@ -346,28 +345,27 @@ class ExperienceIntegrator:
             logging.exception("Failed to record resolution outcome")
             return ""
 
-    def get_experience_summary(self) -> Dict[str, Any]:
+    def get_experience_summary(self) -> dict[str, Any]:
         """Get summary of stored experiences"""
 
         try:
             stats = self.replay_store.get_statistics()
             patterns = self.replay_store.get_hallucination_patterns()
 
-            summary = {
+            return {
                 "storage_stats": stats,
                 "hallucination_patterns": patterns,
                 "learning_insights": self._generate_learning_insights(stats, patterns),
             }
 
-            return summary
 
         except Exception as e:
             logging.exception("Failed to get experience summary")
             return {"error": str(e)}
 
     def _generate_learning_insights(self,
-                                  stats: Dict[str, Any],
-                                  patterns: Dict[str, Any]) -> List[str]:
+                                  stats: dict[str, Any],
+                                  patterns: dict[str, Any]) -> list[str]:
         """Generate insights from experience data"""
 
         insights = []
@@ -411,7 +409,7 @@ class ExperienceIntegrator:
             logging.exception("Failed to generate learning insights")
             return ["Error generating insights"]
 
-    def store_experience(self, experience_data: Dict[str, Any]) -> str:
+    def store_experience(self, experience_data: dict[str, Any]) -> str:
         """Simple interface to store experience data directly"""
         try:
             # Create a basic ConflictExperience from the provided data

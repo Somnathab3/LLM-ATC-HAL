@@ -7,7 +7,7 @@ import logging
 import time
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Optional
 
 from .planner import ActionPlan
 
@@ -26,11 +26,11 @@ class ExecutionResult:
     execution_id: str
     plan_id: str
     status: ExecutionStatus
-    commands_sent: List[str]
-    responses: List[Dict[str, Any]]
+    commands_sent: list[str]
+    responses: list[dict[str, Any]]
     success_rate: float
     execution_time: float
-    error_messages: List[str]
+    error_messages: list[str]
     created_at: float
 
 
@@ -42,16 +42,16 @@ class Executor:
     def __init__(self, command_sender: Optional[Callable] = None):
         self.command_sender = command_sender
         self.logger = logging.getLogger(__name__)
-        self.execution_history: List[ExecutionResult] = []
-        self.active_executions: Dict[str, ExecutionResult] = {}
+        self.execution_history: list[ExecutionResult] = []
+        self.active_executions: dict[str, ExecutionResult] = {}
 
     def send_plan(self, plan: ActionPlan) -> ExecutionResult:
         """
         Execute an action plan by sending commands to BlueSky
-        
+
         Args:
             plan: ActionPlan to execute
-            
+
         Returns:
             ExecutionResult with execution status and details
         """
@@ -126,8 +126,6 @@ class Executor:
             del self.active_executions[execution_id]
             self.execution_history.append(result)
 
-            return result
-
         except Exception as e:
             self.logger.exception("Critical error in plan execution")
 
@@ -147,13 +145,15 @@ class Executor:
             self.execution_history.append(failure_result)
             return failure_result
 
-    def _send_command(self, command: str) -> Dict[str, Any]:
+        return result
+
+    def _send_command(self, command: str) -> dict[str, Any]:
         """
         Send a single command to BlueSky simulator
-        
+
         Args:
             command: BlueSky command string
-            
+
         Returns:
             Response dictionary with success status and details
         """
@@ -187,13 +187,13 @@ class Executor:
                 "timestamp": time.time(),
             }
 
-    def _simulate_command_execution(self, command: str) -> Dict[str, Any]:
+    def _simulate_command_execution(self, command: str) -> dict[str, Any]:
         """
         Simulate command execution for testing purposes
-        
+
         Args:
             command: BlueSky command string
-            
+
         Returns:
             Simulated response dictionary
         """
@@ -228,10 +228,10 @@ class Executor:
     def cancel_execution(self, execution_id: str) -> bool:
         """
         Cancel an active execution
-        
+
         Args:
             execution_id: ID of execution to cancel
-            
+
         Returns:
             True if cancelled successfully, False otherwise
         """
@@ -245,10 +245,10 @@ class Executor:
     def get_execution_status(self, execution_id: str) -> Optional[ExecutionStatus]:
         """
         Get current status of an execution
-        
+
         Args:
             execution_id: ID of execution to check
-            
+
         Returns:
             ExecutionStatus or None if not found
         """
@@ -262,15 +262,15 @@ class Executor:
 
         return None
 
-    def get_active_executions(self) -> Dict[str, ExecutionResult]:
+    def get_active_executions(self) -> dict[str, ExecutionResult]:
         """Get all currently active executions"""
         return self.active_executions.copy()
 
-    def get_execution_history(self) -> List[ExecutionResult]:
+    def get_execution_history(self) -> list[ExecutionResult]:
         """Get history of all executions"""
         return self.execution_history.copy()
 
-    def get_execution_metrics(self) -> Dict[str, Any]:
+    def get_execution_metrics(self) -> dict[str, Any]:
         """Get overall execution performance metrics"""
         if not self.execution_history:
             return {
@@ -295,7 +295,7 @@ class Executor:
     def set_command_sender(self, command_sender: Callable) -> None:
         """
         Set the command sender function for actual BlueSky integration
-        
+
         Args:
             command_sender: Function that takes a command string and returns response
         """

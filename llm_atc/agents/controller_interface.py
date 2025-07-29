@@ -13,7 +13,7 @@ import tkinter as tk
 from dataclasses import dataclass
 from enum import Enum
 from tkinter import messagebox, ttk
-from typing import Any, Dict, List
+from typing import Any
 
 import numpy as np
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -46,14 +46,14 @@ class AlertLevel(Enum):
 class ConflictDisplay:
     """Conflict information for display"""
     conflict_id: str
-    aircraft_ids: List[str]
+    aircraft_ids: list[str]
     time_to_conflict: float
     current_separation: float
     severity: str
-    llm_recommendation: Dict
-    baseline_recommendation: Dict
+    llm_recommendation: dict
+    baseline_recommendation: dict
     confidence_level: ConfidenceLevel
-    safety_flags: List[str]
+    safety_flags: list[str]
 
 @dataclass
 class OverrideDecision:
@@ -79,10 +79,10 @@ class SafetyMonitor:
         self.monitoring_active = False
 
     def monitor_llm_output(self,
-                          response: Dict,
+                          response: dict,
                           response_time: float,
                           confidence: float,
-                          uncertainty: float) -> List[str]:
+                          uncertainty: float) -> list[str]:
         """Monitor LLM output for safety concerns"""
 
         alerts = []
@@ -131,16 +131,19 @@ class SafetyMonitor:
         logging.warning("Escalating to human: %s", escalation_log)
         return True
 
-    def get_recent_alerts(self, time_window: float = 300.0) -> List[Dict]:
+    def get_recent_alerts(self, time_window: float = 300.0) -> list[dict]:
         """Get alerts from recent time window"""
 
         current_time = time.time()
-        recent_alerts = [
+        [
             alert for alert in self.alerts
             if current_time - alert["timestamp"] <= time_window
         ]
 
-        return recent_alerts
+        return [
+            alert for alert in self.alert_history
+            if current_time - alert["timestamp"] <= time_window
+        ]
 
 class ControllerInterface:
     """Main controller interface for human-AI oversight with embodied agent planning loop"""
@@ -175,10 +178,10 @@ class ControllerInterface:
         self.monitoring_active = True
         self.monitoring_thread.start()
 
-    def start_planning_loop(self) -> Dict[str, Any]:
+    def start_planning_loop(self) -> dict[str, Any]:
         """
         Start the embodied agent planning loop
-        
+
         Returns:
             Dictionary with status and history
         """
@@ -285,13 +288,13 @@ class ControllerInterface:
         """Stop the planning loop"""
         self.planning_active = False
 
-    def _send_bluesky_command(self, command: str) -> Dict[str, Any]:
+    def _send_bluesky_command(self, command: str) -> dict[str, Any]:
         """
         Send command to BlueSky through the tools interface
-        
+
         Args:
             command: BlueSky command string
-            
+
         Returns:
             Command response dictionary
         """
@@ -399,7 +402,7 @@ Safety Flags: {', '.join(conflict.safety_flags) if conflict.safety_flags else 'N
         except Exception:
             logging.exception("Error updating conflict details")
 
-    def get_agent_status(self) -> Dict[str, Any]:
+    def get_agent_status(self) -> dict[str, Any]:
         """Get status of all embodied agent components"""
         return {
             "planner": {
@@ -797,7 +800,7 @@ Safety Flags:
                 logging.exception("Monitoring loop error")
                 time.sleep(5)
 
-    def _update_alerts_display(self, alerts: List[Dict]):
+    def _update_alerts_display(self, alerts: list[dict]):
         """Update alerts listbox"""
 
         self.alerts_listbox.delete(0, tk.END)

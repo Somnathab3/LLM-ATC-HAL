@@ -34,10 +34,10 @@ class SafetyMargin:
 @dataclass
 class ConflictGeometry:
     """3D conflict geometry representation"""
-    aircraft1_pos: Tuple[float, float, float]  # lat, lon, alt
-    aircraft2_pos: Tuple[float, float, float]
-    aircraft1_velocity: Tuple[float, float, float]  # ground speed, vertical rate, heading
-    aircraft2_velocity: Tuple[float, float, float]
+    aircraft1_pos: tuple[float, float, float]  # lat, lon, alt
+    aircraft2_pos: tuple[float, float, float]
+    aircraft1_velocity: tuple[float, float, float]  # ground speed, vertical rate, heading
+    aircraft2_velocity: tuple[float, float, float]
     time_to_closest_approach: float
     closest_approach_distance: float
     closest_approach_altitude_diff: float
@@ -72,8 +72,8 @@ class SafetyMarginQuantifier:
 
     def calculate_safety_margins(self,
                                 conflict_geometry: ConflictGeometry,
-                                resolution_maneuver: Dict,
-                                environmental_conditions: Optional[Dict] = None) -> SafetyMargin:
+                                resolution_maneuver: dict,
+                                environmental_conditions: Optional[dict] = None) -> SafetyMargin:
         """
         Calculate comprehensive safety margins for a conflict resolution
         """
@@ -118,13 +118,13 @@ class SafetyMarginQuantifier:
                 safety_level=safety_level,
             )
 
-        except Exception as e:
+        except Exception:
             logging.exception("Safety margin calculation failed")
             return self._create_default_safety_margin()
 
     def _apply_resolution_maneuver(self,
                                  geometry: ConflictGeometry,
-                                 maneuver: Dict) -> ConflictGeometry:
+                                 maneuver: dict) -> ConflictGeometry:
         """Apply resolution maneuver and predict future conflict geometry"""
         try:
             # Extract current positions and velocities
@@ -182,7 +182,7 @@ class SafetyMarginQuantifier:
             logging.warning("Failed to apply maneuver: %s", e)
             return geometry  # Return original geometry if calculation fails
 
-    def _predict_position(self, position: List[float], velocity: List[float], time: float) -> List[float]:
+    def _predict_position(self, position: list[float], velocity: list[float], time: float) -> list[float]:
         """Predict future position based on current velocity"""
         try:
             # Simple linear prediction
@@ -213,8 +213,8 @@ class SafetyMarginQuantifier:
             return position
 
     def _calculate_closest_approach(self,
-                                  pos1: List[float], pos2: List[float],
-                                  vel1: List[float], vel2: List[float]) -> Tuple[float, float, float]:
+                                  pos1: list[float], pos2: list[float],
+                                  vel1: list[float], vel2: list[float]) -> tuple[float, float, float]:
         """Calculate time and distance of closest approach"""
         try:
             # Relative position and velocity
@@ -284,7 +284,7 @@ class SafetyMarginQuantifier:
 
         return max(effective, 0)
 
-    def _calculate_total_uncertainty(self, environmental_conditions: Optional[Dict]) -> float:
+    def _calculate_total_uncertainty(self, environmental_conditions: Optional[dict]) -> float:
         """Calculate total uncertainty in the system"""
         base_uncertainty = sum(self.uncertainty_factors.values())
 
@@ -340,9 +340,9 @@ class SafetyMetricsAggregator:
     def add_conflict_resolution(self,
                                conflict_id: str,
                                geometry: ConflictGeometry,
-                               llm_resolution: Dict,
-                               baseline_resolution: Dict,
-                               environmental_conditions: Optional[Dict] = None) -> Dict:
+                               llm_resolution: dict,
+                               baseline_resolution: dict,
+                               environmental_conditions: Optional[dict] = None) -> dict:
         """Add a conflict resolution case and compute comparative metrics"""
 
         # Calculate safety margins for both resolutions
@@ -370,7 +370,7 @@ class SafetyMetricsAggregator:
         self.metrics_history.append(comparison)
         return comparison
 
-    def generate_safety_summary(self) -> Dict:
+    def generate_safety_summary(self) -> dict:
         """Generate comprehensive safety summary across all conflicts"""
         if not self.metrics_history:
             return {"error": "No metrics data available"}
@@ -382,7 +382,7 @@ class SafetyMetricsAggregator:
         baseline_safety_levels = [m["baseline_margins"].safety_level for m in self.metrics_history]
 
         # Calculate statistics
-        summary = {
+        return {
             "total_conflicts": len(self.metrics_history),
             "average_margin_difference": float(np.mean(margin_differences)),
             "std_margin_difference": float(np.std(margin_differences)),
@@ -398,7 +398,6 @@ class SafetyMetricsAggregator:
             },
         }
 
-        return summary
 
     def export_detailed_metrics(self, filepath: str):
         """Export detailed metrics to JSON file"""
@@ -439,19 +438,19 @@ class SafetyMetricsAggregator:
 
             logging.info("Safety metrics exported to %s", filepath)
 
-        except Exception as e:
+        except Exception:
             logging.exception("Failed to export metrics")
 
 
-def calc_separation_margin(trajectories: List[Dict[str, Any]]) -> Dict[str, float]:
+def calc_separation_margin(trajectories: list[dict[str, Any]]) -> dict[str, float]:
     """
     Calculate horizontal and vertical separation margins from trajectories.
-    
+
     Args:
         trajectories: List of aircraft trajectories with format:
                      [{'aircraft_id': str, 'path': [{'lat': float, 'lon': float, 
                        'alt': float, 'time': float}]}]
-    
+
     Returns:
         Dict with 'hz' (horizontal) and 'vt' (vertical) margins in nm and ft
     """
@@ -495,20 +494,20 @@ def calc_separation_margin(trajectories: List[Dict[str, Any]]) -> Dict[str, floa
     }
 
 
-def calc_efficiency_penalty(planned_path: List[Dict[str, Any]],
-                           executed_path: List[Dict[str, Any]]) -> float:
+def calc_efficiency_penalty(planned_path: list[dict[str, Any]],
+                           executed_path: list[dict[str, Any]]) -> float:
     """
     Calculate efficiency penalty as extra distance traveled due to conflict resolution.
-    
+
     Args:
         planned_path: Original planned trajectory points
                      [{'lat': float, 'lon': float, 'alt': float, 'time': float}]
         executed_path: Actual executed trajectory points (same format)
-    
+
     Returns:
         Extra distance in nautical miles
     """
-    def calculate_path_distance(path: List[Dict[str, Any]]) -> float:
+    def calculate_path_distance(path: list[dict[str, Any]]) -> float:
         """Calculate total distance of a path in nautical miles"""
         total_distance = 0.0
 
@@ -536,14 +535,14 @@ def calc_efficiency_penalty(planned_path: List[Dict[str, Any]],
     return max(0.0, executed_distance - planned_distance)
 
 
-def count_interventions(commands: List[Dict[str, Any]]) -> int:
+def count_interventions(commands: list[dict[str, Any]]) -> int:
     """
     Count the number of ATC interventions in a command sequence.
-    
+
     Args:
         commands: List of ATC commands with format:
                  [{'type': str, 'aircraft_id': str, 'timestamp': float, ...}]
-    
+
     Returns:
         Number of intervention commands
     """
