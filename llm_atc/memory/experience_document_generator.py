@@ -5,17 +5,17 @@ Generates structured experience documents and creates 1024-dimensional embedding
 using Hugging Face's intfloat/e5-large-v2 model with local Chroma HNSW storage.
 """
 
-import json
 import logging
+import os
 import time
 import uuid
-from typing import Dict, List, Any, Optional
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
+from typing import Any, Dict, List
+
 import chromadb
+import numpy as np
 from chromadb.config import Settings
 from sentence_transformers import SentenceTransformer
-import os
-import numpy as np
 
 
 @dataclass
@@ -41,7 +41,7 @@ class ExperienceDocument:
 
 class ExperienceDocumentGenerator:
     """Generates structured experience documents from raw conflict data"""
-    
+
     def __init__(self, persist_directory: str = "memory/chroma_experience_library"):
         """
         Initialize the experience document generator with E5-large-v2 embeddings
@@ -51,7 +51,7 @@ class ExperienceDocumentGenerator:
         """
         self.persist_directory = persist_directory
         self.logger = logging.getLogger(__name__)
-        
+
         # Initialize sentence transformer model (E5-large-v2, ~1024-dim)
         try:
             self.embedding_model = SentenceTransformer("intfloat/e5-large-v2")
@@ -60,24 +60,24 @@ class ExperienceDocumentGenerator:
         except Exception as e:
             self.logger.error(f"Failed to load E5-large-v2 model: {e}")
             raise
-        
+
         # Ensure directory exists
         os.makedirs(persist_directory, exist_ok=True)
-        
+
         # Initialize Chroma client
         self.chroma_client = chromadb.PersistentClient(
             path=persist_directory,
             settings=Settings(
                 anonymized_telemetry=False,
-                allow_reset=True
-            )
+                allow_reset=True,
+            ),
         )
-        
+
         # Create or get collection with local embeddings (no embedding function)
         self.collection_name = "atc_experiences_e5_large"
         try:
             self.collection = self.chroma_client.get_collection(
-                name=self.collection_name
+                name=self.collection_name,
             )
             self.logger.info(f"Connected to existing collection: {self.collection_name}")
         except:
@@ -87,11 +87,11 @@ class ExperienceDocumentGenerator:
                 metadata={
                     "hnsw:space": "cosine",  # HNSW with cosine similarity
                     "embedding_model": "intfloat/e5-large-v2",
-                    "embedding_dim": self.embedding_dim
-                }
+                    "embedding_dim": self.embedding_dim,
+                },
             )
             self.logger.info(f"Created new collection: {self.collection_name}")
-    
+
     def generate_experience(self,
                           conflict_desc: str,
                           commands_do: List[str],
@@ -115,14 +115,14 @@ class ExperienceDocumentGenerator:
         Returns:
             Dict containing the experience document and metadata
         """
-        
+
         try:
-            experience_id = kwargs.get('experience_id', str(uuid.uuid4()))
-            
+            experience_id = kwargs.get("experience_id", str(uuid.uuid4()))
+
             # Generate comprehensive text descriptions
             scenario_text = self._generate_scenario_text(conflict_desc, num_ac, conflict_type)
             llm_decision_text = self._generate_decision_text(commands_do, commands_dont, reasoning)
-            
+
             # Create experience document
             experience_doc = ExperienceDocument(
                 experience_id=experience_id,
@@ -131,39 +131,39 @@ class ExperienceDocumentGenerator:
                 num_aircraft=num_ac,
                 scenario_text=scenario_text,
                 conflict_geometry_text=conflict_desc,
-                environmental_text=kwargs.get('environmental_conditions', ''),
+                environmental_text=kwargs.get("environmental_conditions", ""),
                 llm_decision_text=llm_decision_text,
-                baseline_decision_text=kwargs.get('baseline_decision', ''),
-                outcome_text=kwargs.get('outcome', ''),
+                baseline_decision_text=kwargs.get("baseline_decision", ""),
+                outcome_text=kwargs.get("outcome", ""),
                 lessons_learned=reasoning,
-                safety_margin=kwargs.get('safety_margin', 0.0),
-                icao_compliant=kwargs.get('icao_compliant', True),
-                hallucination_detected=kwargs.get('hallucination_detected', False),
-                hallucination_types=kwargs.get('hallucination_types', []),
+                safety_margin=kwargs.get("safety_margin", 0.0),
+                icao_compliant=kwargs.get("icao_compliant", True),
+                hallucination_detected=kwargs.get("hallucination_detected", False),
+                hallucination_types=kwargs.get("hallucination_types", []),
                 metadata={
-                    'commands_do': commands_do,
-                    'commands_dont': commands_dont,
-                    'reasoning': reasoning,
-                    'conflict_type': conflict_type,
-                    'num_ac': num_ac,
-                    **kwargs.get('additional_metadata', {})
-                }
+                    "commands_do": commands_do,
+                    "commands_dont": commands_dont,
+                    "reasoning": reasoning,
+                    "conflict_type": conflict_type,
+                    "num_ac": num_ac,
+                    **kwargs.get("additional_metadata", {}),
+                },
             )
-            
+
             return asdict(experience_doc)
-            
+
         except Exception as e:
             self.logger.error(f"Failed to generate experience document: {e}")
             # Return minimal document
             return {
-                'experience_id': str(uuid.uuid4()),
-                'timestamp': time.time(),
-                'conflict_type': conflict_type,
-                'num_aircraft': num_ac,
-                'scenario_text': conflict_desc,
-                'error': str(e)
+                "experience_id": str(uuid.uuid4()),
+                "timestamp": time.time(),
+                "conflict_type": conflict_type,
+                "num_aircraft": num_ac,
+                "scenario_text": conflict_desc,
+                "error": str(e),
             }
-    
+
     def embed_and_store(self, exp_doc: dict) -> None:
         """
         Embed the experience document and store in Chroma
@@ -173,65 +173,65 @@ class ExperienceDocumentGenerator:
         """
         try:
             # Create embedding from conflict description
-            conflict_desc = exp_doc.get('conflict_geometry_text', exp_doc.get('scenario_text', ''))
+            conflict_desc = exp_doc.get("conflict_geometry_text", exp_doc.get("scenario_text", ""))
             if not conflict_desc:
                 self.logger.warning("No conflict description found for embedding")
                 return
-            
+
             # Generate embedding using E5-large-v2
             embedding = self.embedding_model.encode(
-                conflict_desc, 
-                normalize_embeddings=True
+                conflict_desc,
+                normalize_embeddings=True,
             )
-            
+
             # Ensure embedding is the right shape and type
             if isinstance(embedding, np.ndarray):
                 embedding = embedding.tolist()
-            
+
             # Prepare metadata for filtering
             metadata = {
-                'conflict_type': exp_doc.get('conflict_type', 'unknown'),
-                'num_ac': exp_doc.get('num_aircraft', 0),
-                'timestamp': exp_doc.get('timestamp', time.time()),
-                'experience_id': exp_doc.get('experience_id', str(uuid.uuid4())),
-                'safety_margin': exp_doc.get('safety_margin', 0.0),
-                'icao_compliant': exp_doc.get('icao_compliant', True)
+                "conflict_type": exp_doc.get("conflict_type", "unknown"),
+                "num_ac": exp_doc.get("num_aircraft", 0),
+                "timestamp": exp_doc.get("timestamp", time.time()),
+                "experience_id": exp_doc.get("experience_id", str(uuid.uuid4())),
+                "safety_margin": exp_doc.get("safety_margin", 0.0),
+                "icao_compliant": exp_doc.get("icao_compliant", True),
             }
-            
+
             # Store in Chroma
             self.collection.upsert(
-                ids=[exp_doc['experience_id']],
+                ids=[exp_doc["experience_id"]],
                 embeddings=[embedding],
                 documents=[conflict_desc],
-                metadatas=[metadata]
+                metadatas=[metadata],
             )
-            
+
             self.logger.info(f"Successfully stored experience {exp_doc['experience_id']}")
-            
+
         except Exception as e:
             self.logger.error(f"Failed to embed and store experience: {e}")
             raise
-    
+
     def _generate_scenario_text(self, conflict_desc: str, num_ac: int, conflict_type: str) -> str:
         """Generate comprehensive scenario description"""
         return f"Conflict scenario involving {num_ac} aircraft in a {conflict_type} conflict situation. {conflict_desc}"
-    
+
     def _generate_decision_text(self, commands_do: List[str], commands_dont: List[str], reasoning: str) -> str:
         """Generate decision description text"""
         do_text = "; ".join(commands_do) if commands_do else "No specific actions recommended"
         dont_text = "; ".join(commands_dont) if commands_dont else "No specific restrictions"
         return f"Recommended actions: {do_text}. Avoid: {dont_text}. Reasoning: {reasoning}"
-    
+
     def get_collection_stats(self) -> Dict[str, Any]:
         """Get statistics about the stored experiences"""
         try:
             count = self.collection.count()
             return {
-                'total_experiences': count,
-                'collection_name': self.collection_name,
-                'embedding_model': 'intfloat/e5-large-v2',
-                'embedding_dim': self.embedding_dim
+                "total_experiences": count,
+                "collection_name": self.collection_name,
+                "embedding_model": "intfloat/e5-large-v2",
+                "embedding_dim": self.embedding_dim,
             }
         except Exception as e:
             self.logger.error(f"Failed to get collection stats: {e}")
-            return {'error': str(e)}
+            return {"error": str(e)}

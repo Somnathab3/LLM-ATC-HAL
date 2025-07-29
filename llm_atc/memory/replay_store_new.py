@@ -6,13 +6,13 @@ and metadata filtering for efficient experience retrieval.
 """
 
 import logging
-import time
 import os
-from typing import Dict, List, Any, Optional, Tuple
-import chromadb
-from chromadb.config import Settings
-import numpy as np
 from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
+
+import chromadb
+import numpy as np
+from chromadb.config import Settings
 from sentence_transformers import SentenceTransformer
 
 
@@ -30,7 +30,7 @@ class VectorReplayStore:
     Vector-based experience replay store using 1024-dim intfloat/e5-large-v2
     with local Chroma HNSW and metadata filtering
     """
-    
+
     def __init__(self, storage_dir: str = "memory/chroma_experience_library"):
         """
         Initialize the replay store
@@ -40,10 +40,10 @@ class VectorReplayStore:
         """
         self.storage_dir = storage_dir
         self.logger = logging.getLogger(__name__)
-        
+
         # Ensure storage directory exists
         os.makedirs(storage_dir, exist_ok=True)
-        
+
         # Initialize sentence transformer model (same as generator)
         try:
             self.embedding_model = SentenceTransformer("intfloat/e5-large-v2")
@@ -52,21 +52,21 @@ class VectorReplayStore:
         except Exception as e:
             self.logger.error(f"Failed to load E5-large-v2 model: {e}")
             raise
-        
+
         # Initialize Chroma client
         self.chroma_client = chromadb.PersistentClient(
             path=storage_dir,
             settings=Settings(
                 anonymized_telemetry=False,
-                allow_reset=True
-            )
+                allow_reset=True,
+            ),
         )
-        
+
         # Get existing collection
         self.collection_name = "atc_experiences_e5_large"
         try:
             self.collection = self.chroma_client.get_collection(
-                name=self.collection_name
+                name=self.collection_name,
             )
             self.logger.info(f"Connected to existing collection: {self.collection_name}")
         except Exception as e:
@@ -76,11 +76,11 @@ class VectorReplayStore:
                 embedding_function=None,  # Use local embeddings
                 metadata={
                     "hnsw:space": "cosine",
-                    "embedding_model": "intfloat/e5-large-v2", 
-                    "embedding_dim": self.embedding_dim
-                }
+                    "embedding_model": "intfloat/e5-large-v2",
+                    "embedding_dim": self.embedding_dim,
+                },
             )
-    
+
     def retrieve_experience(self,
                           conflict_desc: str,
                           conflict_type: str,
@@ -103,65 +103,65 @@ class VectorReplayStore:
             filtered_results = self.collection.get(
                 where={
                     "conflict_type": conflict_type,
-                    "num_ac": num_ac
-                }
+                    "num_ac": num_ac,
+                },
             )
-            
-            if not filtered_results['ids']:
+
+            if not filtered_results["ids"]:
                 self.logger.info(f"No experiences found for conflict_type={conflict_type}, num_ac={num_ac}")
                 return []
-            
+
             self.logger.info(f"Found {len(filtered_results['ids'])} experiences matching metadata filters")
-            
+
             # Step 2: Vector search on filtered results
             query_embedding = self.embedding_model.encode(
                 conflict_desc,
-                normalize_embeddings=True
+                normalize_embeddings=True,
             )
-            
+
             if isinstance(query_embedding, np.ndarray):
                 query_embedding = query_embedding.tolist()
-            
+
             # Query with embedding
             search_results = self.collection.query(
                 query_embeddings=[query_embedding],
-                n_results=min(k, len(filtered_results['ids'])),
+                n_results=min(k, len(filtered_results["ids"])),
                 where={
                     "conflict_type": conflict_type,
-                    "num_ac": num_ac
-                }
+                    "num_ac": num_ac,
+                },
             )
-            
+
             # Format results
             experiences = []
-            if search_results['ids'] and search_results['ids'][0]:
-                for i, exp_id in enumerate(search_results['ids'][0]):
-                    distance = search_results['distances'][0][i] if search_results['distances'] else 1.0
+            if search_results["ids"] and search_results["ids"][0]:
+                for i, exp_id in enumerate(search_results["ids"][0]):
+                    distance = search_results["distances"][0][i] if search_results["distances"] else 1.0
                     similarity = 1.0 - distance  # Convert distance to similarity
-                    
-                    metadata = search_results['metadatas'][0][i] if search_results['metadatas'] else {}
-                    document = search_results['documents'][0][i] if search_results['documents'] else ""
-                    
+
+                    metadata = search_results["metadatas"][0][i] if search_results["metadatas"] else {}
+                    document = search_results["documents"][0][i] if search_results["documents"] else ""
+
                     experience_data = {
-                        'experience_id': exp_id,
-                        'conflict_desc': document,
-                        'metadata': metadata,
-                        'similarity_score': similarity
+                        "experience_id": exp_id,
+                        "conflict_desc": document,
+                        "metadata": metadata,
+                        "similarity_score": similarity,
                     }
-                    
+
                     experiences.append(experience_data)
-            
+
             # Sort by similarity score (ascending distance = descending similarity)
-            experiences.sort(key=lambda x: x['similarity_score'], reverse=True)
-            
+            experiences.sort(key=lambda x: x["similarity_score"], reverse=True)
+
             self.logger.info(f"Retrieved {len(experiences)} similar experiences")
             return experiences
-            
+
         except Exception as e:
             self.logger.error(f"Failed to retrieve experiences: {e}")
             return []
-    
-    def get_all_experiences(self, 
+
+    def get_all_experiences(self,
                            conflict_type: Optional[str] = None,
                            num_ac: Optional[int] = None,
                            limit: Optional[int] = None) -> List[dict]:
@@ -179,59 +179,59 @@ class VectorReplayStore:
         try:
             where_clause = {}
             if conflict_type:
-                where_clause['conflict_type'] = conflict_type
+                where_clause["conflict_type"] = conflict_type
             if num_ac is not None:
-                where_clause['num_ac'] = num_ac
-            
+                where_clause["num_ac"] = num_ac
+
             results = self.collection.get(
                 where=where_clause if where_clause else None,
-                limit=limit
+                limit=limit,
             )
-            
+
             experiences = []
-            if results['ids']:
-                for i, exp_id in enumerate(results['ids']):
-                    metadata = results['metadatas'][i] if results['metadatas'] else {}
-                    document = results['documents'][i] if results['documents'] else ""
-                    
+            if results["ids"]:
+                for i, exp_id in enumerate(results["ids"]):
+                    metadata = results["metadatas"][i] if results["metadatas"] else {}
+                    document = results["documents"][i] if results["documents"] else ""
+
                     experience_data = {
-                        'experience_id': exp_id,
-                        'conflict_desc': document,
-                        'metadata': metadata
+                        "experience_id": exp_id,
+                        "conflict_desc": document,
+                        "metadata": metadata,
                     }
                     experiences.append(experience_data)
-            
+
             return experiences
-            
+
         except Exception as e:
             self.logger.error(f"Failed to get all experiences: {e}")
             return []
-    
+
     def get_stats(self) -> Dict[str, Any]:
         """Get statistics about stored experiences"""
         try:
             total_count = self.collection.count()
-            
+
             # Get breakdown by conflict type
             conflict_types = {}
-            for ct in ['convergent', 'parallel', 'crossing', 'overtaking']:
-                count = len(self.collection.get(where={'conflict_type': ct})['ids'])
+            for ct in ["convergent", "parallel", "crossing", "overtaking"]:
+                count = len(self.collection.get(where={"conflict_type": ct})["ids"])
                 if count > 0:
                     conflict_types[ct] = count
-            
+
             return {
-                'total_experiences': total_count,
-                'by_conflict_type': conflict_types,
-                'collection_name': self.collection_name,
-                'embedding_model': 'intfloat/e5-large-v2',
-                'embedding_dim': self.embedding_dim,
-                'storage_dir': self.storage_dir
+                "total_experiences": total_count,
+                "by_conflict_type": conflict_types,
+                "collection_name": self.collection_name,
+                "embedding_model": "intfloat/e5-large-v2",
+                "embedding_dim": self.embedding_dim,
+                "storage_dir": self.storage_dir,
             }
-            
+
         except Exception as e:
             self.logger.error(f"Failed to get stats: {e}")
-            return {'error': str(e)}
-    
+            return {"error": str(e)}
+
     def delete_experience(self, experience_id: str) -> bool:
         """Delete an experience by ID"""
         try:
@@ -241,7 +241,7 @@ class VectorReplayStore:
         except Exception as e:
             self.logger.error(f"Failed to delete experience {experience_id}: {e}")
             return False
-    
+
     def clear_all(self) -> bool:
         """Clear all experiences from the store"""
         try:
@@ -252,8 +252,8 @@ class VectorReplayStore:
                 metadata={
                     "hnsw:space": "cosine",
                     "embedding_model": "intfloat/e5-large-v2",
-                    "embedding_dim": self.embedding_dim
-                }
+                    "embedding_dim": self.embedding_dim,
+                },
             )
             self.logger.info("Cleared all experiences")
             return True
