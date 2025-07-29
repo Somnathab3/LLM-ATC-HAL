@@ -173,14 +173,17 @@ class VectorReplayStore:
         # Try GPU first, fallback to CPU
         gpu_available = False
         try:
-            if faiss.get_num_gpus() > 0:
+            # Check if GPU is available and properly configured
+            num_gpus = faiss.get_num_gpus()
+            if num_gpus > 0:
                 # Create GPU index
+                gpu_res = faiss.StandardGpuResources()
                 cpu_index = faiss.IndexFlatL2(embedding_dim)
-                self.index = faiss.index_cpu_to_gpu(faiss.StandardGpuResources(), 0, cpu_index)
+                self.index = faiss.index_cpu_to_gpu(gpu_res, 0, cpu_index)
                 gpu_available = True
-                logging.info(f"Initialized GPU FAISS index with dimension {embedding_dim}")
+                logging.info(f"Initialized GPU FAISS index with dimension {embedding_dim} on GPU 0/{num_gpus}")
             else:
-                raise RuntimeError("No GPU available")
+                raise RuntimeError("No GPU detected by FAISS")
         except Exception as e:
             # Fallback to CPU index
             self.index = faiss.IndexFlatL2(embedding_dim)
@@ -194,7 +197,8 @@ class VectorReplayStore:
                 try:
                     cpu_quantizer = faiss.IndexFlatL2(embedding_dim)
                     cpu_index = faiss.IndexIVFFlat(cpu_quantizer, embedding_dim, n_clusters)
-                    self.index = faiss.index_cpu_to_gpu(faiss.StandardGpuResources(), 0, cpu_index)
+                    gpu_res = faiss.StandardGpuResources()
+                    self.index = faiss.index_cpu_to_gpu(gpu_res, 0, cpu_index)
                 except Exception:
                     self.index = faiss.IndexIVFFlat(quantizer, embedding_dim, n_clusters)
             else:

@@ -134,13 +134,59 @@ class OllamaEnsembleClient:
     def _get_available_models(self) -> List[str]:
         """Get list of available Ollama models"""
         try:
+            # Try the newer list() method first
             models_response = self.client.list()
-            available = [model['name'] for model in models_response['models']]
+            
+            # Handle different response formats
+            if hasattr(models_response, 'models'):
+                # Ollama ListResponse object with models attribute
+                available = [model.model for model in models_response.models]
+            elif isinstance(models_response, dict):
+                if 'models' in models_response:
+                    # Standard response format: {'models': [{'name': '...', ...}, ...]}
+                    available = [model['name'] for model in models_response['models']]
+                elif 'data' in models_response:
+                    # Alternative response format: {'data': [{'name': '...', ...}, ...]}
+                    available = [model['name'] for model in models_response['data']]
+                else:
+                    # Try to find any list of models in the response
+                    for key, value in models_response.items():
+                        if isinstance(value, list) and len(value) > 0:
+                            if isinstance(value[0], dict) and 'name' in value[0]:
+                                available = [model['name'] for model in value]
+                                break
+                    else:
+                        raise ValueError(f"Unexpected response format: {models_response}")
+            elif isinstance(models_response, list):
+                # Direct list response: [{'name': '...', ...}, ...]
+                available = [model['name'] for model in models_response]
+            else:
+                raise ValueError(f"Unexpected response type: {type(models_response)}")
+            
             logging.info(f"Available Ollama models: {available}")
             return available
+            
         except Exception as e:
             logging.warning(f"Failed to get available models: {e}")
-            return ['llama3.1:8b']  # Fallback to known model
+            logging.debug(f"Exception details: {type(e).__name__}: {str(e)}")
+            
+            # Try alternative method with raw API call if available
+            try:
+                import requests
+                response = requests.get('http://localhost:11434/api/tags', timeout=5)
+                if response.status_code == 200:
+                    tags_data = response.json()
+                    if 'models' in tags_data:
+                        available = [model['name'] for model in tags_data['models']]
+                        logging.info(f"Available models via /api/tags: {available}")
+                        return available
+            except Exception as alt_e:
+                logging.debug(f"Alternative API call also failed: {alt_e}")
+            
+            # Final fallback to known models
+            fallback_models = ['llama3.1:8b', 'mistral:7b', 'codellama:7b']
+            logging.warning(f"Using fallback models: {fallback_models}")
+            return fallback_models
     
     def query_ensemble(self, 
                       prompt: str, 
