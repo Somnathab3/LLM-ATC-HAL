@@ -1,0 +1,127 @@
+# Distribution Shift Experiment Configuration
+# Configuration for systematic testing across distribution shift tiers
+
+experiment:
+  # Number of simulations per distribution shift tier
+  n_sims_per_tier: 100
+  
+  # Distribution shift tiers to test
+  distribution_shift_tiers:
+    - 'in_distribution'
+    - 'moderate_shift' 
+    - 'extreme_shift'
+  
+  # Complexity distribution for scenario sampling
+  complexity_distribution:
+    simple: 0.2
+    moderate: 0.4
+    complex: 0.3
+    extreme: 0.1
+  
+  # Execution parameters
+  timeout_per_sim: 60  # seconds
+  parallel_execution: false
+  random_seed: 42
+  
+  # Robustness testing parameters
+  robustness_test:
+    enable: true
+    failure_threshold: 0.15  # Stop if >15% scenarios fail
+    min_scenarios_per_tier: 50
+
+# LLM Model Configuration
+models:
+  primary: 'llama3.1:8b'
+  validator: 'mistral:7b' 
+  technical: 'codellama:7b'
+  
+  # Model-specific parameters
+  temperature: 0.1
+  max_tokens: 500
+  ensemble_consensus_threshold: 0.6
+
+# Hallucination Detection Configuration
+detection:
+  enable_all_layers: true
+  confidence_threshold: 0.7
+  
+  # Layer-specific thresholds
+  layer_thresholds:
+    semantic_entropy: 0.7
+    attention_anomaly: 0.6
+    eigenvalue_threshold: 0.8
+    consistency_threshold: 0.75
+    uncertainty_threshold: 0.65
+    knowledge_boundary_threshold: 0.7
+
+# Safety Assessment Configuration
+safety:
+  icao_compliance_required: true
+  min_horizontal_margin_nm: 5.0
+  min_vertical_margin_ft: 1000
+  safety_buffer_multiplier: 1.2
+  
+  # Intervention thresholds
+  intervention_thresholds:
+    critical_safety_score: 0.5
+    warning_safety_score: 0.7
+    acceptable_safety_score: 0.8
+
+# Output Configuration
+output:
+  # File output settings
+  save_intermediate: true
+  compress_parquet: true
+  include_command_logs: true
+  
+  # Analysis settings
+  generate_visualizations: true
+  statistical_significance_level: 0.05
+  
+  # File naming
+  results_prefix: "distribution_shift_experiment"
+  summary_prefix: "experiment_summary"
+
+# Analysis Configuration
+analysis:
+  # Metrics to calculate
+  calculate_fp_fn: true
+  calculate_path_efficiency: true
+  calculate_intervention_count: true
+  
+  # Statistical tests
+  enable_statistical_tests: true
+  bonferroni_correction: true
+  
+  # Aggregation settings
+  aggregate_by_tier: true
+  aggregate_by_complexity: true
+  aggregate_by_model: true
+
+# Logging Configuration
+logging:
+  level: "INFO"
+  file_output: true
+  console_output: true
+  log_file_prefix: "distribution_shift_experiment"
+
+# Resource Management
+resources:
+  max_memory_gb: 8
+  max_cpu_cores: 4
+  gpu_acceleration: false
+  
+  # Cleanup settings
+  cleanup_intermediate: false
+  retain_logs_days: 30
+
+# Validation Settings
+validation:
+  validate_scenarios: true
+  validate_llm_responses: true
+  validate_safety_calculations: true
+  
+  # Error handling
+  continue_on_error: true
+  max_retries: 3
+  retry_delay_s: 5

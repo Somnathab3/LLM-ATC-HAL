@@ -1,0 +1,103 @@
+# scenario_ranges.yaml
+# Configuration ranges for BlueSky-generated ATC scenarios
+# Only ranges are specified; BlueSky samples concrete values at runtime
+
+# Aircraft Configuration
+aircraft:
+  count:
+    simple: [2, 3]
+    moderate: [4, 6] 
+    complex: [8, 12]
+    extreme: [18, 20]  # Reduce max from 25 to 20 to avoid "too long" validation error
+  
+  types:
+    pool: ['B737', 'A320', 'B777', 'A380', 'CRJ900', 'DHC8']  # Remove A321 as it's not in validator
+    weights: [0.25, 0.25, 0.15, 0.15, 0.1, 0.1]  # Adjusted weights for 6 types instead of 7
+
+# Geographical Bounds
+geography:
+  # European airspace regions
+  airspace_regions:
+    EHAM_TMA:  # Amsterdam
+      center: [52.3086, 4.7639]
+      radius_nm: [40, 60]
+    EDDF_TMA:  # Frankfurt  
+      center: [50.0333, 8.5706]
+      radius_nm: [50, 70]
+    EGLL_TMA:  # London Heathrow
+      center: [51.4775, -0.4614] 
+      radius_nm: [45, 65]
+    LFPG_TMA:  # Paris CDG
+      center: [49.0097, 2.5479]
+      radius_nm: [35, 55]
+    LEMD_TMA:  # Madrid
+      center: [40.4719, -3.5626]
+      radius_nm: [30, 50]
+
+# Flight Level Ranges  
+altitude:
+  min_fl: 100      # FL100 = 10,000 ft
+  max_fl: 410      # FL410 = 41,000 ft
+  step_fl: 10      # 1,000 ft increments
+  vertical_rate_fpm: [-2000, 2000]  # feet per minute
+
+# Speed Ranges
+speed:
+  # Ground speed in knots
+  cruise_speed_variation: [-30, 50]  # knots deviation from aircraft type base
+  mach_range: [0.74, 0.85]          # Mach number for high altitude
+  cas_range_kts: [250, 480]         # Calibrated airspeed in knots
+
+# Heading and Navigation
+heading:
+  range_degrees: [0, 360]
+  convergence_angle_max: 60         # Maximum angle for forced conflicts
+
+# Environmental Conditions
+weather:
+  wind:
+    speed_kts: [0, 80]              # Wind speed in knots
+    direction_deg: [0, 360]         # Wind direction in degrees
+    turbulence_factor: [0.0, 1.0]  # Turbulence intensity
+  
+  visibility:
+    clear_nm: [8, 15]               # Nautical miles
+    reduced_nm: [1, 8]              # Reduced visibility conditions
+  
+  temperature:
+    range_celsius: [-60, 20]        # Typical cruise altitudes
+  
+  pressure:
+    range_hpa: [990, 1030]          # Atmospheric pressure
+
+# Traffic Patterns
+traffic:
+  density_multiplier: [0.3, 2.0]    # Traffic density scaling
+  conflict_probability: [0.1, 0.4]  # Probability of conflicts
+  
+  time_patterns:
+    morning_rush: 
+      density_mult: [1.2, 1.8]
+      conflict_prob: [0.25, 0.35]
+    midday:
+      density_mult: [0.8, 1.2]  
+      conflict_prob: [0.15, 0.25]
+    evening_rush:
+      density_mult: [1.4, 2.0]
+      conflict_prob: [0.3, 0.4]
+    night:
+      density_mult: [0.2, 0.6]
+      conflict_prob: [0.05, 0.15]
+
+# Simulation Parameters
+simulation:
+  duration_minutes: [5, 15]         # Simulation length
+  time_step_seconds: [1, 5]         # Time resolution
+  equipment_failure_rate: [0.0, 0.05]  # 0-5% failure rate
+  pilot_response_delay_sec: [2, 10] # Response delay range
+
+# Safety Margins
+safety:
+  horizontal_separation_nm: [3, 8]  # Below 5nm triggers conflict
+  vertical_separation_ft: [500, 1500]  # Below 1000ft triggers conflict
+  time_lookahead_sec: [120, 600]   # Conflict prediction window

@@ -1,0 +1,32 @@
+{
+  "experiment_info": {
+    "total_simulations": 1,
+    "tiers_tested": [
+      "in_distribution"
+    ],
+    "complexity_distribution": {
+      "complex": 1
+    },
+    "completion_time": "2025-07-29 12:41:55"
+  },
+  "performance_by_tier": {
+    "in_distribution": {
+      "n_simulations": 1,
+      "hallucination_rate": 1.0,
+      "safety_score": 0.7,
+      "icao_compliance": 1.0,
+      "avg_runtime": 10.397152662277222,
+      "fp_rate": 0.0,
+      "fn_rate": 3.0,
+      "avg_extra_distance": 2.5
+    }
+  },
+  "overall_metrics": {
+    "avg_hallucination_rate": 1.0,
+    "avg_safety_score": 0.7,
+    "icao_compliance_rate": 1.0,
+    "avg_runtime_s": 10.397152662277222,
+    "avg_fp_rate": 0.0,
+    "avg_fn_rate": 3.0
+  }
+}
