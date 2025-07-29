@@ -9,9 +9,15 @@ import logging
 import math
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from pathlib import Path
+from typing import Any, Optional
 
 import numpy as np
+
+# Constants
+MINIMUM_RELATIVE_VELOCITY = 1e-6
+MIN_TRAJECTORIES_FOR_COMPARISON = 2
+TIME_WINDOW_SECONDS = 30
 
 
 class SeparationStandard(Enum):
@@ -47,7 +53,7 @@ class SafetyMarginQuantifier:
     Quantifies safety margins according to ICAO standards and research best practices
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.separation_standards = {
             "horizontal": SeparationStandard.HORIZONTAL_MIN.value,
             "vertical": SeparationStandard.VERTICAL_MIN.value,
@@ -79,7 +85,9 @@ class SafetyMarginQuantifier:
         """
         try:
             # Apply resolution maneuver to predict future geometry
-            future_geometry = self._apply_resolution_maneuver(conflict_geometry, resolution_maneuver)
+            future_geometry = self._apply_resolution_maneuver(
+                conflict_geometry, resolution_maneuver,
+            )
 
             # Calculate individual margin components
             horizontal_margin = self._calculate_horizontal_margin(future_geometry)
@@ -182,12 +190,12 @@ class SafetyMarginQuantifier:
             logging.warning("Failed to apply maneuver: %s", e)
             return geometry  # Return original geometry if calculation fails
 
-    def _predict_position(self, position: list[float], velocity: list[float], time: float) -> list[float]:
+    def _predict_position(
+        self, position: list[float], velocity: list[float], time: float,
+    ) -> list[float]:
         """Predict future position based on current velocity"""
         try:
-            # Simple linear prediction
-            # position[0] = latitude, position[1] = longitude, position[2] = altitude
-            # velocity[0] = ground_speed (knots), velocity[1] = vertical_rate (ft/min), velocity[2] = heading
+            # Simple linear prediction - predict future aircraft position
 
             ground_speed_ms = velocity[0] * 0.514444  # Convert knots to m/s
             heading_rad = math.radians(velocity[2])
@@ -197,7 +205,9 @@ class SafetyMarginQuantifier:
 
             # Convert to lat/lon changes (approximate)
             lat_change = (distance_m * math.cos(heading_rad)) / 111320  # meters to degrees lat
-            lon_change = (distance_m * math.sin(heading_rad)) / (111320 * math.cos(math.radians(position[0])))
+            lon_change = (distance_m * math.sin(heading_rad)) / (
+                111320 * math.cos(math.radians(position[0]))
+            )
 
             # Altitude change
             alt_change = velocity[1] * (time / 60)  # ft/min to ft over time period
@@ -212,9 +222,13 @@ class SafetyMarginQuantifier:
             logging.warning("Position prediction failed: %s", e)
             return position
 
-    def _calculate_closest_approach(self,
-                                  pos1: list[float], pos2: list[float],
-                                  vel1: list[float], vel2: list[float]) -> tuple[float, float, float]:
+    def _calculate_closest_approach(
+        self,
+        pos1: list[float],
+        pos2: list[float],
+        vel1: list[float],
+        vel2: list[float],
+    ) -> tuple[float, float, float]:
         """Calculate time and distance of closest approach"""
         try:
             # Relative position and velocity
@@ -225,9 +239,8 @@ class SafetyMarginQuantifier:
             rel_pos_magnitude = math.sqrt(sum(x**2 for x in rel_pos[:2]))  # Horizontal only
             rel_vel_magnitude = math.sqrt(sum(x**2 for x in rel_vel[:2]))  # Horizontal only
 
-            if rel_vel_magnitude < 1e-6:  # Essentially no relative motion
+            if rel_vel_magnitude < MINIMUM_RELATIVE_VELOCITY:  # Essentially no relative motion
                 return 999999, rel_pos_magnitude, abs(rel_pos[2])
-
             # Simplified calculation for time to closest approach
             time_to_ca = max(0, -sum(rel_pos[i] * rel_vel[i] for i in range(2)) /
                            sum(rel_vel[i]**2 for i in range(2)))
@@ -268,7 +281,9 @@ class SafetyMarginQuantifier:
         margin = time_to_conflict - min_time
         return max(margin, 0)  # Negative margin indicates immediate action needed
 
-    def _calculate_effective_margin(self, h_margin: float, v_margin: float, t_margin: float) -> float:
+    def _calculate_effective_margin(
+        self, h_margin: float, v_margin: float, t_margin: float,
+    ) -> float:
         """Calculate effective combined margin using weighted approach"""
         # Weights based on criticality (horizontal separation most critical)
         weights = {"horizontal": 0.5, "vertical": 0.3, "temporal": 0.2}
@@ -302,11 +317,22 @@ class SafetyMarginQuantifier:
     def _calculate_baseline_margin(self, geometry: ConflictGeometry) -> float:
         """Calculate baseline margin without any resolution maneuver"""
         # This would be the margin if no action were taken
-        baseline_horizontal = max(0, geometry.closest_approach_distance - self.separation_standards["horizontal"])
-        baseline_vertical = max(0, geometry.closest_approach_altitude_diff - self.separation_standards["vertical"])
-        baseline_temporal = max(0, geometry.time_to_closest_approach - self.separation_standards["temporal"])
+        baseline_horizontal = max(
+            0,
+            geometry.closest_approach_distance - self.separation_standards["horizontal"],
+        )
+        baseline_vertical = max(
+            0,
+            geometry.closest_approach_altitude_diff - self.separation_standards["vertical"],
+        )
+        baseline_temporal = max(
+            0,
+            geometry.time_to_closest_approach - self.separation_standards["temporal"],
+        )
 
-        return self._calculate_effective_margin(baseline_horizontal, baseline_vertical, baseline_temporal)
+        return self._calculate_effective_margin(
+            baseline_horizontal, baseline_vertical, baseline_temporal,
+        )
 
     def _determine_safety_level(self, effective_margin: float) -> str:
         """Determine safety level based on effective margin"""
@@ -333,7 +359,7 @@ class SafetyMarginQuantifier:
 class SafetyMetricsAggregator:
     """Aggregates safety metrics across multiple scenarios and conflicts"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.metrics_history = []
         self.quantifier = SafetyMarginQuantifier()
 
@@ -389,17 +415,25 @@ class SafetyMetricsAggregator:
             "max_safety_degradation": float(max(safety_degradations)),
             "min_safety_degradation": float(min(safety_degradations)),
             "llm_critical_cases": sum(1 for level in llm_safety_levels if level == "critical"),
-            "baseline_critical_cases": sum(1 for level in baseline_safety_levels if level == "critical"),
+            "baseline_critical_cases": sum(
+                1 for level in baseline_safety_levels if level == "critical"
+            ),
             "safety_improvement_cases": sum(1 for diff in margin_differences if diff > 0),
             "safety_degradation_cases": sum(1 for diff in margin_differences if diff < 0),
             "safety_level_distribution": {
-                "llm": {level: llm_safety_levels.count(level) for level in ["critical", "marginal", "adequate", "excellent"]},
-                "baseline": {level: baseline_safety_levels.count(level) for level in ["critical", "marginal", "adequate", "excellent"]},
+                "llm": {
+                    level: llm_safety_levels.count(level)
+                    for level in ["critical", "marginal", "adequate", "excellent"]
+                },
+                "baseline": {
+                    level: baseline_safety_levels.count(level)
+                    for level in ["critical", "marginal", "adequate", "excellent"]
+                },
             },
         }
 
 
-    def export_detailed_metrics(self, filepath: str):
+    def export_detailed_metrics(self, filepath: str) -> None:
         """Export detailed metrics to JSON file"""
         try:
             # Convert SafetyMargin objects to dictionaries for JSON serialization
@@ -413,7 +447,9 @@ class SafetyMetricsAggregator:
                         "vertical_margin": metric["llm_margins"].vertical_margin,
                         "temporal_margin": metric["llm_margins"].temporal_margin,
                         "effective_margin": metric["llm_margins"].effective_margin,
-                        "margin_to_uncertainty_ratio": metric["llm_margins"].margin_to_uncertainty_ratio,
+                        "margin_to_uncertainty_ratio": metric[
+                            "llm_margins"
+                        ].margin_to_uncertainty_ratio,
                         "degradation_factor": metric["llm_margins"].degradation_factor,
                         "safety_level": metric["llm_margins"].safety_level,
                     },
@@ -422,7 +458,9 @@ class SafetyMetricsAggregator:
                         "vertical_margin": metric["baseline_margins"].vertical_margin,
                         "temporal_margin": metric["baseline_margins"].temporal_margin,
                         "effective_margin": metric["baseline_margins"].effective_margin,
-                        "margin_to_uncertainty_ratio": metric["baseline_margins"].margin_to_uncertainty_ratio,
+                        "margin_to_uncertainty_ratio": metric[
+                            "baseline_margins"
+                        ].margin_to_uncertainty_ratio,
                         "degradation_factor": metric["baseline_margins"].degradation_factor,
                         "safety_level": metric["baseline_margins"].safety_level,
                     },
@@ -433,7 +471,7 @@ class SafetyMetricsAggregator:
                 }
                 exportable_data.append(exportable_metric)
 
-            with open(filepath, "w") as f:
+            with Path(filepath).open("w") as f:
                 json.dump(exportable_data, f, indent=2)
 
             logging.info("Safety metrics exported to %s", filepath)
@@ -448,13 +486,13 @@ def calc_separation_margin(trajectories: list[dict[str, Any]]) -> dict[str, floa
 
     Args:
         trajectories: List of aircraft trajectories with format:
-                     [{'aircraft_id': str, 'path': [{'lat': float, 'lon': float, 
+                     [{'aircraft_id': str, 'path': [{'lat': float, 'lon': float,
                        'alt': float, 'time': float}]}]
 
     Returns:
         Dict with 'hz' (horizontal) and 'vt' (vertical) margins in nm and ft
     """
-    if len(trajectories) < 2:
+    if len(trajectories) < MIN_TRAJECTORIES_FOR_COMPARISON:
         return {"hz": float("inf"), "vt": float("inf")}
 
     min_horizontal = float("inf")
@@ -470,7 +508,7 @@ def calc_separation_margin(trajectories: list[dict[str, Any]]) -> dict[str, floa
             for point1 in traj1:
                 for point2 in traj2:
                     # Only compare points at similar times (±30 seconds)
-                    if abs(point1["time"] - point2["time"]) <= 30:
+                    if abs(point1["time"] - point2["time"]) <= TIME_WINDOW_SECONDS:
                         # Calculate horizontal distance in nautical miles
                         lat1, lon1 = math.radians(point1["lat"]), math.radians(point1["lon"])
                         lat2, lon2 = math.radians(point2["lat"]), math.radians(point2["lon"])
@@ -604,13 +642,13 @@ if __name__ == "__main__":
     quantifier = SafetyMarginQuantifier()
     margins = quantifier.calculate_safety_margins(conflict_geometry, llm_resolution)
 
-    print("Safety Margin Analysis:")
-    print(f"Horizontal Margin: {margins.horizontal_margin:.2f} NM")
-    print(f"Vertical Margin: {margins.vertical_margin:.0f} ft")
-    print(f"Temporal Margin: {margins.temporal_margin:.0f} seconds")
-    print(f"Effective Margin: {margins.effective_margin:.3f}")
-    print(f"Margin/Uncertainty Ratio: {margins.margin_to_uncertainty_ratio:.2f}")
-    print(f"Safety Level: {margins.safety_level}")
+    logging.info("Safety Margin Analysis:")
+    logging.info("Horizontal Margin: %.2f NM", margins.horizontal_margin)
+    logging.info("Vertical Margin: %.0f ft", margins.vertical_margin)
+    logging.info("Temporal Margin: %.0f seconds", margins.temporal_margin)
+    logging.info("Effective Margin: %.3f", margins.effective_margin)
+    logging.info("Margin/Uncertainty Ratio: %.2f", margins.margin_to_uncertainty_ratio)
+    logging.info("Safety Level: %s", margins.safety_level)
 
     # Test aggregator
     aggregator = SafetyMetricsAggregator()
@@ -619,5 +657,5 @@ if __name__ == "__main__":
     )
 
     summary = aggregator.generate_safety_summary()
-    print("\nSafety Summary:")
-    print(json.dumps(summary, indent=2))
+    logging.info("\nSafety Summary:")
+    logging.info(json.dumps(summary, indent=2))

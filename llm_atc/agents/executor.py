@@ -11,6 +11,9 @@ from typing import Any, Callable, Optional
 
 from .planner import ActionPlan
 
+# Constants
+PARTIAL_SUCCESS_THRESHOLD = 0.5
+
 
 class ExecutionStatus(Enum):
     PENDING = "pending"
@@ -39,7 +42,7 @@ class Executor:
     Executor agent responsible for sending action plans to BlueSky simulator
     """
 
-    def __init__(self, command_sender: Optional[Callable] = None):
+    def __init__(self, command_sender: Optional[Callable] = None) -> None:
         self.command_sender = command_sender
         self.logger = logging.getLogger(__name__)
         self.execution_history: list[ExecutionResult] = []
@@ -95,7 +98,10 @@ class Executor:
                         successful_commands += 1
                         self.logger.info("Command executed successfully: %s", command)
                     else:
-                        error_msg = f"Command failed: {command} - {response.get('error', 'Unknown error')}"
+                        error_msg = (
+                            f"Command failed: {command} - "
+                            f"{response.get('error', 'Unknown error')}"
+                        )
                         result.error_messages.append(error_msg)
                         self.logger.error(error_msg)
 
@@ -115,9 +121,12 @@ class Executor:
             if result.success_rate == 1.0:
                 result.status = ExecutionStatus.COMPLETED
                 self.logger.info("Plan execution completed successfully: %s", execution_id)
-            elif result.success_rate > 0.5:
-                result.status = ExecutionStatus.COMPLETED  # Partial success still considered completed
-                self.logger.warning("Plan execution completed with partial success: %s", execution_id)
+            elif result.success_rate > PARTIAL_SUCCESS_THRESHOLD:
+                # Partial success still considered completed
+                result.status = ExecutionStatus.COMPLETED
+                self.logger.warning(
+                    "Plan execution completed with partial success: %s", execution_id,
+                )
             else:
                 result.status = ExecutionStatus.FAILED
                 self.logger.error("Plan execution failed: %s", execution_id)
@@ -281,7 +290,10 @@ class Executor:
             }
 
         total_executions = len(self.execution_history)
-        successful_executions = len([r for r in self.execution_history if r.status == ExecutionStatus.COMPLETED])
+        successful_executions = len([
+            r for r in self.execution_history
+            if r.status == ExecutionStatus.COMPLETED
+        ])
         total_execution_time = sum(r.execution_time for r in self.execution_history)
         total_commands = sum(len(r.commands_sent) for r in self.execution_history)
 

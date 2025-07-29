@@ -8,7 +8,7 @@ import logging
 import math
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 
 class ManeuverType(Enum):
@@ -361,9 +361,7 @@ class BaselineConflictResolver:
 
         # Priority based on type
         base_priority = 3  # Default priority
-        if aircraft_type == "emergency":
-            base_priority = 1
-        elif aircraft_type == "military":
+        if aircraft_type == "emergency" or aircraft_type == "military":
             base_priority = 1
         elif aircraft_type == "commercial":
             base_priority = 2

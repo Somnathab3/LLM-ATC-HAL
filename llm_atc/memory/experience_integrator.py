@@ -7,7 +7,7 @@ Connects vector memory store with real-time conflict resolution
 import json
 import logging
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 from analysis.enhanced_hallucination_detection import EnhancedHallucinationDetector
 from llm_atc.memory.replay_store import ConflictExperience, SimilarityResult, VectorReplayStore

@@ -8,7 +8,7 @@ and metadata filtering for efficient experience retrieval.
 import logging
 import os
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import chromadb
 import numpy as np

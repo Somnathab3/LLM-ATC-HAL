@@ -26,7 +26,7 @@ import time
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -241,7 +241,7 @@ class DistributionShiftRunner:
         experiment_start = time.time()
 
         self.logger.info("Starting distribution shift experiment")
-        self.logger.info("Configuration: %s", self.config['experiment'])
+        self.logger.info("Configuration: %s", self.config["experiment"])
 
         # Get experiment parameters
         n_sims_per_tier = self.config["experiment"]["n_sims_per_tier"]

@@ -13,7 +13,7 @@ import tkinter as tk
 from dataclasses import dataclass
 from enum import Enum
 from tkinter import messagebox, ttk
-from typing import Any
+from typing import Any, Optional
 
 import numpy as np
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -27,6 +27,15 @@ from .executor import ExecutionResult, Executor
 from .planner import ActionPlan, ConflictAssessment, Planner
 from .scratchpad import Scratchpad
 from .verifier import Verifier
+
+# Constants for confidence thresholds
+CONFIDENCE_EXCELLENT_THRESHOLD = 0.9
+CONFIDENCE_HIGH_THRESHOLD = 0.75
+CONFIDENCE_MODERATE_THRESHOLD = 0.6
+CONFIDENCE_LOW_THRESHOLD = 0.4
+DEFAULT_CONFIDENCE_THRESHOLD = 0.6
+DEFAULT_SAFETY_SCORE_MINIMUM = 0.4
+DEFAULT_UNCERTAINTY_MAXIMUM = 0.7
 
 
 class ConfidenceLevel(Enum):
@@ -67,12 +76,12 @@ class OverrideDecision:
 class SafetyMonitor:
     """Real-time safety monitoring system"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.thresholds = {
             "response_time_limit": 5.0,  # seconds
-            "confidence_threshold": 0.6,
-            "safety_score_minimum": 0.4,
-            "uncertainty_maximum": 0.7,
+            "confidence_threshold": DEFAULT_CONFIDENCE_THRESHOLD,
+            "safety_score_minimum": DEFAULT_SAFETY_SCORE_MINIMUM,
+            "uncertainty_maximum": DEFAULT_UNCERTAINTY_MAXIMUM,
         }
 
         self.alerts = []
@@ -117,7 +126,7 @@ class SafetyMonitor:
             })
 
         return alerts
-
+        # Removed potential F001 error line
     def escalate_to_human(self, conflict_id: str, reason: str) -> bool:
         """Escalate decision to human controller"""
 
@@ -148,7 +157,7 @@ class SafetyMonitor:
 class ControllerInterface:
     """Main controller interface for human-AI oversight with embodied agent planning loop"""
 
-    def __init__(self, llm_client=None):
+    def __init__(self, llm_client: Optional[Any] = None) -> None:
         self.root = tk.Tk()
         self.root.title("ATC Hallucination Detection & Safety Assurance System")
         self.root.geometry("1400x900")
@@ -243,7 +252,9 @@ class ControllerInterface:
 
                     # Step 6: Check if we should continue
                     if not verification_passed:
-                        self.scratchpad.log_error_step("Verification failed, stopping planning loop")
+                        self.scratchpad.log_error_step(
+                            "Verification failed, stopping planning loop",
+                        )
                         break
 
                     # Update UI with current conflict
@@ -262,7 +273,10 @@ class ControllerInterface:
             # Complete session
             session_summary = self.scratchpad.complete_session(
                 success=True,
-                final_status="completed" if iteration_count < self.max_planning_iterations else "max_iterations_reached",
+                final_status=(
+                    "completed" if iteration_count < self.max_planning_iterations
+                    else "max_iterations_reached"
+                ),
             )
 
             return {
@@ -284,7 +298,7 @@ class ControllerInterface:
         finally:
             self.planning_active = False
 
-    def stop_planning_loop(self):
+    def stop_planning_loop(self) -> None:
         """Stop the planning loop"""
         self.planning_active = False
 
@@ -309,7 +323,8 @@ class ControllerInterface:
                 "timestamp": time.time(),
             }
 
-    def _update_conflict_display(self, assessment: ConflictAssessment, plan: ActionPlan, execution: ExecutionResult):
+    def _update_conflict_display(self, assessment: ConflictAssessment,
+                                plan: ActionPlan, _execution: ExecutionResult) -> None:
         """Update the UI with current conflict information"""
         try:
             # Create conflict display object
@@ -343,17 +358,17 @@ class ControllerInterface:
 
     def _convert_confidence_to_level(self, confidence: float) -> ConfidenceLevel:
         """Convert numerical confidence to ConfidenceLevel enum"""
-        if confidence >= 0.9:
+        if confidence >= CONFIDENCE_EXCELLENT_THRESHOLD:
             return ConfidenceLevel.EXCELLENT
-        if confidence >= 0.75:
+        if confidence >= CONFIDENCE_HIGH_THRESHOLD:
             return ConfidenceLevel.HIGH
-        if confidence >= 0.6:
+        if confidence >= CONFIDENCE_MODERATE_THRESHOLD:
             return ConfidenceLevel.MODERATE
-        if confidence >= 0.4:
+        if confidence >= CONFIDENCE_LOW_THRESHOLD:
             return ConfidenceLevel.LOW
         return ConfidenceLevel.CRITICAL
 
-    def _add_conflict_to_tree(self, conflict: ConflictDisplay):
+    def _add_conflict_to_tree(self, conflict: ConflictDisplay) -> None:
         """Add conflict to the conflicts tree view"""
         try:
             aircraft_str = ", ".join(conflict.aircraft_ids)
@@ -378,7 +393,7 @@ class ControllerInterface:
         except Exception:
             logging.exception("Error adding conflict to tree")
 
-    def _update_conflict_details(self, conflict: ConflictDisplay):
+    def _update_conflict_details(self, conflict: ConflictDisplay) -> None:
         """Update the conflict details text area"""
         try:
             details = f"""Conflict ID: {conflict.conflict_id}
@@ -415,7 +430,7 @@ Safety Flags: {', '.join(conflict.safety_flags) if conflict.safety_flags else 'N
             "planning_active": self.planning_active,
         }
 
-    def _setup_ui(self):
+    def _setup_ui(self) -> None:
         """Setup the user interface"""
 
         # Main container
@@ -451,7 +466,7 @@ Safety Flags: {', '.join(conflict.safety_flags) if conflict.safety_flags else 'N
         notebook.add(self.history_frame, text="Override History")
         self._setup_history_tab()
 
-    def _setup_conflicts_tab(self):
+    def _setup_conflicts_tab(self) -> None:
         """Setup active conflicts display"""
 
         # Conflicts list
@@ -461,7 +476,9 @@ Safety Flags: {', '.join(conflict.safety_flags) if conflict.safety_flags else 'N
 
         # Treeview for conflicts
         columns = ("ID", "Aircraft", "Time", "Separation", "Confidence", "Action")
-        self.conflicts_tree = ttk.Treeview(self.conflicts_frame, columns=columns, show="headings", height=8)
+        self.conflicts_tree = ttk.Treeview(
+            self.conflicts_frame, columns=columns, show="headings", height=8,
+        )
 
         for col in columns:
             self.conflicts_tree.heading(col, text=col)
@@ -478,7 +495,9 @@ Safety Flags: {', '.join(conflict.safety_flags) if conflict.safety_flags else 'N
 
         # Details display
         self.details_text = tk.Text(details_frame, height=8, wrap=tk.WORD)
-        details_scrollbar = ttk.Scrollbar(details_frame, orient=tk.VERTICAL, command=self.details_text.yview)
+        details_scrollbar = ttk.Scrollbar(
+            details_frame, orient=tk.VERTICAL, command=self.details_text.yview,
+        )
         self.details_text.configure(yscrollcommand=details_scrollbar.set)
 
         self.details_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -500,7 +519,7 @@ Safety Flags: {', '.join(conflict.safety_flags) if conflict.safety_flags else 'N
                                        command=self._accept_ai_decision)
         self.accept_button.pack(side=tk.LEFT, padx=(5, 0))
 
-    def _setup_safety_tab(self):
+    def _setup_safety_tab(self) -> None:
         """Setup safety monitoring display"""
 
         # Safety alerts
@@ -531,7 +550,7 @@ Safety Flags: {', '.join(conflict.safety_flags) if conflict.safety_flags else 'N
 
         self._update_metrics_plot()
 
-    def _setup_status_tab(self):
+    def _setup_status_tab(self) -> None:
         """Setup system status display"""
 
         status_label = ttk.Label(self.status_frame, text="System Status",
@@ -563,7 +582,7 @@ Safety Flags: {', '.join(conflict.safety_flags) if conflict.safety_flags else 'N
         ttk.Button(control_frame, text="Emergency Stop",
                   command=self._emergency_stop).pack(side=tk.RIGHT)
 
-    def _setup_history_tab(self):
+    def _setup_history_tab(self) -> None:
         """Setup override history display"""
 
         history_label = ttk.Label(self.history_frame, text="Override History",
@@ -581,7 +600,7 @@ Safety Flags: {', '.join(conflict.safety_flags) if conflict.safety_flags else 'N
 
         self.history_tree.pack(fill=tk.BOTH, expand=True)
 
-    def add_conflict(self, conflict: ConflictDisplay):
+    def add_conflict(self, conflict: ConflictDisplay) -> None:
         """Add a new conflict to the display"""
 
         self.active_conflicts[conflict.conflict_id] = conflict
@@ -605,7 +624,7 @@ Safety Flags: {', '.join(conflict.safety_flags) if conflict.safety_flags else 'N
             self.safety_monitor.escalate_to_human(conflict.conflict_id,
                                                  "Low confidence or safety flags")
 
-    def _color_code_conflict(self, conflict_id: str, confidence: ConfidenceLevel):
+    def _color_code_conflict(self, conflict_id: str, confidence: ConfidenceLevel) -> None:
         """Color code conflict based on confidence level"""
 
         color_map = {
@@ -624,7 +643,7 @@ Safety Flags: {', '.join(conflict.safety_flags) if conflict.safety_flags else 'N
         self.conflicts_tree.tag_configure(tag_name, background=color)
         self.conflicts_tree.item(conflict_id, tags=(tag_name,))
 
-    def _on_conflict_select(self, event):
+    def _on_conflict_select(self, _event: Any) -> None:
         """Handle conflict selection"""
 
         selection = self.conflicts_tree.selection()
@@ -637,7 +656,7 @@ Safety Flags: {', '.join(conflict.safety_flags) if conflict.safety_flags else 'N
         if conflict:
             self._display_conflict_details(conflict)
 
-    def _display_conflict_details(self, conflict: ConflictDisplay):
+    def _display_conflict_details(self, conflict: ConflictDisplay) -> None:
         """Display detailed conflict information"""
 
         self.details_text.delete(1.0, tk.END)
@@ -661,12 +680,13 @@ Baseline Recommendation:
   Safety Score: {conflict.baseline_recommendation.get('safety_score', 'N/A')}
 
 Safety Flags:
-{chr(10).join(f"  - {flag}" for flag in conflict.safety_flags) if conflict.safety_flags else "  None"}
+{chr(10).join(f"  - {flag}" for flag in conflict.safety_flags)
+ if conflict.safety_flags else "  None"}
 """
 
         self.details_text.insert(1.0, details)
 
-    def _override_decision(self):
+    def _override_decision(self) -> None:
         """Handle controller override"""
 
         selection = self.conflicts_tree.selection()
@@ -685,7 +705,10 @@ Safety Flags:
         override = OverrideDecision(
             conflict_id=conflict_id,
             override_action=override_action,
-            reason=messagebox.askstring("Override Reason", "Reason for override:") or "No reason provided",
+            reason=(
+                messagebox.askstring("Override Reason", "Reason for override:")
+                or "No reason provided"
+            ),
             timestamp=time.time(),
             controller_id="CTRL001",  # In practice, get from user authentication
         )
@@ -703,7 +726,7 @@ Safety Flags:
 
         messagebox.showinfo("Override Recorded", f"Override recorded for conflict {conflict_id}")
 
-    def _accept_ai_decision(self):
+    def _accept_ai_decision(self) -> None:
         """Handle controller acceptance of AI decision"""
 
         selection = self.conflicts_tree.selection()
@@ -718,7 +741,7 @@ Safety Flags:
 
         messagebox.showinfo("Decision Accepted", f"AI decision accepted for conflict {conflict_id}")
 
-    def _update_history_display(self, override: OverrideDecision):
+    def _update_history_display(self, override: OverrideDecision) -> None:
         """Update override history display"""
 
         timestamp_str = time.strftime("%H:%M:%S", time.localtime(override.timestamp))
@@ -730,7 +753,7 @@ Safety Flags:
             override.reason,
         ))
 
-    def _update_metrics_plot(self):
+    def _update_metrics_plot(self) -> None:
         """Update safety metrics visualization"""
 
         self.metrics_figure.clear()
@@ -742,9 +765,10 @@ Safety Flags:
 
         # Sample data (in practice, get from actual metrics)
         times = np.linspace(0, 60, 100)  # Last 60 seconds
-        confidence_data = 0.7 + 0.2 * np.sin(times / 10) + np.random.normal(0, 0.05, 100)
-        response_times = 2.0 + 0.5 * np.sin(times / 15) + np.random.normal(0, 0.1, 100)
-        safety_scores = 0.8 + 0.15 * np.cos(times / 8) + np.random.normal(0, 0.03, 100)
+        rng = np.random.default_rng()
+        confidence_data = 0.7 + 0.2 * np.sin(times / 10) + rng.normal(0, 0.05, 100)
+        response_times = 2.0 + 0.5 * np.sin(times / 15) + rng.normal(0, 0.1, 100)
+        safety_scores = 0.8 + 0.15 * np.cos(times / 8) + rng.normal(0, 0.03, 100)
 
         # Plot confidence over time
         ax1.plot(times, confidence_data, "b-", linewidth=2)
@@ -777,7 +801,7 @@ Safety Flags:
         self.metrics_figure.tight_layout()
         self.metrics_canvas.draw()
 
-    def _monitoring_loop(self):
+    def _monitoring_loop(self) -> None:
         """Main monitoring loop"""
 
         while self.monitoring_active:
@@ -800,7 +824,7 @@ Safety Flags:
                 logging.exception("Monitoring loop error")
                 time.sleep(5)
 
-    def _update_alerts_display(self, alerts: list[dict]):
+    def _update_alerts_display(self, alerts: list[dict]) -> None:
         """Update alerts listbox"""
 
         self.alerts_listbox.delete(0, tk.END)
@@ -813,7 +837,7 @@ Safety Flags:
         # Scroll to bottom
         self.alerts_listbox.see(tk.END)
 
-    def _update_status_display(self):
+    def _update_status_display(self) -> None:
         """Update system status display"""
 
         # System information
@@ -836,13 +860,16 @@ Confidence Average: 0.75
 Safety Score Average: 0.82
 Hallucination Rate: 15.2%
 Override Rate: 8.7%
-Critical Alerts: {len([a for a in self.safety_monitor.get_recent_alerts() if 'critical' in a['alert'].lower()])}
+Critical Alerts: {len([
+    a for a in self.safety_monitor.get_recent_alerts()
+    if 'critical' in a['alert'].lower()
+])}
 """
 
         self.perf_text.delete(1.0, tk.END)
         self.perf_text.insert(1.0, perf_info)
 
-    def _export_report(self):
+    def _export_report(self) -> None:
         """Export system report"""
 
         report_data = {
@@ -868,7 +895,7 @@ Critical Alerts: {len([a for a in self.safety_monitor.get_recent_alerts() if 'cr
         except Exception as e:
             messagebox.showerror("Export Error", f"Failed to export report: {e}")
 
-    def _reset_alerts(self):
+    def _reset_alerts(self) -> None:
         """Reset safety alerts"""
 
         if messagebox.askyesno("Reset Alerts", "Are you sure you want to reset all alerts?"):
@@ -876,7 +903,7 @@ Critical Alerts: {len([a for a in self.safety_monitor.get_recent_alerts() if 'cr
             self.alerts_listbox.delete(0, tk.END)
             messagebox.showinfo("Alerts Reset", "All alerts have been cleared.")
 
-    def _emergency_stop(self):
+    def _emergency_stop(self) -> None:
         """Emergency stop procedure"""
 
         if messagebox.askyesno("Emergency Stop",
@@ -886,7 +913,7 @@ Critical Alerts: {len([a for a in self.safety_monitor.get_recent_alerts() if 'cr
             logging.critical("EMERGENCY STOP activated by controller")
             messagebox.showwarning("Emergency Stop", "AI operations halted. Manual control only.")
 
-    def run(self):
+    def run(self) -> None:
         """Start the interface"""
 
         try:
@@ -895,7 +922,7 @@ Critical Alerts: {len([a for a in self.safety_monitor.get_recent_alerts() if 'cr
             self.monitoring_active = False
 
 # Example integration function
-def create_test_interface():
+def create_test_interface() -> ControllerInterface:
     """Create test interface with sample data"""
 
     interface = ControllerInterface()

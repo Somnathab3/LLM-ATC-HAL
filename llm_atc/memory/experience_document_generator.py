@@ -10,7 +10,7 @@ import os
 import time
 import uuid
 from dataclasses import asdict, dataclass
-from typing import Any, Dict, List
+from typing import Any
 
 import chromadb
 import numpy as np
@@ -206,7 +206,7 @@ class ExperienceDocumentGenerator:
                 metadatas=[metadata],
             )
 
-            self.logger.info("Successfully stored experience %s", exp_doc['experience_id'])
+            self.logger.info("Successfully stored experience %s", exp_doc["experience_id"])
 
         except Exception:
             self.logger.exception("Failed to embed and store experience")

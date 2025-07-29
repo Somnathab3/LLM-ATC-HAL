@@ -7,7 +7,7 @@ Traditional ML-based binary classifier for conflict detection
 import logging
 import pickle
 from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import numpy as np
 

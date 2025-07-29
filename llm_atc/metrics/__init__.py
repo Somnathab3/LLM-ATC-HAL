@@ -6,7 +6,7 @@ import os
 import sys
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -23,15 +23,15 @@ except ImportError:
     sns = None
 
 # Add the project root to the Python path
-project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, project_root)
+project_root = Path(__file__).parent.parent.resolve()
+sys.path.insert(0, str(project_root))
 
 # Hallucination analysis stub - removed legacy analysis module dependency
-def analyze_hallucinations_in_log(log_file):
+def analyze_hallucinations_in_log(_log_file: str) -> dict[str, Any]:
     """Analyze hallucinations in log file - simplified implementation"""
     return {"total_hallucinations": 0, "by_type": {}, "by_model": {}}
 
-def compute_metrics(log_file):
+def compute_metrics(log_file: str) -> dict[str, Any]:
     """Compute hallucination and performance metrics from simulation logs."""
     try:
         # Get detailed hallucination analysis
@@ -39,30 +39,34 @@ def compute_metrics(log_file):
 
         # Read log file line by line and extract JSON entries
         data = []
-        with open(log_file) as f:
+        with Path(log_file).open() as f:
             for line in f:
-                line = line.strip()
-                if line:
+                log_entry = line.strip()
+                if log_entry:
                     # Try to extract JSON from log entries
-                    if line.startswith("{") and line.endswith("}"):
+                    if log_entry.startswith("{") and log_entry.endswith("}"):
                         # Direct JSON line
                         try:
-                            entry = json.loads(line)
-                            if "best_by_llm" in entry and "baseline_best" in entry:
-                                data.append(entry)
+                            parsed_entry = json.loads(log_entry)
+                            if "best_by_llm" in parsed_entry and "baseline_best" in parsed_entry:
+                                data.append(parsed_entry)
                         except json.JSONDecodeError as e:
-                            logging.warning("Failed to parse JSON line: %s. Error: %s", line, e)
+                            logging.warning(
+                                "Failed to parse JSON line: %s. Error: %s",
+                                log_entry, e,
+                            )
                     else:
                         # Try to extract JSON from within log line
                         try:
                             # Look for JSON patterns in the log line
-                            json_start = line.find("{")
-                            json_end = line.rfind("}")
+                            json_start = log_entry.find("{")
+                            json_end = log_entry.rfind("}")
                             if json_start >= 0 and json_end > json_start:
-                                json_str = line[json_start:json_end + 1]
-                                entry = json.loads(json_str)
-                                if "best_by_llm" in entry and "baseline_best" in entry:
-                                    data.append(entry)
+                                json_str = log_entry[json_start:json_end + 1]
+                                parsed_entry = json.loads(json_str)
+                                if ("best_by_llm" in parsed_entry and
+                                    "baseline_best" in parsed_entry):
+                                    data.append(parsed_entry)
                         except (json.JSONDecodeError, ValueError):
                             # Skip lines that don't contain valid JSON
                             continue
@@ -72,10 +76,10 @@ def compute_metrics(log_file):
             return create_empty_metrics()
 
         # Convert to DataFrame for easier analysis
-        df = pd.DataFrame(data)
+        data_frame = pd.DataFrame(data)
 
         # Basic metrics
-        total_tests = len(df)
+        total_tests = len(data_frame)
 
         # Performance metrics
         llm_times = []
@@ -87,7 +91,7 @@ def compute_metrics(log_file):
         safety_margins = []
         efficiency_penalties = []
 
-        for _, row in df.iterrows():
+        for _, row in data_frame.iterrows():
             # Extract timing data
             if "llm_time" in row:
                 llm_times.append(row["llm_time"])
@@ -129,7 +133,7 @@ def compute_metrics(log_file):
         logging.exception("Error computing metrics from %s", log_file)
         return create_empty_metrics()
 
-def create_empty_metrics():
+def create_empty_metrics() -> dict[str, Any]:
     """Create empty metrics structure when no data is available."""
     return {
         "total_tests": 0,
@@ -144,34 +148,36 @@ def create_empty_metrics():
         "hallucination_analysis": {"total_hallucinations": 0, "by_type": {}, "by_model": {}},
     }
 
-def print_metrics_summary(metrics):
-    """Print a formatted summary of the metrics."""
-    print("\n" + "="*60)
-    print("METRICS SUMMARY")
-    print("="*60)
-    print(f"Total Tests: {metrics['total_tests']}")
-    print(f"Total Hallucinations: {metrics['total_hallucinations']}")
-    print(f"Avg Hallucinations/Test: {metrics['avg_hallucinations_per_test']:.2f}")
-    print(f"Avg LLM Time: {metrics['avg_llm_time']:.2f}s")
-    print(f"Avg Baseline Time: {metrics['avg_baseline_time']:.2f}s")
-    print(f"Avg FP Rate: {metrics['avg_fp_rate']:.3f}")
-    print(f"Avg FN Rate: {metrics['avg_fn_rate']:.3f}")
-    print(f"Avg Safety Margin: {metrics['avg_safety_margin']:.2f} NM")
-    print(f"Avg Efficiency Penalty: {metrics['avg_efficiency_penalty']:.2f} NM")
+def print_metrics_summary(metrics: dict[str, Any]) -> None:
+    """Print a formatted summary of the metrics using logging."""
+    logger = logging.getLogger(__name__)
+
+    logger.info("=" * 60)
+    logger.info("METRICS SUMMARY")
+    logger.info("=" * 60)
+    logger.info("Total Tests: %s", metrics["total_tests"])
+    logger.info("Total Hallucinations: %s", metrics["total_hallucinations"])
+    logger.info("Avg Hallucinations/Test: %.2f", metrics["avg_hallucinations_per_test"])
+    logger.info("Avg LLM Time: %.2fs", metrics["avg_llm_time"])
+    logger.info("Avg Baseline Time: %.2fs", metrics["avg_baseline_time"])
+    logger.info("Avg FP Rate: %.3f", metrics["avg_fp_rate"])
+    logger.info("Avg FN Rate: %.3f", metrics["avg_fn_rate"])
+    logger.info("Avg Safety Margin: %.2f NM", metrics["avg_safety_margin"])
+    logger.info("Avg Efficiency Penalty: %.2f NM", metrics["avg_efficiency_penalty"])
 
     # Hallucination breakdown
     hal_analysis = metrics["hallucination_analysis"]
     if hal_analysis["by_type"]:
-        print("\nHallucination Breakdown by Type:")
+        logger.info("Hallucination Breakdown by Type:")
         for hal_type, count in hal_analysis["by_type"].items():
-            print(f"  {hal_type}: {count}")
+            logger.info("  %s: %s", hal_type, count)
 
     if hal_analysis["by_model"]:
-        print("\nHallucination Breakdown by Model:")
+        logger.info("Hallucination Breakdown by Model:")
         for model, count in hal_analysis["by_model"].items():
-            print(f"  {model}: {count}")
+            logger.info("  %s: %s", model, count)
 
-    print("="*60)
+    logger.info("=" * 60)
 
 def calc_fp_fn(pred_conflicts: list[dict[str, Any]],
                gt_conflicts: list[dict[str, Any]]) -> tuple[float, float]:
@@ -210,7 +216,7 @@ def calc_path_extra(actual_traj: list[dict[str, Any]],
     if not actual_traj or not original_traj:
         return 0.0
 
-    def calc_trajectory_distance(traj):
+    def calc_trajectory_distance(traj: list[dict[str, Any]]) -> float:
         """Calculate total distance of a trajectory."""
         total_dist = 0.0
         for i in range(1, len(traj)):
@@ -218,7 +224,10 @@ def calc_path_extra(actual_traj: list[dict[str, Any]],
             curr_point = traj[i]
 
             # Simple Euclidean distance (in practice, use great circle distance)
-            if "lat" in prev_point and "lon" in prev_point and "lat" in curr_point and "lon" in curr_point:
+            if (
+                "lat" in prev_point and "lon" in prev_point and
+                "lat" in curr_point and "lon" in curr_point
+            ):
                 lat_diff = curr_point["lat"] - prev_point["lat"]
                 lon_diff = curr_point["lon"] - prev_point["lon"]
                 # Rough conversion to nautical miles (more accurate calculation needed)
@@ -259,24 +268,37 @@ def aggregate_thesis_metrics(results_dir: str) -> dict[str, Any]:
         "total_tests": sum(m["total_tests"] for m in all_metrics),
         "total_hallucinations": sum(m["total_hallucinations"] for m in all_metrics),
         "avg_llm_time": np.mean([m["avg_llm_time"] for m in all_metrics if m["avg_llm_time"] > 0]),
-        "avg_baseline_time": np.mean([m["avg_baseline_time"] for m in all_metrics if m["avg_baseline_time"] > 0]),
+        "avg_baseline_time": np.mean([
+            m["avg_baseline_time"] for m in all_metrics
+            if m["avg_baseline_time"] > 0
+        ]),
         "avg_fp_rate": np.mean([m["avg_fp_rate"] for m in all_metrics if m["avg_fp_rate"] > 0]),
         "avg_fn_rate": np.mean([m["avg_fn_rate"] for m in all_metrics if m["avg_fn_rate"] > 0]),
-        "avg_safety_margin": np.mean([m["avg_safety_margin"] for m in all_metrics if m["avg_safety_margin"] > 0]),
-        "avg_efficiency_penalty": np.mean([m["avg_efficiency_penalty"] for m in all_metrics if m["avg_efficiency_penalty"] > 0]),
+        "avg_safety_margin": np.mean([
+            m["avg_safety_margin"] for m in all_metrics
+            if m["avg_safety_margin"] > 0
+        ]),
+        "avg_efficiency_penalty": np.mean([
+            m["avg_efficiency_penalty"] for m in all_metrics
+            if m["avg_efficiency_penalty"] > 0
+        ]),
         "files_processed": len(all_metrics),
     }
 
     # Calculate overall hallucination rate
     if aggregated["total_tests"] > 0:
-        aggregated["avg_hallucinations_per_test"] = aggregated["total_hallucinations"] / aggregated["total_tests"]
+        aggregated["avg_hallucinations_per_test"] = (
+            aggregated["total_hallucinations"] / aggregated["total_tests"]
+        )
     else:
         aggregated["avg_hallucinations_per_test"] = 0
 
     return aggregated
 
 # Visualization functions (if plotting is available)
-def plot_metrics_comparison(llm_metrics: dict, baseline_metrics: dict, save_path: str = None):
+def plot_metrics_comparison(
+    llm_metrics: dict, baseline_metrics: dict, save_path: Optional[str] = None,
+) -> None:
     """Create comparison plots between LLM and baseline metrics."""
     if not PLOTTING_AVAILABLE:
         logging.warning("Matplotlib not available, skipping plots")
@@ -289,7 +311,10 @@ def plot_metrics_comparison(llm_metrics: dict, baseline_metrics: dict, save_path
     # FP/FN Rate comparison
     categories = ["False Positive Rate", "False Negative Rate"]
     llm_values = [llm_metrics.get("avg_fp_rate", 0), llm_metrics.get("avg_fn_rate", 0)]
-    baseline_values = [baseline_metrics.get("avg_fp_rate", 0), baseline_metrics.get("avg_fn_rate", 0)]
+    baseline_values = [
+        baseline_metrics.get("avg_fp_rate", 0),
+        baseline_metrics.get("avg_fn_rate", 0),
+    ]
 
     x = np.arange(len(categories))
     width = 0.35
@@ -312,8 +337,14 @@ def plot_metrics_comparison(llm_metrics: dict, baseline_metrics: dict, save_path
 
     # Safety margin comparison
     safety_metrics = ["Safety Margin", "Efficiency Penalty"]
-    llm_safety = [llm_metrics.get("avg_safety_margin", 0), llm_metrics.get("avg_efficiency_penalty", 0)]
-    baseline_safety = [baseline_metrics.get("avg_safety_margin", 0), baseline_metrics.get("avg_efficiency_penalty", 0)]
+    llm_safety = [
+        llm_metrics.get("avg_safety_margin", 0),
+        llm_metrics.get("avg_efficiency_penalty", 0),
+    ]
+    baseline_safety = [
+        baseline_metrics.get("avg_safety_margin", 0),
+        baseline_metrics.get("avg_efficiency_penalty", 0),
+    ]
 
     x = np.arange(len(safety_metrics))
     axes[1, 0].bar(x - width/2, llm_safety, width, label="LLM", alpha=0.8)
@@ -325,7 +356,12 @@ def plot_metrics_comparison(llm_metrics: dict, baseline_metrics: dict, save_path
     axes[1, 0].legend()
 
     # Hallucination rate (LLM only)
-    axes[1, 1].bar(["LLM"], [llm_metrics.get("avg_hallucinations_per_test", 0)], alpha=0.8, color="red")
+    axes[1, 1].bar(
+        ["LLM"],
+        [llm_metrics.get("avg_hallucinations_per_test", 0)],
+        alpha=0.8,
+        color="red",
+    )
     axes[1, 1].set_ylabel("Hallucinations per Test")
     axes[1, 1].set_title("Hallucination Rate")
 
@@ -341,10 +377,10 @@ if __name__ == "__main__":
     # Example usage
     if len(sys.argv) > 1:
         log_file = sys.argv[1]
-        if os.path.exists(log_file):
+        if Path(log_file).exists():
             metrics = compute_metrics(log_file)
             print_metrics_summary(metrics)
         else:
-            print(f"Log file {log_file} not found")
+            logging.error("Log file %s not found", log_file)
     else:
-        print("Usage: python -m metrics <log_file>")
+        logging.info("Usage: python -m metrics <log_file>")

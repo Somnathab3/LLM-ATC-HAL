@@ -7,7 +7,25 @@ import logging
 import time
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
+
+# Constants for separation standards and thresholds
+MIN_HORIZONTAL_SEPARATION_NM = 5.0
+MIN_VERTICAL_SEPARATION_FT = 1000.0
+CRITICAL_HORIZONTAL_SEPARATION_NM = 1.0
+CRITICAL_VERTICAL_SEPARATION_FT = 200.0
+HIGH_HORIZONTAL_SEPARATION_NM = 2.0
+HIGH_VERTICAL_SEPARATION_FT = 500.0
+MEDIUM_HORIZONTAL_SEPARATION_NM = 3.0
+MEDIUM_VERTICAL_SEPARATION_FT = 800.0
+DEGREES_TO_NM_FACTOR = 60.0
+DEFAULT_TIME_TO_CONFLICT_SEC = 120.0
+URGENT_TIME_THRESHOLD_SEC = 60.0
+NORMAL_TIME_THRESHOLD_SEC = 180.0
+DEFAULT_EXPECTED_SEPARATION_INCREASE_NM = 2.0
+DEFAULT_RESOLUTION_TIME_SEC = 180.0
+DEFAULT_SAFETY_MARGIN_IMPROVEMENT = 0.15
+DEFAULT_CONFIDENCE = 0.85
 
 
 class PlanType(Enum):
@@ -52,7 +70,7 @@ class Planner:
     Planner agent responsible for conflict assessment and action plan generation
     """
 
-    def __init__(self, llm_client=None):
+    def __init__(self, llm_client: Optional[Any] = None) -> None:
         self.llm_client = llm_client
         self.logger = logging.getLogger(__name__)
         self.assessment_history: list[ConflictAssessment] = []
@@ -165,7 +183,8 @@ class Planner:
                 separation = self._calculate_separation(ac1_data, ac2_data)
 
                 # Check if below minimum separation
-                if separation["horizontal"] < 5.0 or separation["vertical"] < 1000.0:  # nm and ft
+                if (separation["horizontal"] < MIN_HORIZONTAL_SEPARATION_NM or
+                    separation["vertical"] < MIN_VERTICAL_SEPARATION_FT):
                     conflicts.append({
                         "aircraft": [ac1_id, ac2_id],
                         "separation": separation,
@@ -182,7 +201,7 @@ class Planner:
         lat2, lon2, alt2 = ac2_data.get("lat", 0), ac2_data.get("lon", 0), ac2_data.get("alt", 0)
 
         # Horizontal distance in nautical miles (simplified)
-        horizontal_nm = ((lat2 - lat1) ** 2 + (lon2 - lon1) ** 2) ** 0.5 * 60
+        horizontal_nm = ((lat2 - lat1) ** 2 + (lon2 - lon1) ** 2) ** 0.5 * DEGREES_TO_NM_FACTOR
 
         # Vertical separation in feet
         vertical_ft = abs(alt2 - alt1)
@@ -194,19 +213,22 @@ class Planner:
 
     def _assess_severity(self, separation: dict[str, float]) -> str:
         """Assess conflict severity based on separation"""
-        if separation["horizontal"] < 1.0 or separation["vertical"] < 200:
+        if (separation["horizontal"] < CRITICAL_HORIZONTAL_SEPARATION_NM or
+            separation["vertical"] < CRITICAL_VERTICAL_SEPARATION_FT):
             return "critical"
-        if separation["horizontal"] < 2.0 or separation["vertical"] < 500:
+        if (separation["horizontal"] < HIGH_HORIZONTAL_SEPARATION_NM or
+            separation["vertical"] < HIGH_VERTICAL_SEPARATION_FT):
             return "high"
-        if separation["horizontal"] < 3.0 or separation["vertical"] < 800:
+        if (separation["horizontal"] < MEDIUM_HORIZONTAL_SEPARATION_NM or
+            separation["vertical"] < MEDIUM_VERTICAL_SEPARATION_FT):
             return "medium"
         return "low"
 
-    def _estimate_time_to_conflict(self, ac1_data: dict, ac2_data: dict) -> float:
+    def _estimate_time_to_conflict(self, _ac1_data: dict, _ac2_data: dict) -> float:
         """Estimate time to conflict in seconds"""
         # Simplified calculation based on current trajectories
         # In real implementation would use proper trajectory prediction
-        return 120.0  # Default 2 minutes
+        return DEFAULT_TIME_TO_CONFLICT_SEC  # Default 2 minutes
 
     def _prioritize_conflicts(self, conflicts: list[dict]) -> dict[str, Any]:
         """Select the most critical conflict to address first"""
@@ -245,7 +267,7 @@ class Planner:
             },
         )
 
-    def _determine_recommended_action(self, conflict: dict, aircraft_data: dict) -> PlanType:
+    def _determine_recommended_action(self, conflict: dict, _aircraft_data: dict) -> PlanType:
         """Determine the most appropriate action type for conflict resolution"""
         severity = conflict["severity"]
 
@@ -263,8 +285,9 @@ class Planner:
         severity = conflict["severity"]
         time_to_conflict = conflict["time_to_conflict"]
 
-        return f"Detected {severity} conflict between {aircraft} with {time_to_conflict:.0f}s to impact. " \
-               f"Recommended {action.value} to ensure safe separation."
+        return (f"Detected {severity} conflict between {aircraft} with "
+                f"{time_to_conflict:.0f}s to impact. "
+                f"Recommended {action.value} to ensure safe separation.")
 
     def _generate_commands(self, assessment: ConflictAssessment) -> list[str]:
         """Generate specific BlueSky commands for conflict resolution"""
@@ -297,12 +320,13 @@ class Planner:
 
         return commands
 
-    def _calculate_expected_outcome(self, assessment: ConflictAssessment, commands: list[str]) -> dict[str, Any]:
+    def _calculate_expected_outcome(self, _assessment: ConflictAssessment,
+                                  _commands: list[str]) -> dict[str, Any]:
         """Calculate expected outcome of executing the commands"""
         return {
-            "expected_separation_increase": 2.0,  # nm
-            "resolution_time": 180.0,  # seconds
-            "safety_margin_improvement": 0.15,
+            "expected_separation_increase": DEFAULT_EXPECTED_SEPARATION_INCREASE_NM,  # nm
+            "resolution_time": DEFAULT_RESOLUTION_TIME_SEC,  # seconds
+            "safety_margin_improvement": DEFAULT_SAFETY_MARGIN_IMPROVEMENT,
             "icao_compliance": True,
         }
 
@@ -318,9 +342,9 @@ class Planner:
         base_priority = severity_priority.get(assessment.severity, 1)
 
         # Adjust based on time to conflict
-        if assessment.time_to_conflict < 60:
+        if assessment.time_to_conflict < URGENT_TIME_THRESHOLD_SEC:
             base_priority += 2
-        elif assessment.time_to_conflict < 180:
+        elif assessment.time_to_conflict < NORMAL_TIME_THRESHOLD_SEC:
             base_priority += 1
 
         return min(base_priority, 10)
