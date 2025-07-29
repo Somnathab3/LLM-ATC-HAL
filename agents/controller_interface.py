@@ -2,6 +2,7 @@
 """
 Real-Time Human-AI Oversight System for ATC Operations
 Provides controller interface with confidence displays and override capabilities
+Enhanced with embodied agent planning loop
 """
 
 import tkinter as tk
@@ -10,13 +11,21 @@ import json
 import logging
 import time
 import threading
-from typing import Dict, List, Optional, Callable
+import asyncio
+from typing import Dict, List, Optional, Callable, Any
 from dataclasses import dataclass
 from enum import Enum
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
+
+# Import embodied agent components
+from .planner import Planner, ConflictAssessment, ActionPlan
+from .executor import Executor, ExecutionResult
+from .verifier import Verifier, VerificationResult
+from .scratchpad import Scratchpad, ReasoningStep
+from tools import bluesky_tools
 
 class ConfidenceLevel(Enum):
     CRITICAL = "critical"
@@ -132,18 +141,29 @@ class SafetyMonitor:
         return recent_alerts
 
 class ControllerInterface:
-    """Main controller interface for human-AI oversight"""
+    """Main controller interface for human-AI oversight with embodied agent planning loop"""
     
-    def __init__(self):
+    def __init__(self, llm_client=None):
         self.root = tk.Tk()
         self.root.title("ATC Hallucination Detection & Safety Assurance System")
         self.root.geometry("1400x900")
         
-        # Initialize components
+        # Initialize safety monitor
         self.safety_monitor = SafetyMonitor()
         self.active_conflicts = {}
         self.override_history = []
         self.update_callbacks = []
+        
+        # Initialize embodied agent components
+        self.planner = Planner(llm_client=llm_client)
+        self.executor = Executor(command_sender=self._send_bluesky_command)
+        self.verifier = Verifier()
+        self.scratchpad = Scratchpad()
+        
+        # Planning loop control
+        self.planning_active = False
+        self.planning_thread = None
+        self.max_planning_iterations = 10
         
         # Setup UI
         self._setup_ui()
@@ -152,6 +172,244 @@ class ControllerInterface:
         self.monitoring_thread = threading.Thread(target=self._monitoring_loop, daemon=True)
         self.monitoring_active = True
         self.monitoring_thread.start()
+    
+    def start_planning_loop(self) -> Dict[str, Any]:
+        """
+        Start the embodied agent planning loop
+        
+        Returns:
+            Dictionary with status and history
+        """
+        if self.planning_active:
+            return {'status': 'already_running', 'message': 'Planning loop already active'}
+        
+        self.planning_active = True
+        
+        try:
+            self.scratchpad.start_new_session()
+            
+            # Log initial monitoring step
+            initial_data = bluesky_tools.GetAllAircraftInfo()
+            self.scratchpad.log_monitoring_step(initial_data)
+            
+            iteration_count = 0
+            
+            while self.planning_active and iteration_count < self.max_planning_iterations:
+                try:
+                    # Step 1: Get aircraft information
+                    info = bluesky_tools.GetAllAircraftInfo()
+                    
+                    # Step 2: Assess conflicts
+                    assessment = self.planner.assess_conflict(info)
+                    
+                    if assessment is None:
+                        # No conflicts detected, continue monitoring
+                        self.scratchpad.log_monitoring_step(info)
+                        time.sleep(5)  # Wait before next check
+                        continue
+                    
+                    # Log assessment step
+                    self.scratchpad.log_assessment_step(assessment)
+                    
+                    # Step 3: Generate action plan
+                    plan = self.planner.generate_action_plan(assessment)
+                    
+                    if plan is None:
+                        self.scratchpad.log_error_step("Failed to generate action plan")
+                        break
+                    
+                    # Log planning step
+                    self.scratchpad.log_planning_step(plan)
+                    
+                    # Step 4: Execute plan
+                    exec_result = self.executor.send_plan(plan)
+                    
+                    # Log execution step
+                    self.scratchpad.log_execution_step(exec_result)
+                    
+                    # Step 5: Verify execution
+                    verification_passed = self.verifier.check(exec_result, timeout_seconds=5)
+                    
+                    # Get verification result from history
+                    verification_results = self.verifier.get_verification_history()
+                    if verification_results:
+                        latest_verification = verification_results[-1]
+                        self.scratchpad.log_verification_step(latest_verification)
+                    
+                    # Step 6: Check if we should continue
+                    if not verification_passed:
+                        self.scratchpad.log_error_step("Verification failed, stopping planning loop")
+                        break
+                    
+                    # Update UI with current conflict
+                    self._update_conflict_display(assessment, plan, exec_result)
+                    
+                    iteration_count += 1
+                    
+                    # Brief pause between iterations
+                    time.sleep(1)
+                    
+                except Exception as e:
+                    self.scratchpad.log_error_step(f"Planning loop iteration error: {str(e)}")
+                    logging.error(f"Planning loop error: {e}")
+                    break
+            
+            # Complete session
+            session_summary = self.scratchpad.complete_session(
+                success=True,
+                final_status="completed" if iteration_count < self.max_planning_iterations else "max_iterations_reached"
+            )
+            
+            return {
+                'status': 'resolved',
+                'history': self.scratchpad.get_history(),
+                'session_summary': session_summary,
+                'iterations': iteration_count
+            }
+            
+        except Exception as e:
+            self.scratchpad.log_error_step(f"Critical planning loop error: {str(e)}")
+            logging.error(f"Critical planning loop error: {e}")
+            
+            return {
+                'status': 'error',
+                'error': str(e),
+                'history': self.scratchpad.get_history()
+            }
+        finally:
+            self.planning_active = False
+    
+    def stop_planning_loop(self):
+        """Stop the planning loop"""
+        self.planning_active = False
+    
+    def _send_bluesky_command(self, command: str) -> Dict[str, Any]:
+        """
+        Send command to BlueSky through the tools interface
+        
+        Args:
+            command: BlueSky command string
+            
+        Returns:
+            Command response dictionary
+        """
+        try:
+            return bluesky_tools.SendCommand(command)
+        except Exception as e:
+            logging.error(f"Error sending BlueSky command: {e}")
+            return {
+                'success': False,
+                'command': command,
+                'error': str(e),
+                'timestamp': time.time()
+            }
+    
+    def _update_conflict_display(self, assessment: ConflictAssessment, plan: ActionPlan, execution: ExecutionResult):
+        """Update the UI with current conflict information"""
+        try:
+            # Create conflict display object
+            conflict_display = ConflictDisplay(
+                conflict_id=assessment.conflict_id,
+                aircraft_ids=assessment.aircraft_involved,
+                time_to_conflict=assessment.time_to_conflict,
+                current_separation=assessment.metadata.get('separation', {}).get('horizontal', 0.0),
+                severity=assessment.severity,
+                llm_recommendation={
+                    'action_type': assessment.recommended_action.value,
+                    'reasoning': assessment.reasoning,
+                    'commands': plan.commands if plan else []
+                },
+                baseline_recommendation={
+                    'action_type': assessment.recommended_action.value,
+                    'commands': plan.commands if plan else []
+                },
+                confidence_level=self._convert_confidence_to_level(assessment.confidence),
+                safety_flags=[]
+            )
+            
+            # Update conflicts tree
+            self._add_conflict_to_tree(conflict_display)
+            
+            # Update details if this conflict is selected
+            self._update_conflict_details(conflict_display)
+            
+        except Exception as e:
+            logging.error(f"Error updating conflict display: {e}")
+    
+    def _convert_confidence_to_level(self, confidence: float) -> ConfidenceLevel:
+        """Convert numerical confidence to ConfidenceLevel enum"""
+        if confidence >= 0.9:
+            return ConfidenceLevel.EXCELLENT
+        elif confidence >= 0.75:
+            return ConfidenceLevel.HIGH
+        elif confidence >= 0.6:
+            return ConfidenceLevel.MODERATE
+        elif confidence >= 0.4:
+            return ConfidenceLevel.LOW
+        else:
+            return ConfidenceLevel.CRITICAL
+    
+    def _add_conflict_to_tree(self, conflict: ConflictDisplay):
+        """Add conflict to the conflicts tree view"""
+        try:
+            aircraft_str = ", ".join(conflict.aircraft_ids)
+            time_str = f"{conflict.time_to_conflict:.0f}s"
+            sep_str = f"{conflict.current_separation:.1f}nm"
+            conf_str = conflict.confidence_level.value
+            action_str = conflict.llm_recommendation.get('action_type', 'unknown')
+            
+            # Insert into tree
+            item = self.conflicts_tree.insert('', 'end', values=(
+                conflict.conflict_id,
+                aircraft_str,
+                time_str,
+                sep_str,
+                conf_str,
+                action_str
+            ))
+            
+            # Store conflict data with tree item
+            self.active_conflicts[item] = conflict
+            
+        except Exception as e:
+            logging.error(f"Error adding conflict to tree: {e}")
+    
+    def _update_conflict_details(self, conflict: ConflictDisplay):
+        """Update the conflict details text area"""
+        try:
+            details = f"""Conflict ID: {conflict.conflict_id}
+Aircraft: {', '.join(conflict.aircraft_ids)}
+Severity: {conflict.severity}
+Time to Conflict: {conflict.time_to_conflict:.0f} seconds
+Current Separation: {conflict.current_separation:.1f} nautical miles
+Confidence Level: {conflict.confidence_level.value}
+
+AI Recommendation:
+Action Type: {conflict.llm_recommendation.get('action_type', 'N/A')}
+Commands: {', '.join(conflict.llm_recommendation.get('commands', []))}
+Reasoning: {conflict.llm_recommendation.get('reasoning', 'N/A')}
+
+Safety Flags: {', '.join(conflict.safety_flags) if conflict.safety_flags else 'None'}
+"""
+            
+            self.details_text.delete(1.0, tk.END)
+            self.details_text.insert(1.0, details)
+            
+        except Exception as e:
+            logging.error(f"Error updating conflict details: {e}")
+    
+    def get_agent_status(self) -> Dict[str, Any]:
+        """Get status of all embodied agent components"""
+        return {
+            'planner': {
+                'assessments_made': len(self.planner.get_assessment_history()),
+                'plans_generated': len(self.planner.get_plan_history())
+            },
+            'executor': self.executor.get_execution_metrics(),
+            'verifier': self.verifier.get_verification_metrics(),
+            'scratchpad': self.scratchpad.get_session_metrics(),
+            'planning_active': self.planning_active
+        }
         
     def _setup_ui(self):
         """Setup the user interface"""
