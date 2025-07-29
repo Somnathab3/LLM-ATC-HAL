@@ -6,7 +6,7 @@ BlueSky Integration Tools - Function stubs for embodied agent system
 import logging
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any
 
 
 @dataclass
@@ -35,14 +35,14 @@ class ConflictInfo:
     severity: str
 
 
-class BlueSkyToolsException(Exception):
+class BlueSkyToolsError(Exception):
     """Custom exception for BlueSky tools"""
 
 
-def GetAllAircraftInfo() -> Dict[str, Any]:
+def get_all_aircraft_info() -> dict[str, Any]:
     """
     Get information about all aircraft in the simulation
-    
+
     Returns:
         Dictionary containing aircraft information
     """
@@ -80,18 +80,19 @@ def GetAllAircraftInfo() -> Dict[str, Any]:
             "simulation_time": time.time(),
         }
 
-        logging.info(f"Retrieved information for {aircraft_data['total_aircraft']} aircraft")
+        logging.info("Retrieved information for %d aircraft", aircraft_data["total_aircraft"])
         return aircraft_data
 
     except Exception as e:
-        logging.exception(f"Error getting aircraft information: {e}")
-        raise BlueSkyToolsException(f"Failed to get aircraft info: {e}")
+        logging.exception("Error getting aircraft information")
+        msg = f"Failed to get aircraft info: {e}"
+        raise BlueSkyToolsError(msg) from e
 
 
-def GetConflictInfo() -> Dict[str, Any]:
+def get_conflict_info() -> dict[str, Any]:
     """
     Get information about current conflicts in the simulation
-    
+
     Returns:
         Dictionary containing conflict information
     """
@@ -121,18 +122,19 @@ def GetConflictInfo() -> Dict[str, Any]:
             "low_priority_conflicts": 0,
         }
 
-        logging.info(f"Retrieved {conflict_data['total_conflicts']} conflicts")
+        logging.info("Retrieved %d conflicts", conflict_data["total_conflicts"])
         return conflict_data
 
     except Exception as e:
-        logging.exception(f"Error getting conflict information: {e}")
-        raise BlueSkyToolsException(f"Failed to get conflict info: {e}")
+        logging.exception("Error getting conflict information")
+        msg = f"Failed to get conflict info: {e}"
+        raise BlueSkyToolsError(msg) from e
 
 
-def ContinueMonitoring() -> Dict[str, Any]:
+def continue_monitoring() -> dict[str, Any]:
     """
     Continue monitoring aircraft without taking action
-    
+
     Returns:
         Status information about monitoring continuation
     """
@@ -152,28 +154,30 @@ def ContinueMonitoring() -> Dict[str, Any]:
         return result
 
     except Exception as e:
-        logging.exception(f"Error continuing monitoring: {e}")
-        raise BlueSkyToolsException(f"Failed to continue monitoring: {e}")
+        logging.exception("Error continuing monitoring")
+        msg = f"Failed to continue monitoring: {e}"
+        raise BlueSkyToolsError(msg) from e
 
 
-def SendCommand(command: str) -> Dict[str, Any]:
+def send_command(command: str) -> dict[str, Any]:
     """
     Send a command to the BlueSky simulator
-    
+
     Args:
         command: BlueSky command string (e.g., "ALT AAL123 FL350")
-        
+
     Returns:
         Command execution result
     """
     try:
-        logging.info(f"Sending command: {command}")
+        logging.info("Sending command: %s", command)
 
         # Parse command for validation
         command_parts = command.strip().split()
 
         if not command_parts:
-            raise BlueSkyToolsException("Empty command")
+            msg = "Empty command"
+            raise BlueSkyToolsError(msg)
 
         command_type = command_parts[0].upper()
 
@@ -181,7 +185,7 @@ def SendCommand(command: str) -> Dict[str, Any]:
         valid_commands = ["ALT", "HDG", "SPD", "CRE", "DEL", "DEST", "DIRECT", "LNAV"]
 
         if command_type not in valid_commands:
-            logging.warning(f"Unknown command type: {command_type}")
+            logging.warning("Unknown command type: %s", command_type)
 
         # Stub implementation - simulate command execution
         result = {
@@ -205,11 +209,11 @@ def SendCommand(command: str) -> Dict[str, Any]:
                 "response": "Command not recognized",
             })
 
-        logging.info(f"Command executed: {command} -> {result['status']}")
+        logging.info("Command executed: %s -> %s", command, result["status"])
         return result
 
     except Exception as e:
-        logging.exception(f"Error sending command '{command}': {e}")
+        logging.exception("Error sending command '%s'", command)
         return {
             "command": command,
             "status": "failed",
@@ -219,19 +223,21 @@ def SendCommand(command: str) -> Dict[str, Any]:
         }
 
 
-def SearchExperienceLibrary(scenario_type: str, similarity_threshold: float = 0.8) -> Dict[str, Any]:
+def search_experience_library(
+    scenario_type: str, similarity_threshold: float = 0.8,
+) -> dict[str, Any]:
     """
     Search the experience library for similar scenarios
-    
+
     Args:
         scenario_type: Type of scenario to search for
         similarity_threshold: Minimum similarity score for matches
-        
+
     Returns:
         Dictionary containing matching experiences
     """
     try:
-        logging.info(f"Searching experience library for: {scenario_type}")
+        logging.info("Searching experience library for: %s", scenario_type)
 
         # Stub implementation - return simulated experience data
         experience_data = {
@@ -251,7 +257,9 @@ def SearchExperienceLibrary(scenario_type: str, similarity_threshold: float = 0.
                     "outcome": "successful",
                     "safety_margin_achieved": 5.2,  # nautical miles
                     "resolution_time": 180,  # seconds
-                    "lessons_learned": "Early altitude change more effective than late heading change",
+                    "lessons_learned": (
+                        "Early altitude change more effective than late heading change"
+                    ),
                     "success_rate": 0.95,
                     "stored_at": time.time() - 86400,  # 1 day ago
                 },
@@ -280,27 +288,28 @@ def SearchExperienceLibrary(scenario_type: str, similarity_threshold: float = 0.
             ],
         }
 
-        logging.info(f"Found {experience_data['total_matches']} matching experiences")
+        logging.info("Found %d matching experiences", experience_data["total_matches"])
         return experience_data
 
     except Exception as e:
-        logging.exception(f"Error searching experience library: {e}")
-        raise BlueSkyToolsException(f"Failed to search experience library: {e}")
+        logging.exception("Error searching experience library")
+        msg = f"Failed to search experience library: {e}"
+        raise BlueSkyToolsError(msg) from e
 
 
-def GetWeatherInfo(lat: float = None, lon: float = None) -> Dict[str, Any]:
+def get_weather_info(lat: float | None = None, lon: float | None = None) -> dict[str, Any]:
     """
     Get weather information for specified location or current area
-    
+
     Args:
         lat: Latitude (optional)
         lon: Longitude (optional)
-        
+
     Returns:
         Weather information dictionary
     """
     try:
-        logging.info(f"Getting weather info for lat: {lat}, lon: {lon}")
+        logging.info("Getting weather info for lat: %s, lon: %s", lat, lon)
 
         # Stub implementation - return simulated weather data
         weather_data = {
@@ -338,14 +347,15 @@ def GetWeatherInfo(lat: float = None, lon: float = None) -> Dict[str, Any]:
         return weather_data
 
     except Exception as e:
-        logging.exception(f"Error getting weather info: {e}")
-        raise BlueSkyToolsException(f"Failed to get weather info: {e}")
+        logging.exception("Error getting weather info")
+        msg = f"Failed to get weather info: {e}"
+        raise BlueSkyToolsError(msg) from e
 
 
-def GetAirspaceInfo() -> Dict[str, Any]:
+def get_airspace_info() -> dict[str, Any]:
     """
     Get information about current airspace restrictions and constraints
-    
+
     Returns:
         Airspace information dictionary
     """
@@ -398,36 +408,38 @@ def GetAirspaceInfo() -> Dict[str, Any]:
         return airspace_data
 
     except Exception as e:
-        logging.exception(f"Error getting airspace info: {e}")
-        raise BlueSkyToolsException(f"Failed to get airspace info: {e}")
+        logging.exception("Error getting airspace info")
+        msg = f"Failed to get airspace info: {e}"
+        raise BlueSkyToolsError(msg) from e
 
 
 # Tool registry for function calling
 TOOL_REGISTRY = {
-    "GetAllAircraftInfo": GetAllAircraftInfo,
-    "GetConflictInfo": GetConflictInfo,
-    "ContinueMonitoring": ContinueMonitoring,
-    "SendCommand": SendCommand,
-    "SearchExperienceLibrary": SearchExperienceLibrary,
-    "GetWeatherInfo": GetWeatherInfo,
-    "GetAirspaceInfo": GetAirspaceInfo,
+    "GetAllAircraftInfo": get_all_aircraft_info,
+    "GetConflictInfo": get_conflict_info,
+    "ContinueMonitoring": continue_monitoring,
+    "SendCommand": send_command,
+    "SearchExperienceLibrary": search_experience_library,
+    "GetWeatherInfo": get_weather_info,
+    "GetAirspaceInfo": get_airspace_info,
 }
 
 
-def execute_tool(tool_name: str, **kwargs) -> Dict[str, Any]:
+def execute_tool(tool_name: str, **kwargs) -> dict[str, Any]:
     """
     Execute a tool by name with provided arguments
-    
+
     Args:
         tool_name: Name of the tool to execute
         **kwargs: Arguments to pass to the tool
-        
+
     Returns:
         Tool execution result
     """
     try:
         if tool_name not in TOOL_REGISTRY:
-            raise BlueSkyToolsException(f"Unknown tool: {tool_name}")
+            msg = f"Unknown tool: {tool_name}"
+            raise BlueSkyToolsError(msg)
 
         tool_function = TOOL_REGISTRY[tool_name]
         result = tool_function(**kwargs)
@@ -440,7 +452,7 @@ def execute_tool(tool_name: str, **kwargs) -> Dict[str, Any]:
         }
 
     except Exception as e:
-        logging.exception(f"Error executing tool {tool_name}: {e}")
+        logging.exception("Error executing tool %s", tool_name)
         return {
             "tool_name": tool_name,
             "success": False,
@@ -449,6 +461,6 @@ def execute_tool(tool_name: str, **kwargs) -> Dict[str, Any]:
         }
 
 
-def get_available_tools() -> List[str]:
+def get_available_tools() -> list[str]:
     """Get list of available tools"""
     return list(TOOL_REGISTRY.keys())
