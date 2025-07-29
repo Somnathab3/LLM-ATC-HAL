@@ -4,12 +4,12 @@ Demo script showing the embodied agent system in action
 """
 
 import time
-from agents.planner import Planner
-from agents.executor import Executor  
-from agents.verifier import Verifier
-from agents.scratchpad import Scratchpad
+from llm_atc.agents.planner import Planner
+from llm_atc.agents.executor import Executor  
+from llm_atc.agents.verifier import Verifier
+from llm_atc.agents.scratchpad import Scratchpad
 from llm_interface.llm_client import LLMClient
-from tools import bluesky_tools
+from llm_atc.tools import bluesky_tools
 
 def demo_planning_loop():
     """Demonstrate the complete planning loop"""

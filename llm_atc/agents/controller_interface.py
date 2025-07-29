@@ -25,7 +25,7 @@ from .planner import Planner, ConflictAssessment, ActionPlan
 from .executor import Executor, ExecutionResult
 from .verifier import Verifier, VerificationResult
 from .scratchpad import Scratchpad, ReasoningStep
-from tools import bluesky_tools
+from llm_atc.tools import bluesky_tools
 
 class ConfidenceLevel(Enum):
     CRITICAL = "critical"

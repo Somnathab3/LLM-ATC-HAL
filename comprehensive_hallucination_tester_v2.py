@@ -25,9 +25,10 @@ from datetime import datetime
 # Import modular components
 from testing import TestExecutor, TestResult, ScenarioManager, ResultAnalyzer, ResultStreamer
 from llm_interface.ensemble import OllamaEnsembleClient
-from analysis.enhanced_hallucination_detection import create_enhanced_detector
-from metrics.safety_margin_quantifier import SafetyMarginQuantifier
-from memory.experience_integrator import ExperienceIntegrator
+from analysis.enhanced_hallucination_detection import EnhancedHallucinationDetector
+from llm_atc.metrics.safety_margin_quantifier import SafetyMarginQuantifier
+from llm_atc.memory.experience_integrator import ExperienceIntegrator
+from llm_atc.memory.replay_store import VectorReplayStore
 from memory.replay_store import VectorReplayStore
 from validation.input_validator import validator
 import system_validation
@@ -200,7 +201,7 @@ class ComprehensiveHallucinationTesterV2:
             ensemble_client = OllamaEnsembleClient()
             
             # Initialize detection components
-            hallucination_detector = create_enhanced_detector()
+            hallucination_detector = EnhancedHallucinationDetector()
             safety_quantifier = SafetyMarginQuantifier()
             
             # Initialize test executor

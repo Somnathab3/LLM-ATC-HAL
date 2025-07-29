@@ -258,7 +258,7 @@ class TestExecutor:
                 return {'effective_margin': 5.0, 'icao_compliant': True}  # Safe default for single aircraft
             
             # Create mock ConflictGeometry for now (this would be properly implemented with real conflict detection)
-            from metrics.safety_margin_quantifier import ConflictGeometry
+            from llm_atc.metrics.safety_margin_quantifier import ConflictGeometry
             
             aircraft1 = aircraft_list[0]
             aircraft2 = aircraft_list[1]

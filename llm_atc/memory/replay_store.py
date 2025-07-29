@@ -13,21 +13,64 @@ import chromadb
 from chromadb.config import Settings
 import numpy as np
 from dataclasses import dataclass
-from sentence_transformers import SentenceTransformer
+
+# Handle potential sentence transformers issue gracefully
+try:
+    from sentence_transformers import SentenceTransformer
+    SENTENCE_TRANSFORMERS_AVAILABLE = True
+except (ImportError, SyntaxError) as e:
+    logging.warning(f"SentenceTransformers not available: {e}")
+    SentenceTransformer = None
+    SENTENCE_TRANSFORMERS_AVAILABLE = False
 
 
 @dataclass
 class ConflictExperience:
     """Container for conflict experience data"""
-    conflict_id: str
-    conflict_description: str
-    resolution_commands: List[str]
-    safety_score: float
-    conflict_type: str
-    num_aircraft: int
-    reasoning: str
-    outcome: str
-    metadata: Dict[str, Any]
+    conflict_id: str = ""
+    conflict_description: str = ""
+    resolution_commands: List[str] = None
+    safety_score: float = 0.0
+    conflict_type: str = ""
+    num_aircraft: int = 0
+    reasoning: str = ""
+    outcome: str = ""
+    metadata: Dict[str, Any] = None
+    experience_id: str = ""  # Add experience_id field with default
+    timestamp: float = 0.0   # Add timestamp field with default
+    scenario_context: Dict[str, Any] = None  # Add scenario_context field
+    conflict_geometry: Dict[str, Any] = None  # Add conflict_geometry field
+    environmental_conditions: Dict[str, Any] = None  # Add environmental_conditions field
+    llm_decision: Dict[str, Any] = None  # Add llm_decision field
+    baseline_decision: Dict[str, Any] = None  # Add baseline_decision field
+    actual_outcome: Dict[str, Any] = None  # Add actual_outcome field
+    safety_metrics: Dict[str, Any] = None  # Add safety_metrics field
+    hallucination_detected: bool = False  # Add hallucination_detected field
+    hallucination_types: List[str] = None  # Add hallucination_types field
+    controller_override: Any = None  # Add controller_override field
+    lessons_learned: str = ""  # Add lessons_learned field
+    
+    def __post_init__(self):
+        if self.resolution_commands is None:
+            self.resolution_commands = []
+        if self.metadata is None:
+            self.metadata = {}
+        if self.scenario_context is None:
+            self.scenario_context = {}
+        if self.conflict_geometry is None:
+            self.conflict_geometry = {}
+        if self.environmental_conditions is None:
+            self.environmental_conditions = {}
+        if self.llm_decision is None:
+            self.llm_decision = {}
+        if self.baseline_decision is None:
+            self.baseline_decision = {}
+        if self.actual_outcome is None:
+            self.actual_outcome = {}
+        if self.safety_metrics is None:
+            self.safety_metrics = {}
+        if self.hallucination_types is None:
+            self.hallucination_types = []
 
 
 @dataclass
@@ -67,13 +110,19 @@ class VectorReplayStore:
         os.makedirs(storage_dir, exist_ok=True)
         
         # Initialize sentence transformer model (same as generator)
-        try:
-            self.embedding_model = SentenceTransformer("intfloat/e5-large-v2")
+        if SENTENCE_TRANSFORMERS_AVAILABLE:
+            try:
+                self.embedding_model = SentenceTransformer("intfloat/e5-large-v2")
+                self.embedding_dim = 1024
+                self.logger.info("Initialized SentenceTransformer model: intfloat/e5-large-v2")
+            except Exception as e:
+                self.logger.warning(f"Failed to initialize SentenceTransformer: {e}")
+                self.embedding_model = None
+                self.embedding_dim = 1024
+        else:
+            self.logger.warning("SentenceTransformers not available, using fallback embedding")
+            self.embedding_model = None
             self.embedding_dim = 1024
-            self.logger.info("Loaded E5-large-v2 model for retrieval")
-        except Exception as e:
-            self.logger.error(f"Failed to load E5-large-v2 model: {e}")
-            raise
         
         # Initialize Chroma client
         self.chroma_client = chromadb.PersistentClient(
@@ -102,6 +151,73 @@ class VectorReplayStore:
                     "embedding_dim": self.embedding_dim
                 }
             )
+    
+    def store_experience(self, experience: ConflictExperience) -> str:
+        """
+        Store a conflict experience in the vector store
+        
+        Args:
+            experience: ConflictExperience object to store
+            
+        Returns:
+            str: Experience ID if successful, empty string if failed
+        """
+        try:
+            import uuid
+            
+            # Generate unique experience ID
+            exp_id = f"exp_{uuid.uuid4().hex[:8]}_{int(time.time())}"
+            
+            # Create text description for embedding
+            conflict_desc = f"{experience.conflict_description} {experience.reasoning}"
+            
+            # Generate embedding
+            if self.embedding_model:
+                try:
+                    embedding = self.embedding_model.encode(
+                        conflict_desc,
+                        normalize_embeddings=True
+                    )
+                    if isinstance(embedding, np.ndarray):
+                        embedding = embedding.tolist()
+                except Exception as e:
+                    self.logger.warning(f"Failed to generate embedding: {e}")
+                    # Create fallback random embedding
+                    embedding = [0.0] * self.embedding_dim
+            else:
+                # Create fallback random embedding
+                embedding = [0.0] * self.embedding_dim
+            
+            # Prepare metadata
+            metadata = {
+                'experience_id': exp_id,
+                'conflict_id': experience.conflict_id,
+                'conflict_type': experience.conflict_type,
+                'num_aircraft': experience.num_aircraft,
+                'safety_score': experience.safety_score,
+                'outcome': experience.outcome,
+                'timestamp': experience.timestamp,
+                'hallucination_detected': experience.hallucination_detected
+            }
+            
+            # Add metadata from experience.metadata if it exists
+            if experience.metadata:
+                metadata.update(experience.metadata)
+            
+            # Store in collection
+            self.collection.add(
+                ids=[exp_id],
+                embeddings=[embedding],
+                documents=[conflict_desc],
+                metadatas=[metadata]
+            )
+            
+            self.logger.info(f"Stored experience {exp_id}")
+            return exp_id
+            
+        except Exception as e:
+            self.logger.error(f"Failed to store experience: {e}")
+            return ""
     
     def retrieve_experience(self,
                           conflict_desc: str,

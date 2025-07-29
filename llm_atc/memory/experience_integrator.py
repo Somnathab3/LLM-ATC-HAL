@@ -10,9 +10,9 @@ import json
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import asdict
 
-from memory.replay_store import VectorReplayStore, ConflictExperience, SimilarityResult
+from llm_atc.memory.replay_store import VectorReplayStore, ConflictExperience, SimilarityResult
 from analysis.enhanced_hallucination_detection import EnhancedHallucinationDetector
-from metrics.safety_margin_quantifier import SafetyMarginQuantifier
+from llm_atc.metrics.safety_margin_quantifier import SafetyMarginQuantifier
 
 class ExperienceIntegrator:
     """Integrates experience replay with real-time conflict resolution"""
@@ -415,7 +415,7 @@ class ExperienceIntegrator:
         """Simple interface to store experience data directly"""
         try:
             # Create a basic ConflictExperience from the provided data
-            from memory.replay_store import ConflictExperience
+            from llm_atc.memory.replay_store import ConflictExperience
             
             experience = ConflictExperience(
                 experience_id="",

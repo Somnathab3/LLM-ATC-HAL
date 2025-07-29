@@ -5,7 +5,7 @@ import logging
 from typing import Dict, List, Any, Optional, Callable
 
 # Import tools for function calling
-from tools import bluesky_tools
+from llm_atc.tools import bluesky_tools
 
 class LLMClient:
     def __init__(self, model='llama3.1:8b', max_retries=3):
