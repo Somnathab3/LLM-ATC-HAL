@@ -43,7 +43,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-gpu = ["torch", "faiss-gpu"]
+gpu = ["torch", "faiss-cpu"]#no file for gpu
 docs = ["mkdocs>=1.5", "mkdocstrings[python]>=0.24"]
 dev = [
     "pytest>=7.0.0",
