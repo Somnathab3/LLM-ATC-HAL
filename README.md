@@ -88,6 +88,12 @@ LLM-ATC-HAL/
 - **Zero-error validation**: All 13 test scenarios now pass validation with 100% success rate
 - **ICAO compliance**: Improved from 33% to 61.54% compliance rate through realistic scenario parameters
 
+**🧠 Experience Library Migration to Local Embeddings**
+- **New embedding model**: Migrated from OpenAI text-embedding-3-large (3072-dim) to Hugging Face intfloat/e5-large-v2 (1024-dim)
+- **Local inference**: Experience Library now uses local embeddings via intfloat/e5-large-v2 and Chroma HNSW; queries are first metadata-filtered, then cosine-searched
+- **Enhanced retrieval**: Two-step process with metadata filtering followed by vector similarity search
+- **Migration support**: Automatic re-embedding script for existing experience data
+
 **📁 Repository Cleanup**  
 - **Removed 6 obsolete files**: Cleaned up duplicate and unused implementations
 - **Streamlined testing framework**: Consolidated to `comprehensive_hallucination_tester_v2.py`
@@ -642,27 +648,52 @@ test_response = mock_client.query(test_prompt)
 ### Memory Module (`memory/`)
 
 #### `replay_store.py` - Vector-Based Memory Storage
-Milvus-powered vector storage for experience replay.
+Experience replay system using 3072-dimensional text-embedding-3-large embeddings with Chroma HNSW storage and metadata filtering for efficient experience retrieval.
 
 ```python
 from memory.replay_store import VectorReplayStore
 
-store = VectorReplayStore(dimension=384)
+store = VectorReplayStore(storage_dir="memory/chroma_db")
 
-# Store experience
-store.store_experience(
-    scenario_embedding=scenario_vector,
-    response_data=llm_response,
-    outcome_data=safety_results,
-    metadata={'complexity': 'high', 'resolved': True}
+# Store experience with automatic 3072-dim embedding
+store.store_experience(conflict_experience)
+
+# Retrieve similar experiences with metadata filtering
+similar_cases = store.retrieve_experience(
+    conflict_desc="Two aircraft on collision course at same altitude",
+    conflict_type="convergent",
+    num_ac=2,
+    k=5
+)
+```
+
+**Architecture & Metrics:**
+- **Embeddings**: 1024-dimensional intfloat/e5-large-v2 (Hugging Face)
+- **Storage**: Local Chroma HNSW with cosine similarity  
+- **Filtering**: Metadata-first filtering then cosine search
+- **Performance**: Sub-second retrieval for top-k similar experiences
+- **Migration**: Supports migration from legacy 384-dim/3072-dim systems
+
+#### `experience_document_generator.py` - Document Generation & Embedding
+Generates structured experience documents from raw conflict data and creates 1024-dimensional embeddings using Hugging Face's intfloat/e5-large-v2 model.
+
+```python
+from memory.experience_document_generator import ExperienceDocumentGenerator
+
+generator = ExperienceDocumentGenerator()
+
+# Generate structured experience document
+exp_doc = generator.generate_experience(
+    conflict_desc="Two aircraft on converging paths at FL350",
+    commands_do=["Turn left 15 degrees", "Maintain current altitude"],
+    commands_dont=["Descend", "Turn right"],
+    reasoning="Left turn provides best separation with minimal deviation",
+    conflict_type="convergent",
+    num_ac=2
 )
 
-# Retrieve similar experiences
-similar_cases = store.retrieve_similar(
-    query_embedding=current_scenario_vector,
-    k=5,
-    similarity_threshold=0.8
-)
+# Embed and store with 1024-dim E5-large-v2 vectors
+generator.embed_and_store(exp_doc)
 ```
 
 #### `experience_integrator.py` - Learning System

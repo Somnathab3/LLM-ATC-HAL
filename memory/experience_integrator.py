@@ -420,15 +420,15 @@ class ExperienceIntegrator:
             experience = ConflictExperience(
                 experience_id="",
                 timestamp=time.time(),
-                scenario_context=experience_data.get('scenario_context', {}),
+                scenario_context=experience_data.get('scenario', {}),
                 conflict_geometry=experience_data.get('conflict_geometry', {}),
                 environmental_conditions=experience_data.get('environmental_conditions', {}),
-                llm_decision=experience_data.get('llm_decision', {}),
+                llm_decision=experience_data.get('action', {}),
                 baseline_decision=experience_data.get('baseline_decision', {}),
-                actual_outcome=experience_data.get('actual_outcome', {}),
-                safety_metrics=experience_data.get('safety_metrics', {}),
-                hallucination_detected=experience_data.get('hallucination_detected', False),
-                hallucination_types=experience_data.get('hallucination_types', []),
+                actual_outcome=experience_data.get('outcome', {}),
+                safety_metrics=experience_data.get('outcome', {}),
+                hallucination_detected=experience_data.get('outcome', {}).get('hallucination_detected', False),
+                hallucination_types=experience_data.get('outcome', {}).get('hallucination_types', []),
                 controller_override=experience_data.get('controller_override'),
                 lessons_learned=experience_data.get('lessons_learned', "")
             )

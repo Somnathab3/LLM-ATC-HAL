@@ -5,10 +5,14 @@
 #    pip-compile --strip-extras requirements.in
 #
 # NOTE: BlueSky simulator is installed as development version and not listed here
-# Total packages: 59 (optimized from larger dependency tree)
+# Total packages: 61 (optimized from larger dependency tree)
 #
 annotated-types==0.7.0
     # via pydantic
+openai==1.54.3
+    # via -r requirements.in
+chromadb==0.5.23
+    # via -r requirements.in
 anyio==4.9.0
     # via httpx
 attrs==25.3.0

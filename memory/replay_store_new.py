@@ -99,27 +99,13 @@ class VectorReplayStore:
             List of experience documents in score-ascending order
         """
         try:
-            # Step 1: Metadata filtering using simple where clause
-            # Try simple format first  
-            try:
-                filtered_results = self.collection.get(
-                    where={"conflict_type": conflict_type, "num_ac": num_ac}
-                )
-            except:
-                # If that fails, try $eq format
-                try:
-                    filtered_results = self.collection.get(
-                        where={
-                            "$and": [
-                                {"conflict_type": {"$eq": conflict_type}},
-                                {"num_ac": {"$eq": num_ac}}
-                            ]
-                        }
-                    )
-                except:
-                    # If both fail, skip metadata filtering
-                    self.logger.warning("Metadata filtering failed, retrieving all documents")
-                    filtered_results = self.collection.get()
+            # Step 1: Metadata filtering
+            filtered_results = self.collection.get(
+                where={
+                    "conflict_type": conflict_type,
+                    "num_ac": num_ac
+                }
+            )
             
             if not filtered_results['ids']:
                 self.logger.info(f"No experiences found for conflict_type={conflict_type}, num_ac={num_ac}")
@@ -136,19 +122,15 @@ class VectorReplayStore:
             if isinstance(query_embedding, np.ndarray):
                 query_embedding = query_embedding.tolist()
             
-            # Query with embedding, try simple format first
-            try:
-                search_results = self.collection.query(
-                    query_embeddings=[query_embedding],
-                    n_results=min(k, len(filtered_results['ids'])),
-                    where={"conflict_type": conflict_type, "num_ac": num_ac}
-                )
-            except:
-                # If that fails, try without where clause
-                search_results = self.collection.query(
-                    query_embeddings=[query_embedding],
-                    n_results=k
-                )
+            # Query with embedding
+            search_results = self.collection.query(
+                query_embeddings=[query_embedding],
+                n_results=min(k, len(filtered_results['ids'])),
+                where={
+                    "conflict_type": conflict_type,
+                    "num_ac": num_ac
+                }
+            )
             
             # Format results
             experiences = []
@@ -160,15 +142,14 @@ class VectorReplayStore:
                     metadata = search_results['metadatas'][0][i] if search_results['metadatas'] else {}
                     document = search_results['documents'][0][i] if search_results['documents'] else ""
                     
-                    # Filter by metadata if database query didn't work
-                    if metadata.get('conflict_type') == conflict_type and metadata.get('num_ac') == num_ac:
-                        experience_data = {
-                            'experience_id': exp_id,
-                            'conflict_desc': document,
-                            'metadata': metadata,
-                            'similarity_score': similarity
-                        }
-                        experiences.append(experience_data)
+                    experience_data = {
+                        'experience_id': exp_id,
+                        'conflict_desc': document,
+                        'metadata': metadata,
+                        'similarity_score': similarity
+                    }
+                    
+                    experiences.append(experience_data)
             
             # Sort by similarity score (ascending distance = descending similarity)
             experiences.sort(key=lambda x: x['similarity_score'], reverse=True)
@@ -196,46 +177,22 @@ class VectorReplayStore:
             List of experience documents
         """
         try:
-            # Try simple filtering first
-            if conflict_type and num_ac is not None:
-                try:
-                    results = self.collection.get(
-                        where={"conflict_type": conflict_type, "num_ac": num_ac},
-                        limit=limit
-                    )
-                except:
-                    # If database filtering fails, get all and filter manually
-                    results = self.collection.get(limit=limit)
-            elif conflict_type:
-                try:
-                    results = self.collection.get(
-                        where={"conflict_type": conflict_type},
-                        limit=limit
-                    )
-                except:
-                    results = self.collection.get(limit=limit)
-            elif num_ac is not None:
-                try:
-                    results = self.collection.get(
-                        where={"num_ac": num_ac},
-                        limit=limit
-                    )
-                except:
-                    results = self.collection.get(limit=limit)
-            else:
-                results = self.collection.get(limit=limit)
+            where_clause = {}
+            if conflict_type:
+                where_clause['conflict_type'] = conflict_type
+            if num_ac is not None:
+                where_clause['num_ac'] = num_ac
+            
+            results = self.collection.get(
+                where=where_clause if where_clause else None,
+                limit=limit
+            )
             
             experiences = []
             if results['ids']:
                 for i, exp_id in enumerate(results['ids']):
                     metadata = results['metadatas'][i] if results['metadatas'] else {}
                     document = results['documents'][i] if results['documents'] else ""
-                    
-                    # Manual filtering if database filtering failed
-                    if conflict_type and metadata.get('conflict_type') != conflict_type:
-                        continue
-                    if num_ac is not None and metadata.get('num_ac') != num_ac:
-                        continue
                     
                     experience_data = {
                         'experience_id': exp_id,
@@ -255,13 +212,12 @@ class VectorReplayStore:
         try:
             total_count = self.collection.count()
             
-            # Get breakdown by conflict type - use manual counting if needed
+            # Get breakdown by conflict type
             conflict_types = {}
-            all_experiences = self.get_all_experiences()
-            
-            for exp in all_experiences:
-                ct = exp['metadata'].get('conflict_type', 'unknown')
-                conflict_types[ct] = conflict_types.get(ct, 0) + 1
+            for ct in ['convergent', 'parallel', 'crossing', 'overtaking']:
+                count = len(self.collection.get(where={'conflict_type': ct})['ids'])
+                if count > 0:
+                    conflict_types[ct] = count
             
             return {
                 'total_experiences': total_count,
