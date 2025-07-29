@@ -14,12 +14,15 @@ from typing import Dict, List, Tuple, Optional, Any
 from dataclasses import dataclass, asdict
 import uuid
 from sentence_transformers import SentenceTransformer
-import faiss
+from pymilvus import (
+    connections, Collection, FieldSchema, CollectionSchema, DataType,
+    utility, MilvusClient
+)
 from sklearn.metrics.pairwise import cosine_similarity
 
-# Configure FAISS logging to suppress GPU warnings
-faiss_logger = logging.getLogger('faiss')
-faiss_logger.setLevel(logging.WARNING)
+# Configure Milvus logging
+milvus_logger = logging.getLogger('pymilvus')
+milvus_logger.setLevel(logging.WARNING)
 
 @dataclass
 class ConflictExperience:
@@ -146,73 +149,100 @@ class ExperienceEmbedder:
         return features
 
 class VectorReplayStore:
-    """Vector-based storage and retrieval system for conflict resolution experiences"""
+    """Vector-based experience replay store using Milvus for GPU acceleration"""
     
-    def __init__(self, storage_dir: str = "memory/replay_data"):
+    def __init__(self, storage_dir: str = "memory/replay_data", 
+                 milvus_host: str = "localhost", milvus_port: int = 19530):
         self.storage_dir = storage_dir
         self.embedder = ExperienceEmbedder()
         self.experiences = {}
-        self.index = None
-        self.experience_ids = []
+        self.milvus_host = milvus_host
+        self.milvus_port = milvus_port
+        self.collection_name = "conflict_experiences"
+        self.collection = None
         
         # Ensure storage directory exists
         os.makedirs(storage_dir, exist_ok=True)
         
-        # Initialize FAISS index
-        self._initialize_index()
+        # Initialize Milvus connection and collection
+        self._initialize_milvus()
         
         # Load existing experiences
         self._load_experiences()
+    
+    def _initialize_milvus(self):
+        """Initialize Milvus connection and collection"""
         
-    def _initialize_index(self):
-        """Initialize FAISS index for similarity search with GPU optimization"""
-        
-        # Get embedding dimension
-        embedding_dim = self.embedder.sentence_transformer.get_sentence_embedding_dimension()
-        
-        # Try GPU first, fallback to CPU
-        gpu_available = False
         try:
-            # Check if GPU is available and properly configured
-            num_gpus = faiss.get_num_gpus()
-            if num_gpus > 0:
-                # Create GPU index
-                gpu_res = faiss.StandardGpuResources()
-                cpu_index = faiss.IndexFlatL2(embedding_dim)
-                self.index = faiss.index_cpu_to_gpu(gpu_res, 0, cpu_index)
-                gpu_available = True
-                logging.info(f"Initialized GPU FAISS index with dimension {embedding_dim} on GPU 0/{num_gpus}")
+            # Connect to Milvus
+            connections.connect(
+                alias="default",
+                host=self.milvus_host,
+                port=self.milvus_port
+            )
+            logging.info(f"Connected to Milvus at {self.milvus_host}:{self.milvus_port}")
+            
+            # Get embedding dimension
+            embedding_dim = self.embedder.sentence_transformer.get_sentence_embedding_dimension()
+            
+            # Check if collection exists
+            if utility.has_collection(self.collection_name):
+                self.collection = Collection(self.collection_name)
+                logging.info(f"Using existing collection '{self.collection_name}'")
             else:
-                raise RuntimeError("No GPU detected by FAISS")
+                # Create collection schema
+                fields = [
+                    FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, 
+                               auto_id=False, max_length=100),
+                    FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=embedding_dim),
+                    FieldSchema(name="timestamp", dtype=DataType.DOUBLE),
+                    FieldSchema(name="hallucination_detected", dtype=DataType.BOOL),
+                    FieldSchema(name="conflict_type", dtype=DataType.VARCHAR, max_length=50),
+                    FieldSchema(name="safety_score", dtype=DataType.FLOAT)
+                ]
+                
+                schema = CollectionSchema(
+                    fields=fields,
+                    description="ATC conflict resolution experiences"
+                )
+                
+                # Create collection
+                self.collection = Collection(
+                    name=self.collection_name,
+                    schema=schema,
+                    using='default'
+                )
+                
+                logging.info(f"Created new collection '{self.collection_name}' with {embedding_dim}D vectors")
+            
+            # Create index for vector search (GPU optimized)
+            index_params = {
+                "metric_type": "L2",
+                "index_type": "IVF_FLAT",
+                "params": {"nlist": 1024}
+            }
+            
+            self.collection.create_index(
+                field_name="embedding",
+                index_params=index_params
+            )
+            
+            # Load collection into memory for search
+            self.collection.load()
+            
+            logging.info(f"Milvus collection '{self.collection_name}' initialized successfully")
+            
         except Exception as e:
-            # Fallback to CPU index
-            self.index = faiss.IndexFlatL2(embedding_dim)
-            logging.info(f"Initialized CPU FAISS index with dimension {embedding_dim} (GPU not available: {str(e)})")
-        
-        # For production with large datasets, consider using IVF clustering
-        if False:  # Enable for large-scale deployment
-            quantizer = faiss.IndexFlatL2(embedding_dim)
-            n_clusters = min(100, max(1, len(self.experiences) // 10))
-            if gpu_available:
-                try:
-                    cpu_quantizer = faiss.IndexFlatL2(embedding_dim)
-                    cpu_index = faiss.IndexIVFFlat(cpu_quantizer, embedding_dim, n_clusters)
-                    gpu_res = faiss.StandardGpuResources()
-                    self.index = faiss.index_cpu_to_gpu(gpu_res, 0, cpu_index)
-                except Exception:
-                    self.index = faiss.IndexIVFFlat(quantizer, embedding_dim, n_clusters)
-            else:
-                self.index = faiss.IndexIVFFlat(quantizer, embedding_dim, n_clusters)
+            logging.error(f"Failed to initialize Milvus: {e}")
+            raise RuntimeError(f"Milvus initialization failed: {e}")
     
     def _load_experiences(self):
         """Load existing experiences from storage"""
         
         experiences_file = os.path.join(self.storage_dir, "experiences.json")
-        index_file = os.path.join(self.storage_dir, "faiss_index.idx")
-        ids_file = os.path.join(self.storage_dir, "experience_ids.pkl")
         
         try:
-            # Load experiences
+            # Load experiences from JSON file
             if os.path.exists(experiences_file):
                 with open(experiences_file, 'r') as f:
                     experiences_data = json.load(f)
@@ -222,21 +252,106 @@ class VectorReplayStore:
                     experience = ConflictExperience(**exp_data)
                     self.experiences[experience.experience_id] = experience
                 
-                logging.info(f"Loaded {len(self.experiences)} experiences")
-            
-            # Load FAISS index
-            if os.path.exists(index_file) and os.path.exists(ids_file):
-                self.index = faiss.read_index(index_file)
+                logging.info(f"Loaded {len(self.experiences)} experiences from JSON")
                 
-                with open(ids_file, 'rb') as f:
-                    self.experience_ids = pickle.load(f)
-                
-                logging.info(f"Loaded FAISS index with {len(self.experience_ids)} entries")
+                # Sync with Milvus collection
+                self._sync_with_milvus()
             
         except Exception as e:
             logging.error(f"Failed to load experiences: {e}")
             self.experiences = {}
-            self.experience_ids = []
+    
+    def _sync_with_milvus(self):
+        """Sync local experiences with Milvus collection"""
+        
+        try:
+            # Get existing IDs from Milvus
+            if self.collection.num_entities > 0:
+                # Query all existing IDs
+                existing_ids = set()
+                for batch in self.collection.query(
+                    expr="id != ''",
+                    output_fields=["id"],
+                    limit=16384  # Milvus default limit
+                ):
+                    existing_ids.add(batch["id"])
+                
+                # Add missing experiences to Milvus
+                missing_experiences = []
+                for exp_id, experience in self.experiences.items():
+                    if exp_id not in existing_ids:
+                        missing_experiences.append(experience)
+                
+                if missing_experiences:
+                    self._batch_insert_to_milvus(missing_experiences)
+                    logging.info(f"Synced {len(missing_experiences)} missing experiences to Milvus")
+            else:
+                # Collection is empty, insert all experiences
+                if self.experiences:
+                    self._batch_insert_to_milvus(list(self.experiences.values()))
+                    logging.info(f"Inserted all {len(self.experiences)} experiences to Milvus")
+                    
+        except Exception as e:
+            logging.error(f"Failed to sync with Milvus: {e}")
+    
+    def _batch_insert_to_milvus(self, experiences: List[ConflictExperience]):
+        """Insert a batch of experiences to Milvus"""
+        
+        if not experiences:
+            return
+            
+        try:
+            # Prepare data for insertion
+            ids = []
+            embeddings = []
+            timestamps = []
+            hallucination_flags = []
+            conflict_types = []
+            safety_scores = []
+            
+            for experience in experiences:
+                # Create embedding if not exists
+                if experience.embedding is None:
+                    embedding = self.embedder.create_embedding(experience)
+                    experience.embedding = embedding
+                else:
+                    embedding = experience.embedding
+                
+                ids.append(experience.experience_id)
+                embeddings.append(embedding.tolist())
+                timestamps.append(experience.timestamp)
+                hallucination_flags.append(experience.hallucination_detected)
+                
+                # Extract conflict type from LLM decision
+                conflict_type = experience.llm_decision.get('type', 'unknown')[:49]  # Limit to 49 chars
+                conflict_types.append(conflict_type)
+                
+                # Extract safety score
+                safety_score = experience.safety_metrics.get('safety_level', 0.5)
+                if isinstance(safety_score, str):
+                    # Convert string safety levels to numeric
+                    safety_map = {'critical': 0.1, 'low': 0.3, 'adequate': 0.7, 'high': 0.9}
+                    safety_score = safety_map.get(safety_score, 0.5)
+                safety_scores.append(float(safety_score))
+            
+            # Insert data
+            data = [
+                ids,
+                embeddings,
+                timestamps,
+                hallucination_flags,
+                conflict_types,
+                safety_scores
+            ]
+            
+            self.collection.insert(data)
+            self.collection.flush()
+            
+            logging.info(f"Inserted {len(experiences)} experiences to Milvus")
+            
+        except Exception as e:
+            logging.error(f"Failed to batch insert to Milvus: {e}")
+            raise
     
     def store_experience(self, experience: ConflictExperience) -> str:
         """Store a new conflict resolution experience"""
@@ -253,9 +368,8 @@ class VectorReplayStore:
             # Store in memory
             self.experiences[experience.experience_id] = experience
             
-            # Add to FAISS index
-            self.index.add(embedding.reshape(1, -1))
-            self.experience_ids.append(experience.experience_id)
+            # Insert into Milvus
+            self._insert_single_to_milvus(experience)
             
             # Persist to disk
             self._save_experiences()
@@ -267,32 +381,73 @@ class VectorReplayStore:
             logging.error(f"Failed to store experience: {e}")
             return ""
     
+    def _insert_single_to_milvus(self, experience: ConflictExperience):
+        """Insert a single experience to Milvus"""
+        
+        try:
+            # Extract conflict type and safety score
+            conflict_type = experience.llm_decision.get('type', 'unknown')[:49]
+            safety_score = experience.safety_metrics.get('safety_level', 0.5)
+            if isinstance(safety_score, str):
+                safety_map = {'critical': 0.1, 'low': 0.3, 'adequate': 0.7, 'high': 0.9}
+                safety_score = safety_map.get(safety_score, 0.5)
+            
+            # Prepare data
+            data = [
+                [experience.experience_id],
+                [experience.embedding.tolist()],
+                [experience.timestamp],
+                [experience.hallucination_detected],
+                [conflict_type],
+                [float(safety_score)]
+            ]
+            
+            # Insert to Milvus
+            self.collection.insert(data)
+            self.collection.flush()
+            
+        except Exception as e:
+            logging.error(f"Failed to insert experience to Milvus: {e}")
+            raise
+    
     def find_similar_experiences(self, 
                                 query_experience: ConflictExperience,
                                 top_k: int = 5,
                                 similarity_threshold: float = 0.7) -> List[SimilarityResult]:
-        """Find similar past experiences"""
+        """Find similar past experiences using Milvus vector search"""
         
         try:
-            if self.index.ntotal == 0:
+            if self.collection.num_entities == 0:
                 logging.info("No experiences in store")
                 return []
             
             # Create embedding for query
             query_embedding = self.embedder.create_embedding(query_experience)
             
-            # Search FAISS index
-            distances, indices = self.index.search(query_embedding.reshape(1, -1), top_k)
+            # Search parameters
+            search_params = {
+                "metric_type": "L2",
+                "params": {"nprobe": 10}
+            }
+            
+            # Perform vector search in Milvus
+            search_results = self.collection.search(
+                data=[query_embedding.tolist()],
+                anns_field="embedding",
+                param=search_params,
+                limit=top_k,
+                output_fields=["id", "timestamp", "hallucination_detected", "conflict_type", "safety_score"],
+                expr=None
+            )
             
             results = []
             
-            for i, (distance, idx) in enumerate(zip(distances[0], indices[0])):
-                if idx >= len(self.experience_ids):
-                    continue
+            for hit in search_results[0]:
+                exp_id = hit.entity.get("id")
+                distance = hit.distance
                 
-                exp_id = self.experience_ids[idx]
+                # Get experience from memory
                 experience = self.experiences.get(exp_id)
-                
                 if not experience:
                     continue
                 
@@ -462,32 +617,23 @@ class VectorReplayStore:
             return {'error': str(e)}
     
     def _save_experiences(self):
-        """Save experiences to disk"""
+        """Save experiences to disk (Milvus handles vector storage)"""
         
         try:
-            # Save experiences as JSON
+            # Save experiences as JSON (metadata only, vectors are in Milvus)
             experiences_file = os.path.join(self.storage_dir, "experiences.json")
             experiences_data = []
             
             for experience in self.experiences.values():
                 exp_dict = asdict(experience)
-                # Remove embedding (not JSON serializable)
+                # Remove embedding (stored in Milvus)
                 exp_dict.pop('embedding', None)
                 experiences_data.append(exp_dict)
             
             with open(experiences_file, 'w') as f:
                 json.dump(experiences_data, f, indent=2)
             
-            # Save FAISS index
-            index_file = os.path.join(self.storage_dir, "faiss_index.idx")
-            faiss.write_index(self.index, index_file)
-            
-            # Save experience IDs
-            ids_file = os.path.join(self.storage_dir, "experience_ids.pkl")
-            with open(ids_file, 'wb') as f:
-                pickle.dump(self.experience_ids, f)
-            
-            logging.info("Saved experiences to disk")
+            logging.info("Saved experiences metadata to disk")
             
         except Exception as e:
             logging.error(f"Failed to save experiences: {e}")
@@ -536,8 +682,9 @@ class VectorReplayStore:
                 'hallucination_rate': hallucination_count / total_experiences,
                 'override_rate': override_count / total_experiences,
                 'recent_experiences_24h': len(recent_experiences),
-                'index_size': self.index.ntotal if self.index else 0,
-                'storage_directory': self.storage_dir
+                'milvus_collection_size': self.collection.num_entities if self.collection else 0,
+                'storage_directory': self.storage_dir,
+                'milvus_host': f"{self.milvus_host}:{self.milvus_port}"
             }
         else:
             stats = {
@@ -545,8 +692,9 @@ class VectorReplayStore:
                 'hallucination_rate': 0.0,
                 'override_rate': 0.0,
                 'recent_experiences_24h': 0,
-                'index_size': 0,
-                'storage_directory': self.storage_dir
+                'milvus_collection_size': 0,
+                'storage_directory': self.storage_dir,
+                'milvus_host': f"{self.milvus_host}:{self.milvus_port}"
             }
         
         return stats

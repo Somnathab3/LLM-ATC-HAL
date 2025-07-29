@@ -137,7 +137,82 @@ ollama pull codellama:7b       # Technical model
 ollama list
 ```
 
-### Step 3: System Configuration and Validation
+### Step 3: Milvus GPU Vector Database Setup
+
+For Windows users, Milvus with GPU support provides significantly better performance than FAISS for vector similarity search in the experience replay system.
+
+#### Docker Installation (Recommended)
+
+```bash
+# Install Docker Desktop for Windows (if not already installed)
+# Download from: https://www.docker.com/products/docker-desktop/
+
+# Create Milvus directory
+mkdir milvus-data
+cd milvus-data
+
+# Download Milvus Docker Compose configuration
+curl -L https://github.com/milvus-io/milvus/releases/download/v2.5.3/milvus-standalone-docker-compose.yml -o docker-compose.yml
+
+# Start Milvus with GPU support
+docker-compose up -d
+
+# Verify Milvus is running
+docker-compose ps
+```
+
+#### GPU Configuration for Milvus
+
+If you have an NVIDIA GPU (like RTX 5070 Ti), ensure GPU support:
+
+```bash
+# Install NVIDIA Container Toolkit (Windows)
+# Follow: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html
+
+# Modify docker-compose.yml to enable GPU support
+# Add to the standalone service:
+#   deploy:
+#     resources:
+#       reservations:
+#         devices:
+#           - driver: nvidia
+#             count: 1
+#             capabilities: [gpu]
+
+# Restart Milvus with GPU support
+docker-compose down
+docker-compose up -d
+```
+
+#### Milvus Connection Verification
+
+```python
+# Test Milvus connection
+from pymilvus import connections, utility
+
+# Connect to Milvus
+connections.connect(
+    alias="default",
+    host="localhost",
+    port="19530"
+)
+
+# Check connection
+print(f"Milvus version: {utility.get_server_version()}")
+print("Milvus GPU vector database ready!")
+```
+
+#### Alternative: CPU-only Milvus
+
+If GPU setup is problematic, you can use CPU-only mode:
+
+```bash
+# Use CPU-only docker-compose configuration
+curl -L https://github.com/milvus-io/milvus/releases/download/v2.5.3/milvus-standalone-docker-compose-cpu.yml -o docker-compose.yml
+docker-compose up -d
+```
+
+### Step 4: System Configuration and Validation
 
 ```bash
 # Verify system components
@@ -222,11 +297,17 @@ from memory.experience_integrator import ExperienceIntegrator
 from memory.replay_store import VectorReplayStore
 from scenarios.monte_carlo_framework import BlueSkyScenarioGenerator
 
-# Initialize components
+# Initialize components with Milvus GPU acceleration
 ensemble_client = OllamaEnsembleClient()
 hallucination_detector = EnhancedHallucinationDetector()
 safety_quantifier = SafetyMarginQuantifier()
-replay_store = VectorReplayStore()
+
+# Vector store with Milvus GPU acceleration
+replay_store = VectorReplayStore(
+    storage_dir="memory/replay_data",
+    milvus_host="localhost",
+    milvus_port=19530
+)
 experience_integrator = ExperienceIntegrator(replay_store)
 
 # Generate realistic BlueSky scenario
@@ -264,6 +345,7 @@ print(f"BlueSky commands: {len(conflict_scenario.bluesky_commands)}")
 print(f"Hallucination detected: {hallucination_result.detected}")
 print(f"Safety score: {safety_result.overall_safety_score:.3f}")
 print(f"ICAO compliant: {safety_result.compliance_status}")
+print(f"Milvus experiences stored: {replay_store.collection.num_entities}")
 ```
 
 ### Real-Time Controller Interface
@@ -560,7 +642,7 @@ test_response = mock_client.query(test_prompt)
 ### Memory Module (`memory/`)
 
 #### `replay_store.py` - Vector-Based Memory Storage
-FAISS-powered vector storage for experience replay.
+Milvus-powered vector storage for experience replay.
 
 ```python
 from memory.replay_store import VectorReplayStore
@@ -885,7 +967,7 @@ pip install -r requirements.txt
 # - bluesky-simulator[full]: Flight simulation
 # - ollama: LLM interface
 # - sentence-transformers: Text embeddings
-# - faiss-cpu: Vector similarity search
+# - pymilvus: GPU-accelerated vector similarity search via Milvus
 # - scikit-learn: Machine learning tools
 # - matplotlib, seaborn: Visualization
 # - pandas, numpy: Data processing
