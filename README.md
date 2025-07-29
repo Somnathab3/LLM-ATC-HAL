@@ -30,12 +30,7 @@ docs/                  # Documentation and notebooks
 
 ## Performance Metrics
 
-| Metric              | LLM | Baseline |
-| ------------------- | --- | -------- |
-| FP‑Rate             | 2.1% | 8.7%    |
-| FN‑Rate             | 0.8% | 12.3%   |
-| Avg Hz Margin (NM)  | 8.2  | 5.1     |
-| Extra Distance (NM) | 1.3  | 4.8     |
+
 
 ## Features
 
