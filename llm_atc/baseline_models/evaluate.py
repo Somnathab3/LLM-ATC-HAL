@@ -108,7 +108,7 @@ class BaselineEvaluator:
             return results
 
         except Exception as e:
-            self.logger.error(f"Error evaluating scenario: {e}")
+            self.logger.exception("Error evaluating scenario")
             return self._create_error_result(scenario, str(e))
 
     def evaluate_batch(self, scenarios: List[Dict[str, Any]],
@@ -132,7 +132,7 @@ class BaselineEvaluator:
 
             # Log progress
             if (i + 1) % 10 == 0:
-                self.logger.info(f"Evaluated {i + 1}/{len(scenarios)} scenarios")
+                self.logger.info("Evaluated %d/%d scenarios", i + 1, len(scenarios))
 
         return results
 
@@ -156,11 +156,11 @@ class BaselineEvaluator:
             model_path = self.model_dir / "conflict_detector.pkl"
             self.detector.save_model(str(model_path))
 
-            self.logger.info(f"Detector trained and saved to {model_path}")
+            self.logger.info("Detector trained and saved to %s", model_path)
             return metrics
 
-        except Exception as e:
-            self.logger.error(f"Error training detector: {e}")
+        except Exception:
+            self.logger.exception("Error training detector")
             return {}
 
     def generate_training_data(self, scenarios: List[Dict[str, Any]],
@@ -276,9 +276,9 @@ class BaselineEvaluator:
         if detector_path.exists():
             try:
                 self.detector.load_model(str(detector_path))
-                self.logger.info(f"Loaded trained detector from {detector_path}")
+                self.logger.info("Loaded trained detector from %s", detector_path)
             except Exception as e:
-                self.logger.warning(f"Failed to load detector: {e}")
+                self.logger.warning("Failed to load detector: %s", e)
 
     def _create_error_result(self, scenario: Dict[str, Any], error_msg: str) -> Dict[str, Any]:
         """Create error result for failed evaluations"""

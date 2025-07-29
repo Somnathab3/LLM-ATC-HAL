@@ -20,7 +20,7 @@ try:
     from sentence_transformers import SentenceTransformer
     SENTENCE_TRANSFORMERS_AVAILABLE = True
 except (ImportError, SyntaxError) as e:
-    logging.warning(f"SentenceTransformers not available: {e}")
+    logging.warning("SentenceTransformers not available: %s", e)
     SentenceTransformer = None
     SENTENCE_TRANSFORMERS_AVAILABLE = False
 
@@ -117,7 +117,7 @@ class VectorReplayStore:
                 self.embedding_dim = 1024
                 self.logger.info("Initialized SentenceTransformer model: intfloat/e5-large-v2")
             except Exception as e:
-                self.logger.warning(f"Failed to initialize SentenceTransformer: {e}")
+                self.logger.warning("Failed to initialize SentenceTransformer: %s", e)
                 self.embedding_model = None
                 self.embedding_dim = 1024
         else:
@@ -140,9 +140,9 @@ class VectorReplayStore:
             self.collection = self.chroma_client.get_collection(
                 name=self.collection_name,
             )
-            self.logger.info(f"Connected to existing collection: {self.collection_name}")
-        except Exception as e:
-            self.logger.warning(f"Collection {self.collection_name} not found, creating new one: {e}")
+            self.logger.info("Connected to existing collection: %s", self.collection_name)
+        except Exception:
+            self.logger.warning("Collection %s not found, creating new one", self.collection_name)
             self.collection = self.chroma_client.create_collection(
                 name=self.collection_name,
                 embedding_function=None,  # Use local embeddings
@@ -182,7 +182,7 @@ class VectorReplayStore:
                     if isinstance(embedding, np.ndarray):
                         embedding = embedding.tolist()
                 except Exception as e:
-                    self.logger.warning(f"Failed to generate embedding: {e}")
+                    self.logger.warning("Failed to generate embedding: %s", e)
                     # Create fallback random embedding
                     embedding = [0.0] * self.embedding_dim
             else:
@@ -213,11 +213,11 @@ class VectorReplayStore:
                 metadatas=[metadata],
             )
 
-            self.logger.info(f"Stored experience {exp_id}")
+            self.logger.info("Stored experience %s", exp_id)
             return exp_id
 
-        except Exception as e:
-            self.logger.error(f"Failed to store experience: {e}")
+        except Exception:
+            self.logger.exception("Failed to store experience")
             return ""
 
     def retrieve_experience(self,
@@ -261,10 +261,10 @@ class VectorReplayStore:
                     filtered_results = self.collection.get()
 
             if not filtered_results["ids"]:
-                self.logger.info(f"No experiences found for conflict_type={conflict_type}, num_ac={num_ac}")
+                self.logger.info("No experiences found for conflict_type=%s, num_ac=%s", conflict_type, num_ac)
                 return []
 
-            self.logger.info(f"Found {len(filtered_results['ids'])} experiences matching metadata filters")
+            self.logger.info("Found %d experiences matching metadata filters", len(filtered_results["ids"]))
 
             # Step 2: Vector search on filtered results
             query_embedding = self.embedding_model.encode(
@@ -312,11 +312,11 @@ class VectorReplayStore:
             # Sort by similarity score (ascending distance = descending similarity)
             experiences.sort(key=lambda x: x["similarity_score"], reverse=True)
 
-            self.logger.info(f"Retrieved {len(experiences)} similar experiences")
+            self.logger.info("Retrieved %d similar experiences", len(experiences))
             return experiences
 
-        except Exception as e:
-            self.logger.error(f"Failed to retrieve experiences: {e}")
+        except Exception:
+            self.logger.exception("Failed to retrieve experiences")
             return []
 
     def get_all_experiences(self,
@@ -385,8 +385,8 @@ class VectorReplayStore:
 
             return experiences
 
-        except Exception as e:
-            self.logger.error(f"Failed to get all experiences: {e}")
+        except Exception:
+            self.logger.exception("Failed to get all experiences")
             return []
 
     def get_stats(self) -> Dict[str, Any]:
@@ -412,17 +412,17 @@ class VectorReplayStore:
             }
 
         except Exception as e:
-            self.logger.error(f"Failed to get stats: {e}")
+            self.logger.exception("Failed to get stats")
             return {"error": str(e)}
 
     def delete_experience(self, experience_id: str) -> bool:
         """Delete an experience by ID"""
         try:
             self.collection.delete(ids=[experience_id])
-            self.logger.info(f"Deleted experience {experience_id}")
+            self.logger.info("Deleted experience %s", experience_id)
             return True
-        except Exception as e:
-            self.logger.error(f"Failed to delete experience {experience_id}: {e}")
+        except Exception:
+            self.logger.exception("Failed to delete experience %s", experience_id)
             return False
 
     def clear_all(self) -> bool:
@@ -440,6 +440,6 @@ class VectorReplayStore:
             )
             self.logger.info("Cleared all experiences")
             return True
-        except Exception as e:
-            self.logger.error(f"Failed to clear all experiences: {e}")
+        except Exception:
+            self.logger.exception("Failed to clear all experiences")
             return False

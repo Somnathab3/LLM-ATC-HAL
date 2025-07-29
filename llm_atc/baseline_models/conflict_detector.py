@@ -219,7 +219,7 @@ class BaselineConflictDetector:
             "test_samples": len(X_test),
         }
 
-        self.logger.info(f"Model trained with metrics: {metrics}")
+        self.logger.info("Model trained with metrics: %s", metrics)
         return metrics
 
     def predict(self, scenario: Dict[str, Any]) -> ConflictPrediction:
@@ -280,7 +280,7 @@ class BaselineConflictDetector:
         with open(filepath, "wb") as f:
             pickle.dump(model_data, f)
 
-        self.logger.info(f"Model saved to {filepath}")
+        self.logger.info("Model saved to %s", filepath)
 
     def load_model(self, filepath: str):
         """Load trained model from file"""
@@ -293,7 +293,7 @@ class BaselineConflictDetector:
         self.feature_names = model_data["feature_names"]
         self.is_trained = model_data["is_trained"]
 
-        self.logger.info(f"Model loaded from {filepath}")
+        self.logger.info("Model loaded from %s", filepath)
 
     def _encode_aircraft_type(self, aircraft_type: str) -> float:
         """Encode aircraft type as numeric value"""

@@ -162,10 +162,10 @@ class DistributionShiftRunner:
         try:
             with open(self.config_file) as f:
                 config = yaml.safe_load(f)
-            self.logger.info(f"Loaded experiment config from {self.config_file}")
+            self.logger.info("Loaded experiment config from %s", self.config_file)
             return config
         except Exception as e:
-            self.logger.warning(f"Failed to load config {self.config_file}: {e}")
+            self.logger.warning("Failed to load config %s: %s", self.config_file, e)
             return self._get_default_config()
 
     def _get_default_config(self) -> Dict[str, Any]:
@@ -241,7 +241,7 @@ class DistributionShiftRunner:
         experiment_start = time.time()
 
         self.logger.info("Starting distribution shift experiment")
-        self.logger.info(f"Configuration: {self.config['experiment']}")
+        self.logger.info("Configuration: %s", self.config['experiment'])
 
         # Get experiment parameters
         n_sims_per_tier = self.config["experiment"]["n_sims_per_tier"]
@@ -251,11 +251,11 @@ class DistributionShiftRunner:
         total_sims = len(shift_tiers) * n_sims_per_tier
         completed_sims = 0
 
-        self.logger.info(f"Running {total_sims} simulations across {len(shift_tiers)} tiers")
+        self.logger.info("Running %d simulations across %d tiers", total_sims, len(shift_tiers))
 
         # Loop over distribution shift tiers
         for tier_idx, shift_tier in enumerate(shift_tiers):
-            self.logger.info(f"Processing tier {tier_idx+1}/{len(shift_tiers)}: {shift_tier}")
+            self.logger.info("Processing tier %d/%d: %s", tier_idx+1, len(shift_tiers), shift_tier)
 
             # Generate CR flowchart once per tier
             try:
@@ -265,14 +265,14 @@ class DistributionShiftRunner:
                     output_dir=str(self.output_dir.parent / "thesis_results"),
                 )
                 self.generated_plots.append(flowchart_file)
-                self.logger.info(f"Generated CR flowchart for {shift_tier}: {flowchart_file}")
+                self.logger.info("Generated CR flowchart for %s: %s", shift_tier, flowchart_file)
             except Exception as e:
-                self.logger.warning(f"Failed to generate CR flowchart for {shift_tier}: {e}")
+                self.logger.warning("Failed to generate CR flowchart for %s: %s", shift_tier, e)
 
             # Loop over simulations within tier
             for sim_id in range(n_sims_per_tier):
                 if sim_id % 20 == 0:
-                    self.logger.info(f"  Simulation {sim_id+1}/{n_sims_per_tier} in {shift_tier}")
+                    self.logger.info("  Simulation %d/%d in %s", sim_id+1, n_sims_per_tier, shift_tier)
 
                 try:
                     # Run single simulation
@@ -292,7 +292,7 @@ class DistributionShiftRunner:
                         self._save_intermediate_results(completed_sims)
 
                 except Exception as e:
-                    self.logger.error(f"Simulation failed: {shift_tier}/{sim_id}: {e}")
+                    self.logger.exception("Simulation failed: %s/%d", shift_tier, sim_id)
                     # Continue with next simulation
                     continue
 
@@ -303,10 +303,10 @@ class DistributionShiftRunner:
         self._generate_experiment_visualizations(results_file)
 
         experiment_time = time.time() - experiment_start
-        self.logger.info(f"Experiment completed in {experiment_time:.2f}s")
-        self.logger.info(f"Completed {completed_sims}/{total_sims} simulations")
-        self.logger.info(f"Results saved to: {results_file}")
-        self.logger.info(f"Generated {len(self.generated_plots)} visualization plots")
+        self.logger.info("Experiment completed in %.2fs", experiment_time)
+        self.logger.info("Completed %d/%d simulations", completed_sims, total_sims)
+        self.logger.info("Results saved to: %s", results_file)
+        self.logger.info("Generated %d visualization plots", len(self.generated_plots))
 
         return results_file
 
@@ -332,11 +332,11 @@ class DistributionShiftRunner:
 
         # Loop over distribution shift tiers
         for tier_idx, shift_tier in enumerate(shift_tiers):
-            self.logger.info(f"Processing baseline tier {tier_idx+1}/{len(shift_tiers)}: {shift_tier}")
+            self.logger.info("Processing baseline tier %d/%d: %s", tier_idx+1, len(shift_tiers), shift_tier)
 
             for sim_id in range(n_sims_per_tier):
                 if sim_id % 20 == 0:
-                    self.logger.info(f"  Baseline simulation {sim_id+1}/{n_sims_per_tier} in {shift_tier}")
+                    self.logger.info("  Baseline simulation %d/%d in %s", sim_id+1, n_sims_per_tier, shift_tier)
 
                 try:
                     # Run single baseline simulation
@@ -344,15 +344,15 @@ class DistributionShiftRunner:
                     baseline_results.append(result)
 
                 except Exception as e:
-                    self.logger.error(f"Baseline simulation failed: {shift_tier}/{sim_id}: {e}")
+                    self.logger.exception("Baseline simulation failed: %s/%d", shift_tier, sim_id)
                     continue
 
         # Save baseline results
         baseline_results_file = self._save_baseline_results(baseline_results)
 
         experiment_time = time.time() - experiment_start
-        self.logger.info(f"Baseline experiment completed in {experiment_time:.2f}s")
-        self.logger.info(f"Baseline results saved to: {baseline_results_file}")
+        self.logger.info("Baseline experiment completed in %.2fs", experiment_time)
+        self.logger.info("Baseline results saved to: %s", baseline_results_file)
 
         return baseline_results_file
 
@@ -440,16 +440,16 @@ class DistributionShiftRunner:
         df.to_csv(results_file, index=False)
 
         # Log summary statistics
-        self.logger.info(f"Saved {len(results)} baseline results to {results_file}")
+        self.logger.info("Saved %d baseline results to %s", len(results), results_file)
 
         # Log performance summary
         if "baseline_time" in df.columns:
             avg_baseline_time = df["baseline_time"].mean()
-            self.logger.info(f"Average baseline evaluation time: {avg_baseline_time:.3f}s")
+            self.logger.info("Average baseline evaluation time: %.3fs", avg_baseline_time)
 
         if "conflict_detection_accuracy" in df.columns:
             avg_accuracy = df["conflict_detection_accuracy"].mean()
-            self.logger.info(f"Average conflict detection accuracy: {avg_accuracy:.3f}")
+            self.logger.info("Average conflict detection accuracy: %.3f", avg_accuracy)
 
         return results_file
 
@@ -527,7 +527,7 @@ class DistributionShiftRunner:
                 "safety_level": "adequate",
             })()
         except Exception as e:
-            self.logger.warning(f"Safety margin calculation failed: {e}")
+            self.logger.warning("Safety margin calculation failed: %s", e)
             # Provide default safety metrics
             safety_result = type("SafetyResult", (), {
                 "horizontal_margin": 0.0,
@@ -747,7 +747,7 @@ class DistributionShiftRunner:
         else:
             df.to_parquet(filepath, index=False)
 
-        self.logger.info(f"Saved intermediate results: {filepath}")
+        self.logger.info("Saved intermediate results: %s", filepath)
 
     def _save_final_results(self) -> str:
         """Save final experiment results"""
@@ -768,8 +768,8 @@ class DistributionShiftRunner:
         with open(summary_file, "w") as f:
             json.dump(summary, f, indent=2)
 
-        self.logger.info(f"Saved final results: {filepath}")
-        self.logger.info(f"Saved summary: {summary_file}")
+        self.logger.info("Saved final results: %s", filepath)
+        self.logger.info("Saved summary: %s", summary_file)
 
         return str(filepath)
 
@@ -845,9 +845,9 @@ class DistributionShiftRunner:
                         output_dir=str(self.output_dir.parent / "thesis_results"),
                     )
                     self.generated_plots.append(timeline_file)
-                    self.logger.info(f"Generated CD timeline for {tier}: {timeline_file}")
+                    self.logger.info("Generated CD timeline for %s: %s", tier, timeline_file)
                 except Exception as e:
-                    self.logger.warning(f"Failed to generate CD timeline for {tier}: {e}")
+                    self.logger.warning("Failed to generate CD timeline for %s: %s", tier, e)
 
             # Generate tier comparison plot if multiple tiers
             if len(df["tier"].unique()) > 1:
@@ -857,9 +857,9 @@ class DistributionShiftRunner:
                         output_dir=str(self.output_dir.parent / "thesis_results"),
                     )
                     self.generated_plots.append(comparison_file)
-                    self.logger.info(f"Generated tier comparison plot: {comparison_file}")
+                    self.logger.info("Generated tier comparison plot: %s", comparison_file)
                 except Exception as e:
-                    self.logger.warning(f"Failed to generate tier comparison: {e}")
+                    self.logger.warning("Failed to generate tier comparison: %s", e)
 
             # Create visualization summary
             try:
@@ -868,12 +868,12 @@ class DistributionShiftRunner:
                     output_dir=str(self.output_dir.parent / "thesis_results"),
                 )
                 self.generated_plots.append(summary_file)
-                self.logger.info(f"Generated visualization summary: {summary_file}")
+                self.logger.info("Generated visualization summary: %s", summary_file)
             except Exception as e:
-                self.logger.warning(f"Failed to generate visualization summary: {e}")
+                self.logger.warning("Failed to generate visualization summary: %s", e)
 
         except Exception as e:
-            self.logger.error(f"Visualization generation failed: {e}")
+            self.logger.exception("Visualization generation failed")
 
 
 def run_distribution_shift_experiment(config_file: Optional[str] = None,
@@ -988,9 +988,9 @@ Examples:
         tiers = [args.tiers]
 
     logger.info("Starting distribution shift experiment")
-    logger.info(f"Tiers: {tiers}")
-    logger.info(f"Simulations per tier: {args.num}")
-    logger.info(f"Output directory: {args.output}")
+    logger.info("Tiers: %s", tiers)
+    logger.info("Simulations per tier: %s", args.num)
+    logger.info("Output directory: %s", args.output)
 
     try:
         # Create runner with custom configuration
@@ -1098,7 +1098,7 @@ Examples:
         logger.info("Experiment interrupted by user")
         return 1
     except Exception as e:
-        logger.error(f"Experiment failed: {e}")
+        logger.exception("Experiment failed")
         import traceback
         traceback.print_exc()
         return 1

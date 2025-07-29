@@ -119,7 +119,7 @@ class SafetyMarginQuantifier:
             )
 
         except Exception as e:
-            logging.exception(f"Safety margin calculation failed: {e}")
+            logging.exception("Safety margin calculation failed")
             return self._create_default_safety_margin()
 
     def _apply_resolution_maneuver(self,
@@ -179,7 +179,7 @@ class SafetyMarginQuantifier:
             )
 
         except Exception as e:
-            logging.warning(f"Failed to apply maneuver: {e}")
+            logging.warning("Failed to apply maneuver: %s", e)
             return geometry  # Return original geometry if calculation fails
 
     def _predict_position(self, position: List[float], velocity: List[float], time: float) -> List[float]:
@@ -209,7 +209,7 @@ class SafetyMarginQuantifier:
             ]
 
         except Exception as e:
-            logging.warning(f"Position prediction failed: {e}")
+            logging.warning("Position prediction failed: %s", e)
             return position
 
     def _calculate_closest_approach(self,
@@ -240,7 +240,7 @@ class SafetyMarginQuantifier:
             return time_to_ca, ca_distance, ca_alt_diff
 
         except Exception as e:
-            logging.warning(f"Closest approach calculation failed: {e}")
+            logging.warning("Closest approach calculation failed: %s", e)
             return 120, 5.0, 1000  # Default values
 
     def _calculate_horizontal_margin(self, geometry: ConflictGeometry) -> float:
@@ -437,10 +437,10 @@ class SafetyMetricsAggregator:
             with open(filepath, "w") as f:
                 json.dump(exportable_data, f, indent=2)
 
-            logging.info(f"Safety metrics exported to {filepath}")
+            logging.info("Safety metrics exported to %s", filepath)
 
         except Exception as e:
-            logging.exception(f"Failed to export metrics: {e}")
+            logging.exception("Failed to export metrics")
 
 
 def calc_separation_margin(trajectories: List[Dict[str, Any]]) -> Dict[str, float]:

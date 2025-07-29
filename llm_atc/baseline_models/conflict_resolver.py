@@ -109,7 +109,7 @@ class BaselineConflictResolver:
         ac2_data = next((ac for ac in aircraft_list if ac.get("id") == ac2_id), None)
 
         if not ac1_data or not ac2_data:
-            self.logger.warning(f"Aircraft data not found for conflict {ac1_id}-{ac2_id}")
+            self.logger.warning("Aircraft data not found for conflict %s-%s", ac1_id, ac2_id)
             return []
 
         # Analyze conflict geometry

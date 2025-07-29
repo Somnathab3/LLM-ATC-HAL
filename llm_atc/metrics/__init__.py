@@ -51,7 +51,7 @@ def compute_metrics(log_file):
                             if "best_by_llm" in entry and "baseline_best" in entry:
                                 data.append(entry)
                         except json.JSONDecodeError as e:
-                            logging.warning(f"Failed to parse JSON line: {line}. Error: {e}")
+                            logging.warning("Failed to parse JSON line: %s. Error: %s", line, e)
                     else:
                         # Try to extract JSON from within log line
                         try:
@@ -68,7 +68,7 @@ def compute_metrics(log_file):
                             continue
 
         if not data:
-            logging.warning(f"No valid JSON entries found in {log_file}")
+            logging.warning("No valid JSON entries found in %s", log_file)
             return create_empty_metrics()
 
         # Convert to DataFrame for easier analysis
@@ -127,7 +127,7 @@ def compute_metrics(log_file):
         return metrics
 
     except Exception as e:
-        logging.exception(f"Error computing metrics from {log_file}: {e}")
+        logging.exception("Error computing metrics from %s", log_file)
         return create_empty_metrics()
 
 def create_empty_metrics():
@@ -237,7 +237,7 @@ def aggregate_thesis_metrics(results_dir: str) -> Dict[str, Any]:
     """Aggregate metrics from multiple test result files for thesis analysis."""
     results_path = Path(results_dir)
     if not results_path.exists():
-        logging.warning(f"Results directory {results_dir} does not exist")
+        logging.warning("Results directory %s does not exist", results_dir)
         return create_empty_metrics()
 
     all_metrics = []
@@ -249,7 +249,7 @@ def aggregate_thesis_metrics(results_dir: str) -> Dict[str, Any]:
             if metrics["total_tests"] > 0:
                 all_metrics.append(metrics)
         except Exception as e:
-            logging.warning(f"Failed to process {log_file}: {e}")
+            logging.warning("Failed to process %s: %s", log_file, e)
 
     if not all_metrics:
         logging.warning("No valid metrics found in results directory")
@@ -334,7 +334,7 @@ def plot_metrics_comparison(llm_metrics: Dict, baseline_metrics: Dict, save_path
 
     if save_path:
         plt.savefig(save_path, dpi=300, bbox_inches="tight")
-        logging.info(f"Metrics comparison plot saved to {save_path}")
+        logging.info("Metrics comparison plot saved to %s", save_path)
     else:
         plt.show()
 

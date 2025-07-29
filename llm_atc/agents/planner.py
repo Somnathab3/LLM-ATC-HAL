@@ -94,11 +94,11 @@ class Planner:
             # Store in history
             self.assessment_history.append(assessment)
 
-            self.logger.info(f"Conflict assessment completed: {assessment.conflict_id}")
+            self.logger.info("Conflict assessment completed: %s", assessment.conflict_id)
             return assessment
 
-        except Exception as e:
-            self.logger.error(f"Error in conflict assessment: {e}")
+        except Exception:
+            self.logger.exception("Error in conflict assessment")
             return None
 
     def generate_action_plan(self, assessment: ConflictAssessment) -> Optional[ActionPlan]:
@@ -112,7 +112,7 @@ class Planner:
             ActionPlan with specific commands and expected outcomes
         """
         try:
-            self.logger.info(f"Generating action plan for conflict {assessment.conflict_id}")
+            self.logger.info("Generating action plan for conflict %s", assessment.conflict_id)
 
             # Generate plan ID
             plan_id = f"plan_{int(time.time() * 1000)}"
@@ -140,11 +140,11 @@ class Planner:
             # Store in history
             self.plan_history.append(plan)
 
-            self.logger.info(f"Action plan generated: {plan.plan_id}")
+            self.logger.info("Action plan generated: %s", plan.plan_id)
             return plan
 
-        except Exception as e:
-            self.logger.error(f"Error generating action plan: {e}")
+        except Exception:
+            self.logger.exception("Error generating action plan")
             return None
 
     def _detect_proximity_conflicts(self, aircraft_data: Dict[str, Any]) -> List[Dict[str, Any]]:

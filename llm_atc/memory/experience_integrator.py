@@ -62,11 +62,11 @@ class ExperienceIntegrator:
             # Step 4: Prepare comprehensive guidance
             guidance = lessons_learned + pattern_warnings
 
-            logging.info(f"Processed conflict with {len(similar_experiences)} similar experiences")
+            logging.info("Processed conflict with %d similar experiences", len(similar_experiences))
             return enhanced_decision, guidance
 
-        except Exception as e:
-            logging.exception(f"Failed to process conflict resolution: {e}")
+        except Exception:
+            logging.exception("Failed to process conflict resolution")
             return llm_decision, []
 
     def _find_relevant_experiences(self,
@@ -102,8 +102,8 @@ class ExperienceIntegrator:
 
             return similar_experiences
 
-        except Exception as e:
-            logging.exception(f"Failed to find relevant experiences: {e}")
+        except Exception:
+            logging.exception("Failed to find relevant experiences")
             return []
 
     def _extract_lessons(self, similar_experiences: List[SimilarityResult]) -> List[str]:
@@ -150,8 +150,8 @@ class ExperienceIntegrator:
 
             return unique_lessons[:10]  # Limit to top 10 lessons
 
-        except Exception as e:
-            logging.exception(f"Failed to extract lessons: {e}")
+        except Exception:
+            logging.exception("Failed to extract lessons")
             return []
 
     def _check_hallucination_patterns(self,
@@ -209,8 +209,8 @@ class ExperienceIntegrator:
 
             return warnings
 
-        except Exception as e:
-            logging.exception(f"Failed to check hallucination patterns: {e}")
+        except Exception:
+            logging.exception("Failed to check hallucination patterns")
             return []
 
     def _enhance_decision_with_experience(self,
@@ -298,8 +298,8 @@ class ExperienceIntegrator:
 
             return enhanced_decision
 
-        except Exception as e:
-            logging.exception(f"Failed to enhance decision: {e}")
+        except Exception:
+            logging.exception("Failed to enhance decision")
             return llm_decision
 
     def record_resolution_outcome(self,
@@ -339,11 +339,11 @@ class ExperienceIntegrator:
             # Store in replay store
             experience_id = self.replay_store.store_experience(experience)
 
-            logging.info(f"Recorded resolution outcome: {experience_id}")
+            logging.info("Recorded resolution outcome: %s", experience_id)
             return experience_id
 
-        except Exception as e:
-            logging.exception(f"Failed to record resolution outcome: {e}")
+        except Exception:
+            logging.exception("Failed to record resolution outcome")
             return ""
 
     def get_experience_summary(self) -> Dict[str, Any]:
@@ -362,7 +362,7 @@ class ExperienceIntegrator:
             return summary
 
         except Exception as e:
-            logging.exception(f"Failed to get experience summary: {e}")
+            logging.exception("Failed to get experience summary")
             return {"error": str(e)}
 
     def _generate_learning_insights(self,
@@ -407,8 +407,8 @@ class ExperienceIntegrator:
 
             return insights
 
-        except Exception as e:
-            logging.exception(f"Failed to generate learning insights: {e}")
+        except Exception:
+            logging.exception("Failed to generate learning insights")
             return ["Error generating insights"]
 
     def store_experience(self, experience_data: Dict[str, Any]) -> str:
@@ -435,8 +435,8 @@ class ExperienceIntegrator:
 
             return self.replay_store.store_experience(experience)
 
-        except Exception as e:
-            logging.exception(f"Failed to store experience: {e}")
+        except Exception:
+            logging.exception("Failed to store experience")
             return ""
 
 # Testing and usage example

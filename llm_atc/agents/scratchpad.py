@@ -73,7 +73,7 @@ class Scratchpad:
         self.session_history: List[SessionSummary] = []
         self.all_steps_history: List[ReasoningStep] = []
 
-        self.logger.info(f"Scratchpad initialized for session: {self.session_id}")
+        self.logger.info("Scratchpad initialized for session: %s", self.session_id)
 
     def log_step(self, step_data: Dict[str, Any]) -> str:
         """
@@ -112,12 +112,12 @@ class Scratchpad:
             self.current_steps.append(step)
 
             # Log the step
-            self.logger.info(f"Step logged: {step_id} - {step_type.value} - {description}")
+            self.logger.info("Step logged: %s - %s - %s", step_id, step_type.value, description)
 
             return step_id
 
-        except Exception as e:
-            self.logger.error(f"Error logging step: {e}")
+        except Exception:
+            self.logger.exception("Error logging step")
             return ""
 
     def log_assessment_step(self, assessment: ConflictAssessment) -> str:
@@ -307,12 +307,12 @@ class Scratchpad:
             self.all_steps_history.extend(self.current_steps)
 
             # Log completion
-            self.logger.info(f"Session completed: {self.session_id} - {final_status}")
+            self.logger.info("Session completed: %s - %s", self.session_id, final_status)
 
             return summary
 
         except Exception as e:
-            self.logger.error(f"Error completing session: {e}")
+            self.logger.exception("Error completing session")
             return SessionSummary(
                 session_id=self.session_id,
                 start_time=self.session_start_time,
@@ -347,7 +347,7 @@ class Scratchpad:
         self.session_start_time = time.time()
         self.session_metadata = {}
 
-        self.logger.info(f"New session started: {self.session_id}")
+        self.logger.info("New session started: %s", self.session_id)
         return self.session_id
 
     def _generate_session_summary(self) -> Dict[str, Any]:

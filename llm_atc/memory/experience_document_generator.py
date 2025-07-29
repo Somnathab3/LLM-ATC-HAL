@@ -58,7 +58,7 @@ class ExperienceDocumentGenerator:
             self.embedding_dim = 1024
             self.logger.info("Loaded E5-large-v2 model successfully")
         except Exception as e:
-            self.logger.error(f"Failed to load E5-large-v2 model: {e}")
+            self.logger.exception("Failed to load E5-large-v2 model")
             raise
 
         # Ensure directory exists
@@ -79,7 +79,7 @@ class ExperienceDocumentGenerator:
             self.collection = self.chroma_client.get_collection(
                 name=self.collection_name,
             )
-            self.logger.info(f"Connected to existing collection: {self.collection_name}")
+            self.logger.info("Connected to existing collection: %s", self.collection_name)
         except:
             self.collection = self.chroma_client.create_collection(
                 name=self.collection_name,
@@ -90,7 +90,7 @@ class ExperienceDocumentGenerator:
                     "embedding_dim": self.embedding_dim,
                 },
             )
-            self.logger.info(f"Created new collection: {self.collection_name}")
+            self.logger.info("Created new collection: %s", self.collection_name)
 
     def generate_experience(self,
                           conflict_desc: str,
@@ -153,7 +153,7 @@ class ExperienceDocumentGenerator:
             return asdict(experience_doc)
 
         except Exception as e:
-            self.logger.error(f"Failed to generate experience document: {e}")
+            self.logger.exception("Failed to generate experience document")
             # Return minimal document
             return {
                 "experience_id": str(uuid.uuid4()),
@@ -206,10 +206,10 @@ class ExperienceDocumentGenerator:
                 metadatas=[metadata],
             )
 
-            self.logger.info(f"Successfully stored experience {exp_doc['experience_id']}")
+            self.logger.info("Successfully stored experience %s", exp_doc['experience_id'])
 
         except Exception as e:
-            self.logger.error(f"Failed to embed and store experience: {e}")
+            self.logger.exception("Failed to embed and store experience")
             raise
 
     def _generate_scenario_text(self, conflict_desc: str, num_ac: int, conflict_type: str) -> str:
@@ -233,5 +233,5 @@ class ExperienceDocumentGenerator:
                 "embedding_dim": self.embedding_dim,
             }
         except Exception as e:
-            self.logger.error(f"Failed to get collection stats: {e}")
+            self.logger.exception("Failed to get collection stats")
             return {"error": str(e)}

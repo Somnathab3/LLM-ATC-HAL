@@ -128,7 +128,7 @@ class SafetyMonitor:
             "action": "escalated_to_human",
         }
 
-        logging.warning(f"Escalating to human: {escalation_log}")
+        logging.warning("Escalating to human: %s", escalation_log)
         return True
 
     def get_recent_alerts(self, time_window: float = 300.0) -> List[Dict]:
@@ -253,7 +253,7 @@ class ControllerInterface:
 
                 except Exception as e:
                     self.scratchpad.log_error_step(f"Planning loop iteration error: {e!s}")
-                    logging.exception(f"Planning loop error: {e}")
+                    logging.exception("Planning loop error")
                     break
 
             # Complete session
@@ -271,7 +271,7 @@ class ControllerInterface:
 
         except Exception as e:
             self.scratchpad.log_error_step(f"Critical planning loop error: {e!s}")
-            logging.exception(f"Critical planning loop error: {e}")
+            logging.exception("Critical planning loop error")
 
             return {
                 "status": "error",
@@ -298,7 +298,7 @@ class ControllerInterface:
         try:
             return bluesky_tools.SendCommand(command)
         except Exception as e:
-            logging.exception(f"Error sending BlueSky command: {e}")
+            logging.exception("Error sending BlueSky command")
             return {
                 "success": False,
                 "command": command,
@@ -335,8 +335,8 @@ class ControllerInterface:
             # Update details if this conflict is selected
             self._update_conflict_details(conflict_display)
 
-        except Exception as e:
-            logging.exception(f"Error updating conflict display: {e}")
+        except Exception:
+            logging.exception("Error updating conflict display")
 
     def _convert_confidence_to_level(self, confidence: float) -> ConfidenceLevel:
         """Convert numerical confidence to ConfidenceLevel enum"""
@@ -372,8 +372,8 @@ class ControllerInterface:
             # Store conflict data with tree item
             self.active_conflicts[item] = conflict
 
-        except Exception as e:
-            logging.exception(f"Error adding conflict to tree: {e}")
+        except Exception:
+            logging.exception("Error adding conflict to tree")
 
     def _update_conflict_details(self, conflict: ConflictDisplay):
         """Update the conflict details text area"""
@@ -396,8 +396,8 @@ Safety Flags: {', '.join(conflict.safety_flags) if conflict.safety_flags else 'N
             self.details_text.delete(1.0, tk.END)
             self.details_text.insert(1.0, details)
 
-        except Exception as e:
-            logging.exception(f"Error updating conflict details: {e}")
+        except Exception:
+            logging.exception("Error updating conflict details")
 
     def get_agent_status(self) -> Dict[str, Any]:
         """Get status of all embodied agent components"""
@@ -693,7 +693,7 @@ Safety Flags:
         self._update_history_display(override)
 
         # Log override
-        logging.info(f"Controller override: {override}")
+        logging.info("Controller override: %s", override)
 
         # Clear entry
         self.override_entry.delete(0, tk.END)
@@ -711,7 +711,7 @@ Safety Flags:
         conflict_id = selection[0]
 
         # Log acceptance
-        logging.info(f"Controller accepted AI decision for conflict {conflict_id}")
+        logging.info("Controller accepted AI decision for conflict %s", conflict_id)
 
         messagebox.showinfo("Decision Accepted", f"AI decision accepted for conflict {conflict_id}")
 
@@ -793,8 +793,8 @@ Safety Flags:
 
                 time.sleep(1)  # Update every second
 
-            except Exception as e:
-                logging.exception(f"Monitoring loop error: {e}")
+            except Exception:
+                logging.exception("Monitoring loop error")
                 time.sleep(5)
 
     def _update_alerts_display(self, alerts: List[Dict]):

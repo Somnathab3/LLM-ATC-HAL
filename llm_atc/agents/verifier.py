@@ -66,7 +66,7 @@ class Verifier:
             True if verification passes, False otherwise
         """
         try:
-            self.logger.info(f"Starting verification for execution {execution_result.execution_id}")
+            self.logger.info("Starting verification for execution %s", execution_result.execution_id)
 
             start_time = time.time()
             verification_id = f"verify_{int(time.time() * 1000)}"
@@ -101,10 +101,10 @@ class Verifier:
             # Determine final verification status
             if verification.failed_checks:
                 verification.status = VerificationStatus.FAILED
-                self.logger.warning(f"Verification failed: {verification.failed_checks}")
+                self.logger.warning("Verification failed: %s", verification.failed_checks)
             elif verification.warnings:
                 verification.status = VerificationStatus.WARNING
-                self.logger.info(f"Verification passed with warnings: {verification.warnings}")
+                self.logger.info("Verification passed with warnings: %s", verification.warnings)
             else:
                 verification.status = VerificationStatus.PASSED
                 self.logger.info("Verification passed successfully")
@@ -115,8 +115,8 @@ class Verifier:
             # Return True if passed or warning (warnings don't block execution)
             return verification.status in [VerificationStatus.PASSED, VerificationStatus.WARNING]
 
-        except Exception as e:
-            self.logger.error(f"Error during verification: {e}")
+        except Exception:
+            self.logger.exception("Error during verification")
             return False
 
     def _check_execution_status(self, execution: ExecutionResult, verification: VerificationResult):
@@ -315,4 +315,4 @@ class Verifier:
     def update_safety_thresholds(self, new_thresholds: Dict[str, float]) -> None:
         """Update safety thresholds for verification"""
         self.safety_thresholds.update(new_thresholds)
-        self.logger.info(f"Safety thresholds updated: {new_thresholds}")
+        self.logger.info("Safety thresholds updated: %s", new_thresholds)

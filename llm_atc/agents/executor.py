@@ -56,7 +56,7 @@ class Executor:
             ExecutionResult with execution status and details
         """
         try:
-            self.logger.info(f"Executing plan {plan.plan_id} for conflict {plan.conflict_id}")
+            self.logger.info("Executing plan %s for conflict %s", plan.plan_id, plan.conflict_id)
 
             # Generate execution ID
             execution_id = f"exec_{int(time.time() * 1000)}"
@@ -83,7 +83,7 @@ class Executor:
 
             for command in plan.commands:
                 try:
-                    self.logger.info(f"Sending command: {command}")
+                    self.logger.info("Sending command: %s", command)
 
                     # Send command through the command sender
                     response = self._send_command(command)
@@ -93,7 +93,7 @@ class Executor:
 
                     if response.get("success", False):
                         successful_commands += 1
-                        self.logger.info(f"Command executed successfully: {command}")
+                        self.logger.info("Command executed successfully: %s", command)
                     else:
                         error_msg = f"Command failed: {command} - {response.get('error', 'Unknown error')}"
                         result.error_messages.append(error_msg)
@@ -105,7 +105,7 @@ class Executor:
                 except Exception as e:
                     error_msg = f"Exception executing command {command}: {e!s}"
                     result.error_messages.append(error_msg)
-                    self.logger.error(error_msg)
+                    self.logger.exception("Exception executing command")
 
             # Calculate execution metrics
             result.success_rate = successful_commands / len(plan.commands) if plan.commands else 0.0
@@ -114,13 +114,13 @@ class Executor:
             # Determine final status
             if result.success_rate == 1.0:
                 result.status = ExecutionStatus.COMPLETED
-                self.logger.info(f"Plan execution completed successfully: {execution_id}")
+                self.logger.info("Plan execution completed successfully: %s", execution_id)
             elif result.success_rate > 0.5:
                 result.status = ExecutionStatus.COMPLETED  # Partial success still considered completed
-                self.logger.warning(f"Plan execution completed with partial success: {execution_id}")
+                self.logger.warning("Plan execution completed with partial success: %s", execution_id)
             else:
                 result.status = ExecutionStatus.FAILED
-                self.logger.error(f"Plan execution failed: {execution_id}")
+                self.logger.error("Plan execution failed: %s", execution_id)
 
             # Remove from active executions and add to history
             del self.active_executions[execution_id]
@@ -129,7 +129,7 @@ class Executor:
             return result
 
         except Exception as e:
-            self.logger.error(f"Critical error in plan execution: {e}")
+            self.logger.exception("Critical error in plan execution")
 
             # Create failure result
             failure_result = ExecutionResult(
@@ -237,9 +237,9 @@ class Executor:
         """
         if execution_id in self.active_executions:
             self.active_executions[execution_id].status = ExecutionStatus.CANCELLED
-            self.logger.info(f"Execution cancelled: {execution_id}")
+            self.logger.info("Execution cancelled: %s", execution_id)
             return True
-        self.logger.warning(f"Cannot cancel execution - not found: {execution_id}")
+        self.logger.warning("Cannot cancel execution - not found: %s", execution_id)
         return False
 
     def get_execution_status(self, execution_id: str) -> Optional[ExecutionStatus]:
