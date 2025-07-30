@@ -26,6 +26,7 @@ import yaml
 try:
     from bluesky import sim, stack, traf
     from bluesky.stack import stack as bs_stack
+
     BLUESKY_AVAILABLE = True
 except ImportError:
     BLUESKY_AVAILABLE = False
@@ -34,6 +35,7 @@ except ImportError:
 
 class ComplexityTier(Enum):
     """Scenario complexity levels"""
+
     SIMPLE = "simple"
     MODERATE = "moderate"
     COMPLEX = "complex"
@@ -43,6 +45,7 @@ class ComplexityTier(Enum):
 @dataclass
 class ScenarioConfiguration:
     """Generated scenario configuration"""
+
     aircraft_count: int
     aircraft_types: list[str]
     positions: list[dict[str, float]]  # lat, lon, alt
@@ -97,7 +100,9 @@ class ScenarioConfiguration:
             "weather": weather,
             "wind_speed": wind_speed,  # Use standard field name
             "visibility": visibility,  # Use standard field name
-            "wind_direction": env_conditions.get("wind_direction_deg", 0),  # Use standard field name
+            "wind_direction": env_conditions.get(
+                "wind_direction_deg", 0,
+            ),  # Use standard field name
             "turbulence_intensity": env_conditions.get("turbulence_intensity", 0.0),
         }
 
@@ -109,9 +114,12 @@ class BlueSkyScenarioGenerator:
     Supports distribution shift scenarios via apply_distribution_shift helper.
     """
 
-    def __init__(self, ranges_file: str = "scenario_ranges.yaml",
-                 distribution_shift_file: str = "distribution_shift_levels.yaml",
-                 ranges_dict: Optional[dict[str, Any]] = None) -> None:
+    def __init__(
+        self,
+        ranges_file: str = "scenario_ranges.yaml",
+        distribution_shift_file: str = "distribution_shift_levels.yaml",
+        ranges_dict: Optional[dict[str, Any]] = None,
+    ) -> None:
         """Initialize generator with range configuration"""
         self.ranges_file = ranges_file
         self.distribution_shift_file = distribution_shift_file
@@ -147,7 +155,9 @@ class BlueSkyScenarioGenerator:
         try:
             with open(self.distribution_shift_file) as f:
                 shift_config = yaml.safe_load(f)
-            self.logger.info(f"Loaded distribution shift config from {self.distribution_shift_file}")
+            self.logger.info(
+                f"Loaded distribution shift config from {self.distribution_shift_file}",
+            )
             return shift_config
         except Exception as e:
             self.logger.warning(f"Failed to load distribution shift config: {e}")
@@ -157,8 +167,16 @@ class BlueSkyScenarioGenerator:
         """Fallback ranges if YAML file is not available"""
         return {
             "aircraft": {
-                "count": {"simple": [2, 3], "moderate": [4, 6], "complex": [8, 12], "extreme": [18, 25]},
-                "types": {"pool": ["B737", "A320", "A321", "B777"], "weights": [0.3, 0.3, 0.2, 0.2]},
+                "count": {
+                    "simple": [2, 3],
+                    "moderate": [4, 6],
+                    "complex": [8, 12],
+                    "extreme": [18, 25],
+                },
+                "types": {
+                    "pool": ["B737", "A320", "A321", "B777"],
+                    "weights": [0.3, 0.3, 0.2, 0.2],
+                },
             },
             "geography": {
                 "airspace_regions": {
@@ -195,7 +213,9 @@ class BlueSkyScenarioGenerator:
             return random.choices(choices, weights=weights)[0]
         return random.choice(choices)
 
-    def apply_distribution_shift(self, base_ranges: dict[str, Any], shift_tier: str) -> dict[str, Any]:
+    def apply_distribution_shift(
+        self, base_ranges: dict[str, Any], shift_tier: str,
+    ) -> dict[str, Any]:
         """
         Apply distribution shift to base ranges according to specified tier.
 
@@ -210,7 +230,9 @@ class BlueSkyScenarioGenerator:
         Returns:
             Modified ranges with shifts applied
         """
-        if shift_tier == "in_distribution" or shift_tier not in self.shift_config.get("distribution_shift_tiers", {}):
+        if shift_tier == "in_distribution" or shift_tier not in self.shift_config.get(
+            "distribution_shift_tiers", {},
+        ):
             # No shift - return base ranges unchanged
             return base_ranges.copy()
 
@@ -225,7 +247,9 @@ class BlueSkyScenarioGenerator:
             for complexity in shifted_ranges["aircraft"]["count"]:
                 base_range = shifted_ranges["aircraft"]["count"][complexity]
                 new_min = max(1, int(base_range[0] * multiplier))
-                new_max = max(new_min, min(25, int(base_range[1] * multiplier)))  # Ensure max >= min
+                new_max = max(
+                    new_min, min(25, int(base_range[1] * multiplier)),
+                )  # Ensure max >= min
                 shifted_ranges["aircraft"]["count"][complexity] = [new_min, new_max]
 
         # 2. Apply aircraft pool shifts
@@ -301,9 +325,15 @@ class BlueSkyScenarioGenerator:
             if "navigation" not in shifted_ranges:
                 shifted_ranges["navigation"] = {}
 
-            shifted_ranges["navigation"]["error_injection_rate"] = nav_config["error_injection_rate"]
-            shifted_ranges["navigation"]["error_magnitude_nm"] = nav_config.get("error_magnitude_nm", [0.1, 1.0])
-            shifted_ranges["navigation"]["system_reliability"] = nav_config.get("system_reliability", 0.95)
+            shifted_ranges["navigation"]["error_injection_rate"] = nav_config[
+                "error_injection_rate"
+            ]
+            shifted_ranges["navigation"]["error_magnitude_nm"] = nav_config.get(
+                "error_magnitude_nm", [0.1, 1.0],
+            )
+            shifted_ranges["navigation"]["system_reliability"] = nav_config.get(
+                "system_reliability", 0.95,
+            )
 
         # 6. Apply geography shifts (if any region-specific modifications)
         geography_config = shift_config.get("geography", {})
@@ -314,17 +344,20 @@ class BlueSkyScenarioGenerator:
                 new_min = base_radius[0] * expansion
                 new_max = max(new_min, base_radius[1] * expansion)  # Ensure max >= min
                 shifted_ranges["geography"]["airspace_regions"][region]["radius_nm"] = [
-                    new_min, new_max,
+                    new_min,
+                    new_max,
                 ]
 
         self.logger.info(f"Distribution shift applied: {shift_tier}")
         return shifted_ranges
 
-    def generate_scenario(self,
-                         complexity_tier: ComplexityTier = ComplexityTier.MODERATE,
-                         force_conflicts: bool = True,
-                         airspace_region: Optional[str] = None,
-                         distribution_shift_tier: str = "in_distribution") -> ScenarioConfiguration:
+    def generate_scenario(
+        self,
+        complexity_tier: ComplexityTier = ComplexityTier.MODERATE,
+        force_conflicts: bool = True,
+        airspace_region: Optional[str] = None,
+        distribution_shift_tier: str = "in_distribution",
+    ) -> ScenarioConfiguration:
         """
         Generate a complete scenario using BlueSky commands.
 
@@ -339,7 +372,9 @@ class BlueSkyScenarioGenerator:
             ScenarioConfiguration with all parameters and BlueSky commands
         """
 
-        self.logger.info(f"Generating {complexity_tier.value} scenario with {distribution_shift_tier} shift")
+        self.logger.info(
+            f"Generating {complexity_tier.value} scenario with {distribution_shift_tier} shift",
+        )
         start_time = time.time()
 
         # Reset command log for this scenario
@@ -364,7 +399,9 @@ class BlueSkyScenarioGenerator:
 
         # 3. Select airspace region (using shifted ranges)
         if not airspace_region:
-            airspace_region = random.choice(list(shifted_ranges["geography"]["airspace_regions"].keys()))
+            airspace_region = random.choice(
+                list(shifted_ranges["geography"]["airspace_regions"].keys()),
+            )
 
         region_config = shifted_ranges["geography"]["airspace_regions"][airspace_region]
         center_lat, center_lon = region_config["center"]
@@ -383,7 +420,9 @@ class BlueSkyScenarioGenerator:
 
             # Convert to lat/lon offset
             lat_offset = (distance_nm * math.cos(angle)) / 60.0  # 1 degree ≈ 60 nm
-            lon_offset = (distance_nm * math.sin(angle)) / (60.0 * math.cos(math.radians(center_lat)))
+            lon_offset = (distance_nm * math.sin(angle)) / (
+                60.0 * math.cos(math.radians(center_lat))
+            )
 
             lat = center_lat + lat_offset
             lon = center_lon + lon_offset
@@ -405,9 +444,12 @@ class BlueSkyScenarioGenerator:
             # Sample heading (using shifted ranges)
             if force_conflicts and i > 0:
                 # Create convergent headings for conflicts
-                target_pos = positions[i-1]
+                target_pos = positions[i - 1]
                 bearing = self._calculate_bearing(
-                    lat, lon, target_pos["lat"], target_pos["lon"],
+                    lat,
+                    lon,
+                    target_pos["lat"],
+                    target_pos["lon"],
                 )
                 # Add some variation
                 heading = (bearing + random.uniform(-30, 30)) % 360
@@ -422,8 +464,15 @@ class BlueSkyScenarioGenerator:
 
         # 6. Generate BlueSky commands (with shift-aware parameters)
         bluesky_commands = self._generate_bluesky_commands(
-            aircraft_count, aircraft_types, positions, speeds, headings,
-            environmental_conditions, force_conflicts, shifted_ranges, distribution_shift_tier,
+            aircraft_count,
+            aircraft_types,
+            positions,
+            speeds,
+            headings,
+            environmental_conditions,
+            force_conflicts,
+            shifted_ranges,
+            distribution_shift_tier,
         )
 
         # 7. Sample simulation duration (using shifted ranges)
@@ -447,8 +496,10 @@ class BlueSkyScenarioGenerator:
         )
 
         generation_time = time.time() - start_time
-        self.logger.info(f"Generated {distribution_shift_tier} scenario in {generation_time:.3f}s: "
-                        f"{aircraft_count} aircraft, {len(bluesky_commands)} commands")
+        self.logger.info(
+            f"Generated {distribution_shift_tier} scenario in {generation_time:.3f}s: "
+            f"{aircraft_count} aircraft, {len(bluesky_commands)} commands",
+        )
 
         return scenario
 
@@ -477,23 +528,25 @@ class BlueSkyScenarioGenerator:
 
         return conditions
 
-    def _generate_bluesky_commands(self,
-                                  aircraft_count: int,
-                                  aircraft_types: list[str],
-                                  positions: list[dict[str, float]],
-                                  speeds: list[int],
-                                  headings: list[int],
-                                  environmental_conditions: dict[str, Any],
-                                  force_conflicts: bool,
-                                  ranges: dict[str, Any],
-                                  distribution_shift_tier: str) -> list[str]:
+    def _generate_bluesky_commands(
+        self,
+        aircraft_count: int,
+        aircraft_types: list[str],
+        positions: list[dict[str, float]],
+        speeds: list[int],
+        headings: list[int],
+        environmental_conditions: dict[str, Any],
+        force_conflicts: bool,
+        ranges: dict[str, Any],
+        distribution_shift_tier: str,
+    ) -> list[str]:
         """Generate BlueSky commands for scenario setup (shift-aware)"""
         commands = []
 
         # Proper BlueSky initialization sequence
-        commands.append("RESET")         # Clear all aircraft and state
-        commands.append("IC")            # Initialize simulation
-        commands.append("DTMULT 1")      # Real-time simulation
+        commands.append("RESET")  # Clear all aircraft and state
+        commands.append("IC")  # Initialize simulation
+        commands.append("DTMULT 1")  # Real-time simulation
 
         # Set area (use first aircraft position as reference)
         ref_pos = positions[0]
@@ -505,9 +558,11 @@ class BlueSkyScenarioGenerator:
         commands.append("CDSEP 5.0 1000")  # 5NM horizontal, 1000ft vertical
 
         # Set wind conditions (from shifted ranges)
-        wind_cmd = f"WIND {ref_pos['lat']:.2f},{ref_pos['lon']:.2f},ALL," \
-                  f"{environmental_conditions['wind_direction_deg']:.0f}," \
-                  f"{environmental_conditions['wind_speed_kts']:.0f}"
+        wind_cmd = (
+            f"WIND {ref_pos['lat']:.2f},{ref_pos['lon']:.2f},ALL,"
+            f"{environmental_conditions['wind_direction_deg']:.0f},"
+            f"{environmental_conditions['wind_speed_kts']:.0f}"
+        )
         commands.append(wind_cmd)
 
         # Add turbulence if significant (extreme shift scenarios)
@@ -516,7 +571,7 @@ class BlueSkyScenarioGenerator:
             commands.append(turb_cmd)
 
         # Start simulation before creating aircraft
-        commands.append("OP")            # Start/run simulation
+        commands.append("OP")  # Start/run simulation
 
         # Create aircraft using CRE commands
         for i in range(aircraft_count):
@@ -524,9 +579,11 @@ class BlueSkyScenarioGenerator:
             pos = positions[i]
 
             # CRE command: callsign, type, lat, lon, hdg, alt, spd
-            cre_cmd = f"CRE {callsign} {aircraft_types[i]} " \
-                     f"{pos['lat']:.4f} {pos['lon']:.4f} " \
-                     f"{headings[i]} {pos['alt']:.0f} {speeds[i]}"
+            cre_cmd = (
+                f"CRE {callsign} {aircraft_types[i]} "
+                f"{pos['lat']:.4f} {pos['lon']:.4f} "
+                f"{headings[i]} {pos['alt']:.0f} {speeds[i]}"
+            )
 
             commands.append(cre_cmd)
 
@@ -534,8 +591,8 @@ class BlueSkyScenarioGenerator:
             if "navigation_error_nm" in environmental_conditions:
                 error_nm = environmental_conditions["navigation_error_nm"]
                 # Inject position error via slight offset in CRE command
-                error_lat = random.uniform(-error_nm/60, error_nm/60)  # Convert nm to degrees
-                error_lon = random.uniform(-error_nm/60, error_nm/60)
+                error_lat = random.uniform(-error_nm / 60, error_nm / 60)  # Convert nm to degrees
+                error_lon = random.uniform(-error_nm / 60, error_nm / 60)
                 error_cmd = f"{callsign} MOVE {pos['lat']+error_lat:.4f} {pos['lon']+error_lon:.4f}"
                 commands.append("DT 5")  # Small delay before error injection
                 commands.append(error_cmd)
@@ -604,8 +661,9 @@ class BlueSkyScenarioGenerator:
         dlon_rad = math.radians(lon2 - lon1)
 
         y = math.sin(dlon_rad) * math.cos(lat2_rad)
-        x = math.cos(lat1_rad) * math.sin(lat2_rad) - \
-            math.sin(lat1_rad) * math.cos(lat2_rad) * math.cos(dlon_rad)
+        x = math.cos(lat1_rad) * math.sin(lat2_rad) - math.sin(lat1_rad) * math.cos(
+            lat2_rad,
+        ) * math.cos(dlon_rad)
 
         bearing_rad = math.atan2(y, x)
         bearing_deg = math.degrees(bearing_rad)
@@ -651,7 +709,11 @@ class BlueSkyScenarioGenerator:
                                     "id1": traf.id[ac1_idx],
                                     "id2": traf.id[ac2_idx],
                                     "time": sim.simt,
-                                    "distance": getattr(traf.cd, "dcpa", [0])[0] if hasattr(traf.cd, "dcpa") else 0,
+                                    "distance": (
+                                        getattr(traf.cd, "dcpa", [0])[0]
+                                        if hasattr(traf.cd, "dcpa")
+                                        else 0
+                                    ),
                                 }
                                 conflicts_detected.append(conflict)
 
@@ -696,10 +758,12 @@ class BlueSkyScenarioGenerator:
             "mock": True,
         }
 
-    def generate_scenario_batch(self,
-                               count: int,
-                               complexity_distribution: Optional[dict[str, float]] = None,
-                               distribution_shift_distribution: Optional[dict[str, float]] = None) -> list[ScenarioConfiguration]:
+    def generate_scenario_batch(
+        self,
+        count: int,
+        complexity_distribution: Optional[dict[str, float]] = None,
+        distribution_shift_distribution: Optional[dict[str, float]] = None,
+    ) -> list[ScenarioConfiguration]:
         """
         Generate multiple scenarios for Monte Carlo testing.
 
@@ -735,7 +799,9 @@ class BlueSkyScenarioGenerator:
         shift_tiers = list(distribution_shift_distribution.keys())
         shift_weights = list(distribution_shift_distribution.values())
 
-        self.logger.info(f"Generating {count} scenarios with complexity distribution: {complexity_distribution}")
+        self.logger.info(
+            f"Generating {count} scenarios with complexity distribution: {complexity_distribution}",
+        )
         self.logger.info(f"Distribution shift distribution: {distribution_shift_distribution}")
 
         for i in range(count):
@@ -820,21 +886,29 @@ class BlueSkyScenarioGenerator:
 
 
 # Convenience functions for backward compatibility
-def generate_scenario(complexity_tier: str = "moderate",
-                     force_conflicts: bool = True,
-                     distribution_shift_tier: str = "in_distribution") -> ScenarioConfiguration:
+def generate_scenario(
+    complexity_tier: str = "moderate",
+    force_conflicts: bool = True,
+    distribution_shift_tier: str = "in_distribution",
+) -> ScenarioConfiguration:
     """Generate a single scenario - convenience function"""
     generator = BlueSkyScenarioGenerator()
     tier = ComplexityTier(complexity_tier)
-    return generator.generate_scenario(tier, force_conflicts, distribution_shift_tier=distribution_shift_tier)
+    return generator.generate_scenario(
+        tier, force_conflicts, distribution_shift_tier=distribution_shift_tier,
+    )
 
 
-def generate_monte_carlo_scenarios(count: int,
-                                  complexity_distribution: Optional[dict[str, float]] = None,
-                                  distribution_shift_distribution: Optional[dict[str, float]] = None) -> list[ScenarioConfiguration]:
+def generate_monte_carlo_scenarios(
+    count: int,
+    complexity_distribution: Optional[dict[str, float]] = None,
+    distribution_shift_distribution: Optional[dict[str, float]] = None,
+) -> list[ScenarioConfiguration]:
     """Generate multiple scenarios for Monte Carlo testing - convenience function"""
     generator = BlueSkyScenarioGenerator()
-    return generator.generate_scenario_batch(count, complexity_distribution, distribution_shift_distribution)
+    return generator.generate_scenario_batch(
+        count, complexity_distribution, distribution_shift_distribution,
+    )
 
 
 # Backward compatibility alias
@@ -894,10 +968,8 @@ if __name__ == "__main__":
         },
     )
 
-
     # Count shift types in batch
     shift_counts = {}
     for scenario in batch_scenarios:
         shift_type = scenario.distribution_shift_tier
         shift_counts[shift_type] = shift_counts.get(shift_type, 0) + 1
-

@@ -22,6 +22,7 @@ try:
     import bluesky as bs
     from bluesky import sim, stack, traf
     from bluesky.stack import stack as bs_stack
+
     BLUESKY_AVAILABLE = True
     logging.info("BlueSky simulator successfully imported")
 except ImportError as e:
@@ -107,6 +108,7 @@ class BlueSkyConfig:
             else:
                 # Fallback to JSON if yaml not available
                 import json
+
                 json.dump(default_config, f, indent=2)
 
     def _load_config(self) -> dict[str, Any]:
@@ -116,6 +118,7 @@ class BlueSkyConfig:
                 if yaml and self.config_path.endswith(".yaml"):
                     return yaml.safe_load(f)
                 import json
+
                 return json.load(f)
         except Exception as e:
             logging.warning(f"Failed to load config from {self.config_path}: {e}")
@@ -182,6 +185,7 @@ class BlueSkyInterface:
 
                     # Verify that simulation modules are now available
                     from bluesky import sim, traf
+
                     if not hasattr(sim, "simt"):
                         msg = "Simulation module not properly initialized"
                         raise Exception(msg)
@@ -231,7 +235,9 @@ class BlueSkyInterface:
                 # 4. Set separation standards
                 h_sep = _config.get("bluesky.simulation.separation_standards.horizontal_nm", 5.0)
                 v_sep = _config.get("bluesky.simulation.separation_standards.vertical_ft", 1000.0)
-                logging.info(f"Setting separation standards: {h_sep}nm horizontal, {v_sep}ft vertical")
+                logging.info(
+                    f"Setting separation standards: {h_sep}nm horizontal, {v_sep}ft vertical",
+                )
                 bs.stack.stack(f"CDSEP {h_sep} {v_sep}")
 
                 # 5. Start simulation
@@ -288,7 +294,9 @@ class BlueSkyInterface:
                 logging.debug(f"Checking bs.traf - has id: {hasattr(traffic, 'id')}")
                 if hasattr(traffic, "id"):
                     logging.debug(f"bs.traf.id length: {len(traffic.id)}")
-                    logging.debug(f"bs.traf.id contents: {list(traffic.id) if len(traffic.id) > 0 else 'empty'}")
+                    logging.debug(
+                        f"bs.traf.id contents: {list(traffic.id) if len(traffic.id) > 0 else 'empty'}",
+                    )
 
                 # Get aircraft data from BlueSky traffic module
                 if hasattr(traffic, "id") and hasattr(traffic, "lat"):
@@ -320,7 +328,9 @@ class BlueSkyInterface:
                 "aircraft": aircraft_dict,
                 "timestamp": time.time(),
                 "total_aircraft": len(aircraft_dict),
-                "simulation_time": getattr(sim, "simt", time.time()) if hasattr(sim, "simt") else time.time(),
+                "simulation_time": (
+                    getattr(sim, "simt", time.time()) if hasattr(sim, "simt") else time.time()
+                ),
                 "source": "bluesky_real",
             }
 
@@ -353,27 +363,35 @@ class BlueSkyInterface:
 
                         # Calculate separation
                         h_sep = self._calculate_horizontal_separation(ac1_idx, ac2_idx)
-                        v_sep = abs(traf.alt[ac1_idx] - traf.alt[ac2_idx]) if ac1_idx < len(traf.alt) and ac2_idx < len(traf.alt) else 0
+                        v_sep = (
+                            abs(traf.alt[ac1_idx] - traf.alt[ac2_idx])
+                            if ac1_idx < len(traf.alt) and ac2_idx < len(traf.alt)
+                            else 0
+                        )
 
-                        conflicts.append({
-                            "conflict_id": f"CONF_{i+1:03d}",
-                            "aircraft_1": ac1_id,
-                            "aircraft_2": ac2_id,
-                            "horizontal_separation": h_sep,
-                            "vertical_separation": v_sep,
-                            "time_to_cpa": 120,  # Would need to calculate from BlueSky data
-                            "severity": self._assess_conflict_severity(h_sep, v_sep),
-                            "predicted_cpa_lat": (traf.lat[ac1_idx] + traf.lat[ac2_idx]) / 2,
-                            "predicted_cpa_lon": (traf.lon[ac1_idx] + traf.lon[ac2_idx]) / 2,
-                            "predicted_cpa_time": time.time() + 120,
-                        })
+                        conflicts.append(
+                            {
+                                "conflict_id": f"CONF_{i+1:03d}",
+                                "aircraft_1": ac1_id,
+                                "aircraft_2": ac2_id,
+                                "horizontal_separation": h_sep,
+                                "vertical_separation": v_sep,
+                                "time_to_cpa": 120,  # Would need to calculate from BlueSky data
+                                "severity": self._assess_conflict_severity(h_sep, v_sep),
+                                "predicted_cpa_lat": (traf.lat[ac1_idx] + traf.lat[ac2_idx]) / 2,
+                                "predicted_cpa_lon": (traf.lon[ac1_idx] + traf.lon[ac2_idx]) / 2,
+                                "predicted_cpa_time": time.time() + 120,
+                            },
+                        )
 
             return {
                 "conflicts": conflicts,
                 "total_conflicts": len(conflicts),
                 "timestamp": time.time(),
                 "high_priority_conflicts": len([c for c in conflicts if c["severity"] == "high"]),
-                "medium_priority_conflicts": len([c for c in conflicts if c["severity"] == "medium"]),
+                "medium_priority_conflicts": len(
+                    [c for c in conflicts if c["severity"] == "medium"],
+                ),
                 "low_priority_conflicts": len([c for c in conflicts if c["severity"] == "low"]),
                 "source": "bluesky_real",
             }
@@ -385,12 +403,18 @@ class BlueSkyInterface:
     def _calculate_horizontal_separation(self, ac1_idx: int, ac2_idx: int) -> float:
         """Calculate horizontal separation between two aircraft"""
         try:
-            if (ac1_idx < len(traf.lat) and ac2_idx < len(traf.lat) and
-                ac1_idx < len(traf.lon) and ac2_idx < len(traf.lon)):
+            if (
+                ac1_idx < len(traf.lat)
+                and ac2_idx < len(traf.lat)
+                and ac1_idx < len(traf.lon)
+                and ac2_idx < len(traf.lon)
+            ):
 
                 return haversine_distance(
-                    traf.lat[ac1_idx], traf.lon[ac1_idx],
-                    traf.lat[ac2_idx], traf.lon[ac2_idx],
+                    traf.lat[ac1_idx],
+                    traf.lon[ac1_idx],
+                    traf.lat[ac2_idx],
+                    traf.lon[ac2_idx],
                 )
         except:
             pass
@@ -474,7 +498,9 @@ class BlueSkyInterface:
                 "minutes_advanced": minutes,
                 "seconds_advanced": minutes * 60,
                 "dtmult": dtmult,
-                "simulation_time": getattr(sim, "simt", time.time()) if hasattr(sim, "simt") else time.time(),
+                "simulation_time": (
+                    getattr(sim, "simt", time.time()) if hasattr(sim, "simt") else time.time()
+                ),
                 "command_result": cmd_result,
                 "status": "completed" if cmd_result.get("success") else "failed",
                 "success": cmd_result.get("success", False),
@@ -574,9 +600,18 @@ class BlueSkyInterface:
             acid = f"AC{i+1:03d}"
             aircraft_dict[acid] = {
                 "id": acid,
-                "lat": bounds.get("lat_min", 51.0) + (bounds.get("lat_max", 53.0) - bounds.get("lat_min", 51.0)) * (i / max(1, aircraft_count)),
-                "lon": bounds.get("lon_min", 3.0) + (bounds.get("lon_max", 6.0) - bounds.get("lon_min", 3.0)) * (i / max(1, aircraft_count)),
-                "alt": (alt_range.get("min_fl", 200) + (alt_range.get("max_fl", 400) - alt_range.get("min_fl", 200)) * (i / max(1, aircraft_count))) * 100,
+                "lat": bounds.get("lat_min", 51.0)
+                + (bounds.get("lat_max", 53.0) - bounds.get("lat_min", 51.0))
+                * (i / max(1, aircraft_count)),
+                "lon": bounds.get("lon_min", 3.0)
+                + (bounds.get("lon_max", 6.0) - bounds.get("lon_min", 3.0))
+                * (i / max(1, aircraft_count)),
+                "alt": (
+                    alt_range.get("min_fl", 200)
+                    + (alt_range.get("max_fl", 400) - alt_range.get("min_fl", 200))
+                    * (i / max(1, aircraft_count))
+                )
+                * 100,
                 "hdg": (i * 36) % 360,  # Spread headings
                 "spd": 250 + (i * 10) % 200,  # Vary speeds
                 "vs": 0,
@@ -661,6 +696,7 @@ class BlueSkyInterface:
 # Global BlueSky interface instance
 _bluesky_interface = BlueSkyInterface()
 
+
 def set_strict_mode(enabled: bool = True) -> None:
     """Enable or disable strict mode for BlueSky operations"""
     global _bluesky_interface
@@ -671,6 +707,7 @@ def set_strict_mode(enabled: bool = True) -> None:
 @dataclass
 class AircraftInfo:
     """Aircraft information structure"""
+
     id: str
     lat: float
     lon: float
@@ -685,6 +722,7 @@ class AircraftInfo:
 @dataclass
 class ConflictInfo:
     """Conflict information structure"""
+
     conflict_id: str
     aircraft_1: str
     aircraft_2: str
@@ -718,8 +756,7 @@ def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     # Haversine formula
     dlat = lat2_rad - lat1_rad
     dlon = lon2_rad - lon1_rad
-    a = (math.sin(dlat/2)**2 +
-         math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon/2)**2)
+    a = math.sin(dlat / 2) ** 2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2) ** 2
     c = 2 * math.asin(math.sqrt(a))
 
     # Earth's radius in nautical miles
@@ -741,9 +778,11 @@ def get_all_aircraft_info() -> dict[str, Any]:
         # Use the BlueSky interface to get real or mock data
         aircraft_data = _bluesky_interface.get_aircraft_data()
 
-        logging.info("Retrieved information for %d aircraft (source: %s)",
-                    aircraft_data.get("total_aircraft", 0),
-                    aircraft_data.get("source", "unknown"))
+        logging.info(
+            "Retrieved information for %d aircraft (source: %s)",
+            aircraft_data.get("total_aircraft", 0),
+            aircraft_data.get("source", "unknown"),
+        )
         return aircraft_data
 
     except Exception as e:
@@ -765,9 +804,11 @@ def get_conflict_info() -> dict[str, Any]:
         # Use the BlueSky interface to get real or mock conflict data
         conflict_data = _bluesky_interface.get_conflict_data()
 
-        logging.info("Retrieved %d conflicts (source: %s)",
-                    conflict_data.get("total_conflicts", 0),
-                    conflict_data.get("source", "unknown"))
+        logging.info(
+            "Retrieved %d conflicts (source: %s)",
+            conflict_data.get("total_conflicts", 0),
+            conflict_data.get("source", "unknown"),
+        )
         return conflict_data
 
     except Exception as e:
@@ -828,9 +869,29 @@ def send_command(command: str) -> dict[str, Any]:
 
         # Validate command format
         valid_commands = [
-            "ALT", "HDG", "SPD", "CRE", "DEL", "DEST", "DIRECT", "LNAV",
-            "DT", "DTMULT", "VS", "GO", "RESET", "AREA", "CDMETHOD", "CDSEP",
-            "WIND", "TURB", "PAUSE", "UNPAUSE", "FF", "IC", "OP",
+            "ALT",
+            "HDG",
+            "SPD",
+            "CRE",
+            "DEL",
+            "DEST",
+            "DIRECT",
+            "LNAV",
+            "DT",
+            "DTMULT",
+            "VS",
+            "GO",
+            "RESET",
+            "AREA",
+            "CDMETHOD",
+            "CDSEP",
+            "WIND",
+            "TURB",
+            "PAUSE",
+            "UNPAUSE",
+            "FF",
+            "IC",
+            "OP",
         ]
 
         if command_type not in valid_commands:
@@ -860,7 +921,8 @@ def send_command(command: str) -> dict[str, Any]:
 
 
 def search_experience_library(
-    scenario_type: str, similarity_threshold: float = 0.8,
+    scenario_type: str,
+    similarity_threshold: float = 0.8,
 ) -> dict[str, Any]:
     """
     Search the experience library for similar scenarios
@@ -1083,7 +1145,10 @@ def get_distance(aircraft_id1: str, aircraft_id2: str) -> dict[str, float]:
 
         # Calculate horizontal distance using haversine formula
         horizontal_nm = haversine_distance(
-            ac1["lat"], ac1["lon"], ac2["lat"], ac2["lon"],
+            ac1["lat"],
+            ac1["lon"],
+            ac2["lat"],
+            ac2["lon"],
         )
 
         # Calculate vertical separation
@@ -1102,7 +1167,9 @@ def get_distance(aircraft_id1: str, aircraft_id2: str) -> dict[str, float]:
 
         logging.info(
             "Distance computed: %.2f nm horizontal, %.0f ft vertical, %.2f nm 3D",
-            horizontal_nm, vertical_ft, total_3d_nm,
+            horizontal_nm,
+            vertical_ft,
+            total_3d_nm,
         )
 
         return result
@@ -1133,8 +1200,7 @@ def _haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> f
     # Haversine formula
     dlat = lat2_rad - lat1_rad
     dlon = lon2_rad - lon1_rad
-    a = (math.sin(dlat/2)**2 +
-         math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon/2)**2)
+    a = math.sin(dlat / 2) ** 2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2) ** 2
     c = 2 * math.asin(math.sqrt(a))
 
     # Earth's radius in nautical miles
@@ -1155,8 +1221,7 @@ def step_simulation(minutes: float, dtmult: float = 1.0) -> dict[str, Any]:
         Status dictionary with simulation step information
     """
     try:
-        logging.info("Stepping simulation forward by %.2f minutes (dtmult=%.1f)",
-                    minutes, dtmult)
+        logging.info("Stepping simulation forward by %.2f minutes (dtmult=%.1f)", minutes, dtmult)
 
         # Use BlueSky interface to step the simulation
         result = _bluesky_interface.step_simulation_real(minutes, dtmult)
@@ -1165,8 +1230,9 @@ def step_simulation(minutes: float, dtmult: float = 1.0) -> dict[str, Any]:
         if result.get("success"):
             result["command_sent"] = f"DT {minutes * 60:.0f}"
 
-        logging.info("Simulation stepped forward successfully (source: %s)",
-                    result.get("source", "unknown"))
+        logging.info(
+            "Simulation stepped forward successfully (source: %s)", result.get("source", "unknown"),
+        )
         return result
 
     except Exception as e:
@@ -1195,10 +1261,16 @@ def reset_simulation() -> dict[str, Any]:
 
         # Add backward compatibility fields
         if result.get("success"):
-            result["setup_commands"] = ["IC", "DTMULT 1", "AREA EHAM", "CDMETHOD SWARM", "CDSEP 5.0 1000", "OP"]
+            result["setup_commands"] = [
+                "IC",
+                "DTMULT 1",
+                "AREA EHAM",
+                "CDMETHOD SWARM",
+                "CDSEP 5.0 1000",
+                "OP",
+            ]
 
-        logging.info("Simulation reset completed (source: %s)",
-                    result.get("source", "unknown"))
+        logging.info("Simulation reset completed (source: %s)", result.get("source", "unknown"))
         return result
 
     except Exception as e:
@@ -1220,13 +1292,13 @@ def get_minimum_separation() -> dict[str, float]:
         Dictionary with minimum separation requirements
     """
     return {
-        "horizontal_nm": 5.0,    # Standard horizontal separation
-        "vertical_ft": 1000.0,   # Standard vertical separation
+        "horizontal_nm": 5.0,  # Standard horizontal separation
+        "vertical_ft": 1000.0,  # Standard vertical separation
         "approach_horizontal_nm": 3.0,  # Approach phase horizontal
         "approach_vertical_ft": 500.0,  # Approach phase vertical
         "terminal_horizontal_nm": 3.0,  # Terminal area horizontal
         "oceanic_horizontal_nm": 10.0,  # Oceanic separation
-        "rvsm_vertical_ft": 1000.0,     # RVSM vertical separation
+        "rvsm_vertical_ft": 1000.0,  # RVSM vertical separation
     }
 
 
@@ -1276,8 +1348,10 @@ def check_separation_violation(aircraft_id1: str, aircraft_id2: str) -> dict[str
         if separation_violation:
             logging.warning(
                 "SEPARATION VIOLATION: %s and %s - %.2f nm horizontal, %.0f ft vertical",
-                aircraft_id1, aircraft_id2,
-                distances["horizontal_nm"], distances["vertical_ft"],
+                aircraft_id1,
+                aircraft_id2,
+                distances["horizontal_nm"],
+                distances["vertical_ft"],
             )
 
         return result

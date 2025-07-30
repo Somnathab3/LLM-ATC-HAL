@@ -13,19 +13,21 @@ logger = logging.getLogger(__name__)
 
 class HallucinationType(Enum):
     """Types of hallucinations in ATC context"""
-    FACTUAL_ERROR = "factual_error"              # Wrong aircraft positions, speeds, etc.
-    TEMPORAL_ERROR = "temporal_error"            # Wrong timestamps, sequence errors
-    PROCEDURAL_ERROR = "procedural_error"        # Incorrect ATC procedures
-    SAFETY_VIOLATION = "safety_violation"        # Unsafe commands or recommendations
-    PHANTOM_AIRCRAFT = "phantom_aircraft"        # Non-existent aircraft references
+
+    FACTUAL_ERROR = "factual_error"  # Wrong aircraft positions, speeds, etc.
+    TEMPORAL_ERROR = "temporal_error"  # Wrong timestamps, sequence errors
+    PROCEDURAL_ERROR = "procedural_error"  # Incorrect ATC procedures
+    SAFETY_VIOLATION = "safety_violation"  # Unsafe commands or recommendations
+    PHANTOM_AIRCRAFT = "phantom_aircraft"  # Non-existent aircraft references
     CONFLICT_MISIDENTIFICATION = "conflict_misidentification"  # Wrong conflict detection
-    SPATIAL_ERROR = "spatial_error"              # Wrong coordinates, distances
-    COMMUNICATION_ERROR = "communication_error"   # Garbled or nonsensical commands
+    SPATIAL_ERROR = "spatial_error"  # Wrong coordinates, distances
+    COMMUNICATION_ERROR = "communication_error"  # Garbled or nonsensical commands
 
 
 @dataclass
 class HallucinationEvent:
     """Represents a detected hallucination event"""
+
     event_id: str
     hallucination_type: HallucinationType
     severity: str  # 'low', 'medium', 'high', 'critical'
@@ -94,7 +96,9 @@ class HallucinationTaxonomy:
             },
         }
 
-    def classify_hallucination(self, text: str, context: dict[str, Any]) -> Optional[HallucinationEvent]:
+    def classify_hallucination(
+        self, text: str, context: dict[str, Any],
+    ) -> Optional[HallucinationEvent]:
         """Classify a potential hallucination event"""
         try:
             # Analyze text for hallucination indicators
@@ -127,12 +131,13 @@ class HallucinationTaxonomy:
                 safety_impact=self.taxonomy_rules[best_type]["safety_impact"],
             )
 
-
         except Exception as e:
             logger.exception(f"Error classifying hallucination: {e!s}")
             return None
 
-    def _calculate_hallucination_score(self, text: str, rules: dict, context: dict[str, Any]) -> float:
+    def _calculate_hallucination_score(
+        self, text: str, rules: dict, context: dict[str, Any],
+    ) -> float:
         """Calculate hallucination likelihood score for a specific type"""
 
         # Keyword matching
@@ -216,7 +221,9 @@ class HallucinationTaxonomy:
 
         # Analyze by severity
         for event in events:
-            analysis["by_severity"][event.severity] = analysis["by_severity"].get(event.severity, 0) + 1
+            analysis["by_severity"][event.severity] = (
+                analysis["by_severity"].get(event.severity, 0) + 1
+            )
 
         return analysis
 
@@ -229,7 +236,7 @@ class HallucinationTaxonomy:
         timestamps.sort()
 
         # Calculate time gaps
-        gaps = [timestamps[i+1] - timestamps[i] for i in range(len(timestamps)-1)]
+        gaps = [timestamps[i + 1] - timestamps[i] for i in range(len(timestamps) - 1)]
 
         return {
             "time_span": timestamps[-1] - timestamps[0],
@@ -242,7 +249,9 @@ class HallucinationTaxonomy:
 taxonomy = HallucinationTaxonomy()
 
 
-def classify_hallucination(text: str, context: Optional[dict[str, Any]] = None) -> Optional[HallucinationEvent]:
+def classify_hallucination(
+    text: str, context: Optional[dict[str, Any]] = None,
+) -> Optional[HallucinationEvent]:
     """Convenience function for hallucination classification"""
     if context is None:
         context = {}
@@ -289,9 +298,10 @@ if __name__ == "__main__":
         "Turn left heading 270 degrees for traffic avoidance",
     ]
 
-
     for _i, test_text in enumerate(test_cases):
-        event = classify_hallucination(test_text, {"aircraft_data": [{"callsign": "AC001"}, {"callsign": "AC002"}]})
+        event = classify_hallucination(
+            test_text, {"aircraft_data": [{"callsign": "AC001"}, {"callsign": "AC002"}]},
+        )
 
         if event:
             pass

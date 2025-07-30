@@ -53,6 +53,7 @@ from scenarios.scenario_generator import (
 # Import monte carlo analysis helpers
 try:
     from llm_atc.metrics.monte_carlo_analysis import MonteCarloResultsAnalyzer
+
     MONTE_CARLO_ANALYSIS_AVAILABLE = True
 except ImportError:
     MONTE_CARLO_ANALYSIS_AVAILABLE = False
@@ -62,6 +63,7 @@ except ImportError:
 @dataclass
 class BenchmarkConfiguration:
     """Configuration for Monte Carlo benchmark runs"""
+
     # Scenario parameters - NEW: per-type scenario counts
     num_scenarios_per_type: int = 50  # Kept for backward compatibility
     scenario_counts: Optional[dict[str, int]] = None  # New: per-type counts
@@ -95,16 +97,26 @@ class BenchmarkConfiguration:
     def __post_init__(self):
         """Set defaults for mutable fields"""
         if self.scenario_types is None:
-            self.scenario_types = [ScenarioType.HORIZONTAL, ScenarioType.VERTICAL, ScenarioType.SECTOR]
+            self.scenario_types = [
+                ScenarioType.HORIZONTAL,
+                ScenarioType.VERTICAL,
+                ScenarioType.SECTOR,
+            ]
         if self.complexity_tiers is None:
-            self.complexity_tiers = [ComplexityTier.SIMPLE, ComplexityTier.MODERATE, ComplexityTier.COMPLEX]
+            self.complexity_tiers = [
+                ComplexityTier.SIMPLE,
+                ComplexityTier.MODERATE,
+                ComplexityTier.COMPLEX,
+            ]
         if self.distribution_shift_levels is None:
             self.distribution_shift_levels = ["in_distribution", "moderate_shift", "extreme_shift"]
 
         # Initialize scenario_counts if not provided
         if self.scenario_counts is None:
             self.scenario_counts = {
-                scenario_type.value if hasattr(scenario_type, "value") else scenario_type: self.num_scenarios_per_type
+                (
+                    scenario_type.value if hasattr(scenario_type, "value") else scenario_type
+                ): self.num_scenarios_per_type
                 for scenario_type in self.scenario_types
             }
 
@@ -112,6 +124,7 @@ class BenchmarkConfiguration:
 @dataclass
 class ScenarioResult:
     """Results from executing a single scenario"""
+
     # Scenario metadata
     scenario_id: str
     scenario_type: str
@@ -196,6 +209,7 @@ class MonteCarloBenchmark:
         # Enable strict mode for BlueSky if requested
         if hasattr(self.config, "strict_mode") and self.config.strict_mode:
             from llm_atc.tools.bluesky_tools import set_strict_mode
+
             set_strict_mode(True)
             self.logger.info("Enabled strict mode - will fail on mock data usage")
 
@@ -277,7 +291,9 @@ class MonteCarloBenchmark:
                 for complexity_tier in self.config.complexity_tiers:
                     for shift_level in self.config.distribution_shift_levels:
                         scenario_count += self._run_scenario_batch(
-                            scenario_type, complexity_tier, shift_level,
+                            scenario_type,
+                            complexity_tier,
+                            shift_level,
                         )
 
             # Generate summary and visualizations
@@ -289,7 +305,9 @@ class MonteCarloBenchmark:
             # Save results
             self._save_results()
 
-            self.logger.info(f"Benchmark completed successfully: {scenario_count} scenarios executed")
+            self.logger.info(
+                f"Benchmark completed successfully: {scenario_count} scenarios executed",
+            )
             return summary
 
         except Exception as e:
@@ -304,15 +322,15 @@ class MonteCarloBenchmark:
             scenario_key = scenario_type.value if hasattr(scenario_type, "value") else scenario_type
             scenario_count = self.config.scenario_counts.get(scenario_key, 0)
             total += (
-                scenario_count *
-                len(self.config.complexity_tiers) *
-                len(self.config.distribution_shift_levels)
+                scenario_count
+                * len(self.config.complexity_tiers)
+                * len(self.config.distribution_shift_levels)
             )
         return total
 
-    def _run_scenario_batch(self, scenario_type: ScenarioType,
-                           complexity_tier: ComplexityTier,
-                           shift_level: str) -> int:
+    def _run_scenario_batch(
+        self, scenario_type: ScenarioType, complexity_tier: ComplexityTier, shift_level: str,
+    ) -> int:
         """
         Execute a batch of scenarios for given parameters.
 
@@ -330,7 +348,9 @@ class MonteCarloBenchmark:
         successful_scenarios = 0
 
         # Get scenario count for this type
-        num_scenarios = self.config.scenario_counts.get(scenario_type.value if hasattr(scenario_type, "value") else scenario_type, 0)
+        num_scenarios = self.config.scenario_counts.get(
+            scenario_type.value if hasattr(scenario_type, "value") else scenario_type, 0,
+        )
 
         for i in range(num_scenarios):
             scenario_id = f"{batch_id}_{i+1:03d}"
@@ -338,7 +358,10 @@ class MonteCarloBenchmark:
             try:
                 # Generate scenario
                 scenario = self._generate_scenario(
-                    scenario_type, complexity_tier, shift_level, scenario_id,
+                    scenario_type,
+                    complexity_tier,
+                    shift_level,
+                    scenario_id,
                 )
 
                 # Execute single scenario with success tracking
@@ -356,16 +379,23 @@ class MonteCarloBenchmark:
                 self.logger.exception(f"Failed to execute scenario {scenario_id}: {e}")
 
                 # Create error result
-                error_result = self._create_error_result(scenario_id, scenario_type,
-                                                       complexity_tier, shift_level, str(e))
+                error_result = self._create_error_result(
+                    scenario_id, scenario_type, complexity_tier, shift_level, str(e),
+                )
                 self.results.append(error_result)
 
-        self.logger.info(f"Batch {batch_id} completed: {successful_scenarios}/{num_scenarios} successful")
+        self.logger.info(
+            f"Batch {batch_id} completed: {successful_scenarios}/{num_scenarios} successful",
+        )
         return successful_scenarios
 
-    def _generate_scenario(self, scenario_type: ScenarioType,
-                          complexity_tier: ComplexityTier,
-                          shift_level: str, scenario_id: str) -> Any:
+    def _generate_scenario(
+        self,
+        scenario_type: ScenarioType,
+        complexity_tier: ComplexityTier,
+        shift_level: str,
+        scenario_id: str,
+    ) -> Any:
         """Generate a scenario based on type and parameters"""
 
         if scenario_type == ScenarioType.HORIZONTAL:
@@ -425,9 +455,9 @@ class MonteCarloBenchmark:
             # 3. No critical execution errors
 
             has_unresolved_conflicts = (
-                len(result.predicted_conflicts) > 0 and
-                not result.resolution_success and
-                result.separation_violations > 0
+                len(result.predicted_conflicts) > 0
+                and not result.resolution_success
+                and result.separation_violations > 0
             )
 
             has_parse_errors = any("parse" in error.lower() for error in result.errors)
@@ -465,7 +495,11 @@ class MonteCarloBenchmark:
             shift_level = getattr(scenario, "distribution_shift_tier", "in_distribution")
 
             return self._create_error_result(
-                scenario_id, scenario_type, complexity_tier, shift_level, error_message,
+                scenario_id,
+                scenario_type,
+                complexity_tier,
+                shift_level,
+                error_message,
             )
 
     def _execute_scenario_pipeline(self, scenario: Any, scenario_id: str) -> ScenarioResult:
@@ -502,61 +536,76 @@ class MonteCarloBenchmark:
 
             # Stage 5: Calculate Metrics
             metrics = self._calculate_scenario_metrics(
-                ground_truth_conflicts, detected_conflicts,
-                resolutions, verification_results,
+                ground_truth_conflicts,
+                detected_conflicts,
+                resolutions,
+                verification_results,
             )
 
             # Create result object
             return ScenarioResult(
                 scenario_id=scenario_id,
-                scenario_type=scenario.scenario_type.value if hasattr(scenario, "scenario_type") else "unknown",
+                scenario_type=(
+                    scenario.scenario_type.value
+                    if hasattr(scenario, "scenario_type")
+                    else "unknown"
+                ),
                 complexity_tier=getattr(scenario, "complexity_tier", ComplexityTier.MODERATE).value,
-                distribution_shift_tier=getattr(scenario, "distribution_shift_tier", "in_distribution"),
+                distribution_shift_tier=getattr(
+                    scenario, "distribution_shift_tier", "in_distribution",
+                ),
                 aircraft_count=getattr(scenario, "aircraft_count", len(scenario.initial_states)),
-                duration_minutes=getattr(scenario, "duration_minutes", self.config.time_horizon_minutes),
-
+                duration_minutes=getattr(
+                    scenario, "duration_minutes", self.config.time_horizon_minutes,
+                ),
                 # Ground truth
                 true_conflicts=ground_truth_conflicts,
                 num_true_conflicts=len(ground_truth_conflicts),
-
                 # Detection
                 predicted_conflicts=detected_conflicts,
                 num_predicted_conflicts=len(detected_conflicts),
                 detection_method="hybrid" if self.config.enable_llm_detection else "ground_truth",
-
                 # Resolution
                 llm_commands=[r.get("command", "") for r in resolutions],
                 resolution_success=verification_results.get("resolution_success", False),
                 num_interventions=len(resolutions),
-
                 # Safety metrics
                 min_separation_nm=verification_results.get("min_separation_nm", 999.0),
                 min_separation_ft=verification_results.get("min_separation_ft", 999999.0),
                 separation_violations=verification_results.get("violations", 0),
-                safety_margin_hz=max(0, verification_results.get("min_separation_nm", 0) - self.config.min_separation_nm),
-                safety_margin_vt=max(0, verification_results.get("min_separation_ft", 0) - self.config.min_separation_ft),
-
+                safety_margin_hz=max(
+                    0,
+                    verification_results.get("min_separation_nm", 0)
+                    - self.config.min_separation_nm,
+                ),
+                safety_margin_vt=max(
+                    0,
+                    verification_results.get("min_separation_ft", 0)
+                    - self.config.min_separation_ft,
+                ),
                 # Efficiency metrics
                 extra_distance_nm=verification_results.get("extra_distance_nm", 0.0),
                 total_delay_seconds=verification_results.get("total_delay", 0.0),
                 fuel_penalty_percent=verification_results.get("fuel_penalty", 0.0),
-
                 # Performance metrics
                 **metrics,
-
                 # Execution metadata - Initialize success as False, will be updated in _run_single_scenario
                 success=False,  # Will be determined by _run_single_scenario
                 execution_time_seconds=time.time() - pipeline_start,
                 errors=errors,
                 warnings=warnings,
                 timestamp=datetime.now().isoformat(),
-
                 # Environmental factors
-                wind_speed_kts=getattr(scenario, "environmental_conditions", {}).get("wind_speed_kts", 0),
-                visibility_nm=getattr(scenario, "environmental_conditions", {}).get("visibility_nm", 10),
-                turbulence_level=getattr(scenario, "environmental_conditions", {}).get("turbulence_intensity", 0),
+                wind_speed_kts=getattr(scenario, "environmental_conditions", {}).get(
+                    "wind_speed_kts", 0,
+                ),
+                visibility_nm=getattr(scenario, "environmental_conditions", {}).get(
+                    "visibility_nm", 10,
+                ),
+                turbulence_level=getattr(scenario, "environmental_conditions", {}).get(
+                    "turbulence_intensity", 0,
+                ),
             )
-
 
         except Exception as e:
             self.logger.exception(f"Pipeline execution failed for {scenario_id}: {e}")
@@ -591,7 +640,9 @@ class MonteCarloBenchmark:
             cre_command_count = 0
             for i, command in enumerate(commands):
                 result = bluesky_tools.send_command(command)
-                self.logger.debug(f"Command {i+1}/{len(commands)} '{command}': {result.get('status', 'unknown')}")
+                self.logger.debug(
+                    f"Command {i+1}/{len(commands)} '{command}': {result.get('status', 'unknown')}",
+                )
 
                 # Count CRE commands
                 if command.strip().upper().startswith("CRE"):
@@ -606,9 +657,13 @@ class MonteCarloBenchmark:
                 try:
                     aircraft_data = bluesky_tools.get_all_aircraft_info()
                     aircraft_count = len(aircraft_data) if aircraft_data else 0
-                    self.logger.info(f"Loaded {cre_command_count} CRE commands, detected {aircraft_count} aircraft in simulation")
+                    self.logger.info(
+                        f"Loaded {cre_command_count} CRE commands, detected {aircraft_count} aircraft in simulation",
+                    )
                 except Exception as e:
-                    self.logger.warning(f"Could not verify aircraft after loading CRE commands: {e}")
+                    self.logger.warning(
+                        f"Could not verify aircraft after loading CRE commands: {e}",
+                    )
 
         except Exception as e:
             self.logger.exception(f"Failed to load scenario commands: {e}")
@@ -620,14 +675,16 @@ class MonteCarloBenchmark:
             if hasattr(scenario, "ground_truth_conflicts"):
                 return [asdict(conflict) for conflict in scenario.ground_truth_conflicts]
             # Create mock ground truth for testing
-            return [{
-                "aircraft_pair": ("AC001", "AC002"),
-                "conflict_type": "horizontal",
-                "time_to_conflict": 120.0,
-                "min_separation": {"horizontal_nm": 3.5, "vertical_ft": 0},
-                "severity": "medium",
-                "is_actual_conflict": True,
-            }]
+            return [
+                {
+                    "aircraft_pair": ("AC001", "AC002"),
+                    "conflict_type": "horizontal",
+                    "time_to_conflict": 120.0,
+                    "min_separation": {"horizontal_nm": 3.5, "vertical_ft": 0},
+                    "severity": "medium",
+                    "is_actual_conflict": True,
+                },
+            ]
         except Exception as e:
             self.logger.warning(f"Failed to extract ground truth: {e}")
             return []
@@ -640,21 +697,24 @@ class MonteCarloBenchmark:
             # Method 1: BlueSky built-in conflict detection
             bluesky_conflicts = bluesky_tools.get_conflict_info()
             for conflict in bluesky_conflicts.get("conflicts", []):
-                detected_conflicts.append({
-                    "source": "bluesky",
-                    "aircraft_1": conflict["aircraft_1"],
-                    "aircraft_2": conflict["aircraft_2"],
-                    "horizontal_separation": conflict["horizontal_separation"],
-                    "vertical_separation": conflict["vertical_separation"],
-                    "time_to_cpa": conflict["time_to_cpa"],
-                    "severity": conflict["severity"],
-                })
+                detected_conflicts.append(
+                    {
+                        "source": "bluesky",
+                        "aircraft_1": conflict["aircraft_1"],
+                        "aircraft_2": conflict["aircraft_2"],
+                        "horizontal_separation": conflict["horizontal_separation"],
+                        "vertical_separation": conflict["vertical_separation"],
+                        "time_to_cpa": conflict["time_to_cpa"],
+                        "severity": conflict["severity"],
+                    },
+                )
 
             # Method 2: LLM-based detection (if enabled)
             if self.config.enable_llm_detection:
                 aircraft_states = self._get_aircraft_states_for_llm()
                 llm_detection = self.llm_engine.detect_conflict_via_llm(
-                    aircraft_states, self.config.time_horizon_minutes,
+                    aircraft_states,
+                    self.config.time_horizon_minutes,
                 )
 
                 # Validate LLM detection response
@@ -673,13 +733,15 @@ class MonteCarloBenchmark:
                             raise Exception(error_msg)
 
                     for pair in aircraft_pairs:
-                        detected_conflicts.append({
-                            "source": "llm",
-                            "aircraft_1": pair[0],
-                            "aircraft_2": pair[1],
-                            "confidence": llm_detection.get("confidence", 0.5),
-                            "priority": llm_detection.get("priority", "unknown"),
-                        })
+                        detected_conflicts.append(
+                            {
+                                "source": "llm",
+                                "aircraft_1": pair[0],
+                                "aircraft_2": pair[1],
+                                "confidence": llm_detection.get("confidence", 0.5),
+                                "priority": llm_detection.get("priority", "unknown"),
+                            },
+                        )
 
         except Exception as e:
             self.logger.exception(f"Conflict detection failed: {e}")
@@ -699,15 +761,17 @@ class MonteCarloBenchmark:
             states = []
 
             for aircraft_id, info in aircraft_info.get("aircraft", {}).items():
-                states.append({
-                    "id": aircraft_id,
-                    "lat": info["lat"],
-                    "lon": info["lon"],
-                    "alt": info["alt"],
-                    "hdg": info["hdg"],
-                    "spd": info["spd"],
-                    "vs": info["vs"],
-                })
+                states.append(
+                    {
+                        "id": aircraft_id,
+                        "lat": info["lat"],
+                        "lon": info["lon"],
+                        "alt": info["alt"],
+                        "hdg": info["hdg"],
+                        "spd": info["spd"],
+                        "vs": info["vs"],
+                    },
+                )
 
             return states
 
@@ -717,7 +781,9 @@ class MonteCarloBenchmark:
                 raise
             return []
 
-    def _resolve_conflicts(self, conflicts: list[dict[str, Any]], scenario: Any) -> list[dict[str, Any]]:
+    def _resolve_conflicts(
+        self, conflicts: list[dict[str, Any]], scenario: Any,
+    ) -> list[dict[str, Any]]:
         """Generate LLM-based conflict resolutions"""
         resolutions = []
 
@@ -738,7 +804,9 @@ class MonteCarloBenchmark:
 
                 if resolution_command:
                     # Validate command format
-                    if self.config.validate_llm_responses and not self._is_valid_bluesky_command(resolution_command):
+                    if self.config.validate_llm_responses and not self._is_valid_bluesky_command(
+                        resolution_command,
+                    ):
                         error_msg = f"LLM generated invalid command: {resolution_command}"
                         self.logger.error(error_msg)
                         if self.config.strict_mode:
@@ -747,12 +815,14 @@ class MonteCarloBenchmark:
                     # Execute the command
                     execution_result = bluesky_tools.send_command(resolution_command)
 
-                    resolutions.append({
-                        "conflict": conflict,
-                        "command": resolution_command,
-                        "execution_result": execution_result,
-                        "timestamp": time.time(),
-                    })
+                    resolutions.append(
+                        {
+                            "conflict": conflict,
+                            "command": resolution_command,
+                            "execution_result": execution_result,
+                            "timestamp": time.time(),
+                        },
+                    )
 
                     self.logger.info(f"Executed resolution: {resolution_command}")
 
@@ -810,7 +880,9 @@ class MonteCarloBenchmark:
             self.logger.exception(f"Failed to format conflict for LLM: {e}")
             return {}
 
-    def _verify_resolutions(self, scenario: Any, resolutions: list[dict[str, Any]]) -> dict[str, Any]:
+    def _verify_resolutions(
+        self, scenario: Any, resolutions: list[dict[str, Any]],
+    ) -> dict[str, Any]:
         """Verify resolution effectiveness by stepping simulation with adaptive time stepping"""
         verification_results = {
             "resolution_success": False,
@@ -837,7 +909,9 @@ class MonteCarloBenchmark:
             # Calculate number of steps needed
             num_steps = math.ceil(time_horizon_seconds / adaptive_step_size)
 
-            self.logger.debug(f"Using adaptive step size: {adaptive_step_size}s for {num_steps} steps")
+            self.logger.debug(
+                f"Using adaptive step size: {adaptive_step_size}s for {num_steps} steps",
+            )
 
             min_separation_recorded = []
 
@@ -853,15 +927,19 @@ class MonteCarloBenchmark:
                     min_hz = min(sep["horizontal_nm"] for sep in separations)
                     min_vt = min(sep["vertical_ft"] for sep in separations)
 
-                    min_separation_recorded.append({
-                        "time": step * adaptive_step_size,
-                        "horizontal_nm": min_hz,
-                        "vertical_ft": min_vt,
-                    })
+                    min_separation_recorded.append(
+                        {
+                            "time": step * adaptive_step_size,
+                            "horizontal_nm": min_hz,
+                            "vertical_ft": min_vt,
+                        },
+                    )
 
                     # Check for violations
-                    if (min_hz < self.config.min_separation_nm and
-                        min_vt < self.config.min_separation_ft):
+                    if (
+                        min_hz < self.config.min_separation_nm
+                        and min_vt < self.config.min_separation_ft
+                    ):
                         verification_results["violations"] += 1
 
             # Calculate final metrics
@@ -901,27 +979,32 @@ class MonteCarloBenchmark:
                     # Calculate horizontal separation (simplified)
                     lat_diff = ac1["lat"] - ac2["lat"]
                     lon_diff = ac1["lon"] - ac2["lon"]
-                    horizontal_nm = ((lat_diff**2 + lon_diff**2)**0.5) * 60  # Rough conversion
+                    horizontal_nm = ((lat_diff**2 + lon_diff**2) ** 0.5) * 60  # Rough conversion
 
                     # Calculate vertical separation
                     vertical_ft = abs(ac1["alt"] - ac2["alt"])
 
-                    separations.append({
-                        "aircraft_1": ac1["id"],
-                        "aircraft_2": ac2["id"],
-                        "horizontal_nm": horizontal_nm,
-                        "vertical_ft": vertical_ft,
-                    })
+                    separations.append(
+                        {
+                            "aircraft_1": ac1["id"],
+                            "aircraft_2": ac2["id"],
+                            "horizontal_nm": horizontal_nm,
+                            "vertical_ft": vertical_ft,
+                        },
+                    )
 
         except Exception as e:
             self.logger.exception(f"Failed to calculate separations: {e}")
 
         return separations
 
-    def _calculate_scenario_metrics(self, ground_truth: list[dict[str, Any]],
-                                  detected: list[dict[str, Any]],
-                                  resolutions: list[dict[str, Any]],
-                                  verification: dict[str, Any]) -> dict[str, Any]:
+    def _calculate_scenario_metrics(
+        self,
+        ground_truth: list[dict[str, Any]],
+        detected: list[dict[str, Any]],
+        resolutions: list[dict[str, Any]],
+        verification: dict[str, Any],
+    ) -> dict[str, Any]:
         """Calculate performance metrics for scenario"""
 
         # Convert to sets for easier comparison
@@ -958,31 +1041,55 @@ class MonteCarloBenchmark:
             "recall": recall,
         }
 
-    def _create_error_result(self, scenario_id: str, scenario_type: ScenarioType,
-                           complexity_tier: ComplexityTier, shift_level: str,
-                           error: str) -> ScenarioResult:
+    def _create_error_result(
+        self,
+        scenario_id: str,
+        scenario_type: ScenarioType,
+        complexity_tier: ComplexityTier,
+        shift_level: str,
+        error: str,
+    ) -> ScenarioResult:
         """Create error result for failed scenarios"""
         return ScenarioResult(
             scenario_id=scenario_id,
             scenario_type=scenario_type.value if hasattr(scenario_type, "value") else scenario_type,
-            complexity_tier=complexity_tier.value if hasattr(complexity_tier, "value") else complexity_tier,
+            complexity_tier=(
+                complexity_tier.value if hasattr(complexity_tier, "value") else complexity_tier
+            ),
             distribution_shift_tier=shift_level,
             aircraft_count=0,
             duration_minutes=0.0,
-            true_conflicts=[], num_true_conflicts=0,
-            predicted_conflicts=[], num_predicted_conflicts=0,
+            true_conflicts=[],
+            num_true_conflicts=0,
+            predicted_conflicts=[],
+            num_predicted_conflicts=0,
             detection_method="error",
-            llm_commands=[], resolution_success=False, num_interventions=0,
-            min_separation_nm=0.0, min_separation_ft=0.0, separation_violations=999,
-            safety_margin_hz=0.0, safety_margin_vt=0.0,
-            extra_distance_nm=0.0, total_delay_seconds=0.0, fuel_penalty_percent=0.0,
-            false_positives=0, false_negatives=0, true_positives=0, true_negatives=0,
-            detection_accuracy=0.0, precision=0.0, recall=0.0,
+            llm_commands=[],
+            resolution_success=False,
+            num_interventions=0,
+            min_separation_nm=0.0,
+            min_separation_ft=0.0,
+            separation_violations=999,
+            safety_margin_hz=0.0,
+            safety_margin_vt=0.0,
+            extra_distance_nm=0.0,
+            total_delay_seconds=0.0,
+            fuel_penalty_percent=0.0,
+            false_positives=0,
+            false_negatives=0,
+            true_positives=0,
+            true_negatives=0,
+            detection_accuracy=0.0,
+            precision=0.0,
+            recall=0.0,
             success=False,  # Error results are never successful
             execution_time_seconds=0.0,
-            errors=[error], warnings=[],
+            errors=[error],
+            warnings=[],
             timestamp=datetime.now().isoformat(),
-            wind_speed_kts=0.0, visibility_nm=0.0, turbulence_level=0.0,
+            wind_speed_kts=0.0,
+            visibility_nm=0.0,
+            turbulence_level=0.0,
         )
 
     def _generate_summary(self) -> dict[str, Any]:
@@ -1026,15 +1133,14 @@ class MonteCarloBenchmark:
             try:
                 analyzer = MonteCarloResultsAnalyzer()
                 multi_group_summary = analyzer.compute_success_rates_by_group(
-                    df, ["scenario_type", "complexity_tier", "distribution_shift_tier"],
+                    df,
+                    ["scenario_type", "complexity_tier", "distribution_shift_tier"],
                 )
                 # Convert to dict for JSON serialization with string keys
                 if not multi_group_summary.empty:
                     raw_dict = multi_group_summary.to_dict("index")
                     # Convert tuple keys to string keys for JSON serialization
-                    multi_group_summary = {
-                        str(key): value for key, value in raw_dict.items()
-                    }
+                    multi_group_summary = {str(key): value for key, value in raw_dict.items()}
             except Exception as e:
                 self.logger.warning(f"Failed to compute multi-group success rates: {e}")
                 multi_group_summary = {}
@@ -1053,7 +1159,6 @@ class MonteCarloBenchmark:
             "benchmark_id": self.benchmark_id,
             "execution_time": str(datetime.now() - self.benchmark_start_time),
             "timestamp": datetime.now().isoformat(),
-
             # Basic counts with success/failure tracking
             "scenario_counts": {
                 "total_scenarios": total_scenarios,
@@ -1061,7 +1166,6 @@ class MonteCarloBenchmark:
                 "failed_scenarios": failed_scenarios,
                 "success_rate": successful_scenarios / total_scenarios,
             },
-
             # Overall performance (backward compatibility)
             "overall_performance": {
                 "detection_accuracy": avg_accuracy,
@@ -1070,22 +1174,20 @@ class MonteCarloBenchmark:
                 "avg_min_separation_nm": avg_min_separation,
                 "total_violations": int(total_violations),
             },
-
             # Grouped summaries
             "by_scenario_type": type_summary,
             "by_complexity_tier": complexity_summary,
             "by_distribution_shift": shift_summary,
             "combined_analysis": combined_summary,
             "multi_dimensional_analysis": multi_group_summary,
-
             # Detailed analysis from MonteCarloResultsAnalyzer
             "detailed_analysis": detailed_analysis,
-
             "configuration": asdict(self.config),
         }
 
-
-    def _generate_summary_by_group(self, df: pd.DataFrame, group_column: str) -> dict[str, dict[str, Any]]:
+    def _generate_summary_by_group(
+        self, df: pd.DataFrame, group_column: str,
+    ) -> dict[str, dict[str, Any]]:
         """Generate success rate and metrics summary by a specific grouping column"""
         summary = {}
 
@@ -1125,7 +1227,9 @@ class MonteCarloBenchmark:
                 complexity_data = type_data[type_data["complexity_tier"] == complexity]
 
                 for shift in complexity_data["distribution_shift_tier"].unique():
-                    shift_data = complexity_data[complexity_data["distribution_shift_tier"] == shift]
+                    shift_data = complexity_data[
+                        complexity_data["distribution_shift_tier"] == shift
+                    ]
 
                     total = len(shift_data)
                     successful = len(shift_data[shift_data["success"]])
@@ -1163,7 +1267,6 @@ class MonteCarloBenchmark:
                 metrics.get("false_positive_rate", 0)
                 metrics.get("false_negative_rate", 0)
 
-
     def _generate_visualizations(self) -> None:
         """Generate comprehensive visualizations of results"""
         if not self.results:
@@ -1200,42 +1303,59 @@ class MonteCarloBenchmark:
         fig.suptitle("Conflict Detection Performance", fontsize=16, fontweight="bold")
 
         # Accuracy histogram
-        axes[0,0].hist(df["detection_accuracy"], bins=20, alpha=0.7, color="blue", edgecolor="black")
-        axes[0,0].set_xlabel("Detection Accuracy")
-        axes[0,0].set_ylabel("Frequency")
-        axes[0,0].set_title("Detection Accuracy Distribution")
-        axes[0,0].axvline(df["detection_accuracy"].mean(), color="red", linestyle="--",
-                         label=f'Mean: {df["detection_accuracy"].mean():.3f}')
-        axes[0,0].legend()
+        axes[0, 0].hist(
+            df["detection_accuracy"], bins=20, alpha=0.7, color="blue", edgecolor="black",
+        )
+        axes[0, 0].set_xlabel("Detection Accuracy")
+        axes[0, 0].set_ylabel("Frequency")
+        axes[0, 0].set_title("Detection Accuracy Distribution")
+        axes[0, 0].axvline(
+            df["detection_accuracy"].mean(),
+            color="red",
+            linestyle="--",
+            label=f'Mean: {df["detection_accuracy"].mean():.3f}',
+        )
+        axes[0, 0].legend()
 
         # Precision vs Recall scatter
-        axes[0,1].scatter(df["recall"], df["precision"], alpha=0.6, color="green")
-        axes[0,1].set_xlabel("Recall")
-        axes[0,1].set_ylabel("Precision")
-        axes[0,1].set_title("Precision vs Recall")
-        axes[0,1].grid(True, alpha=0.3)
+        axes[0, 1].scatter(df["recall"], df["precision"], alpha=0.6, color="green")
+        axes[0, 1].set_xlabel("Recall")
+        axes[0, 1].set_ylabel("Precision")
+        axes[0, 1].set_title("Precision vs Recall")
+        axes[0, 1].grid(True, alpha=0.3)
 
         # False Positives vs False Negatives
-        fp_fn_data = df.groupby(["false_positives", "false_negatives"]).size().reset_index(name="count")
-        axes[1,0].scatter(fp_fn_data["false_positives"], fp_fn_data["false_negatives"],
-                                   s=fp_fn_data["count"]*20, alpha=0.6, color="orange")
-        axes[1,0].set_xlabel("False Positives")
-        axes[1,0].set_ylabel("False Negatives")
-        axes[1,0].set_title("False Positives vs False Negatives")
-        axes[1,0].grid(True, alpha=0.3)
+        fp_fn_data = (
+            df.groupby(["false_positives", "false_negatives"]).size().reset_index(name="count")
+        )
+        axes[1, 0].scatter(
+            fp_fn_data["false_positives"],
+            fp_fn_data["false_negatives"],
+            s=fp_fn_data["count"] * 20,
+            alpha=0.6,
+            color="orange",
+        )
+        axes[1, 0].set_xlabel("False Positives")
+        axes[1, 0].set_ylabel("False Negatives")
+        axes[1, 0].set_title("False Positives vs False Negatives")
+        axes[1, 0].grid(True, alpha=0.3)
 
         # Success rate by complexity
         success_by_complexity = df.groupby("complexity_tier")["resolution_success"].mean()
-        axes[1,1].bar(success_by_complexity.index, success_by_complexity.values,
-                     color="purple", alpha=0.7)
-        axes[1,1].set_xlabel("Complexity Tier")
-        axes[1,1].set_ylabel("Resolution Success Rate")
-        axes[1,1].set_title("Success Rate by Complexity")
-        axes[1,1].tick_params(axis="x", rotation=45)
+        axes[1, 1].bar(
+            success_by_complexity.index, success_by_complexity.values, color="purple", alpha=0.7,
+        )
+        axes[1, 1].set_xlabel("Complexity Tier")
+        axes[1, 1].set_ylabel("Resolution Success Rate")
+        axes[1, 1].set_title("Success Rate by Complexity")
+        axes[1, 1].tick_params(axis="x", rotation=45)
 
         plt.tight_layout()
-        plt.savefig(self.output_dir / "visualizations" / "detection_performance.png",
-                   dpi=300, bbox_inches="tight")
+        plt.savefig(
+            self.output_dir / "visualizations" / "detection_performance.png",
+            dpi=300,
+            bbox_inches="tight",
+        )
         plt.close()
 
     def _plot_safety_margins(self, df: pd.DataFrame, fig_size: tuple[int, int]) -> None:
@@ -1244,42 +1364,56 @@ class MonteCarloBenchmark:
         fig.suptitle("Safety Margin Analysis", fontsize=16, fontweight="bold")
 
         # Horizontal separation distribution
-        axes[0,0].hist(df["min_separation_nm"], bins=30, alpha=0.7, color="blue", edgecolor="black")
-        axes[0,0].axvline(self.config.min_separation_nm, color="red", linestyle="--",
-                         label=f"Min Required: {self.config.min_separation_nm} NM")
-        axes[0,0].set_xlabel("Minimum Separation (NM)")
-        axes[0,0].set_ylabel("Frequency")
-        axes[0,0].set_title("Horizontal Separation Distribution")
-        axes[0,0].legend()
+        axes[0, 0].hist(
+            df["min_separation_nm"], bins=30, alpha=0.7, color="blue", edgecolor="black",
+        )
+        axes[0, 0].axvline(
+            self.config.min_separation_nm,
+            color="red",
+            linestyle="--",
+            label=f"Min Required: {self.config.min_separation_nm} NM",
+        )
+        axes[0, 0].set_xlabel("Minimum Separation (NM)")
+        axes[0, 0].set_ylabel("Frequency")
+        axes[0, 0].set_title("Horizontal Separation Distribution")
+        axes[0, 0].legend()
 
         # Vertical separation distribution
-        axes[0,1].hist(df["min_separation_ft"], bins=30, alpha=0.7, color="green", edgecolor="black")
-        axes[0,1].axvline(self.config.min_separation_ft, color="red", linestyle="--",
-                         label=f"Min Required: {self.config.min_separation_ft} ft")
-        axes[0,1].set_xlabel("Minimum Separation (ft)")
-        axes[0,1].set_ylabel("Frequency")
-        axes[0,1].set_title("Vertical Separation Distribution")
-        axes[0,1].legend()
+        axes[0, 1].hist(
+            df["min_separation_ft"], bins=30, alpha=0.7, color="green", edgecolor="black",
+        )
+        axes[0, 1].axvline(
+            self.config.min_separation_ft,
+            color="red",
+            linestyle="--",
+            label=f"Min Required: {self.config.min_separation_ft} ft",
+        )
+        axes[0, 1].set_xlabel("Minimum Separation (ft)")
+        axes[0, 1].set_ylabel("Frequency")
+        axes[0, 1].set_title("Vertical Separation Distribution")
+        axes[0, 1].legend()
 
         # Violations by scenario type
         violations_by_type = df.groupby("scenario_type")["separation_violations"].sum()
-        axes[1,0].bar(violations_by_type.index, violations_by_type.values,
-                     color="red", alpha=0.7)
-        axes[1,0].set_xlabel("Scenario Type")
-        axes[1,0].set_ylabel("Total Violations")
-        axes[1,0].set_title("Separation Violations by Type")
-        axes[1,0].tick_params(axis="x", rotation=45)
+        axes[1, 0].bar(violations_by_type.index, violations_by_type.values, color="red", alpha=0.7)
+        axes[1, 0].set_xlabel("Scenario Type")
+        axes[1, 0].set_ylabel("Total Violations")
+        axes[1, 0].set_title("Separation Violations by Type")
+        axes[1, 0].tick_params(axis="x", rotation=45)
 
         # Safety margin correlation
-        axes[1,1].scatter(df["safety_margin_hz"], df["safety_margin_vt"], alpha=0.6, color="purple")
-        axes[1,1].set_xlabel("Horizontal Safety Margin (NM)")
-        axes[1,1].set_ylabel("Vertical Safety Margin (ft)")
-        axes[1,1].set_title("Safety Margin Correlation")
-        axes[1,1].grid(True, alpha=0.3)
+        axes[1, 1].scatter(
+            df["safety_margin_hz"], df["safety_margin_vt"], alpha=0.6, color="purple",
+        )
+        axes[1, 1].set_xlabel("Horizontal Safety Margin (NM)")
+        axes[1, 1].set_ylabel("Vertical Safety Margin (ft)")
+        axes[1, 1].set_title("Safety Margin Correlation")
+        axes[1, 1].grid(True, alpha=0.3)
 
         plt.tight_layout()
-        plt.savefig(self.output_dir / "visualizations" / "safety_margins.png",
-                   dpi=300, bbox_inches="tight")
+        plt.savefig(
+            self.output_dir / "visualizations" / "safety_margins.png", dpi=300, bbox_inches="tight",
+        )
         plt.close()
 
     def _plot_efficiency_metrics(self, df: pd.DataFrame, fig_size: tuple[int, int]) -> None:
@@ -1288,36 +1422,46 @@ class MonteCarloBenchmark:
         fig.suptitle("Efficiency Metrics", fontsize=16, fontweight="bold")
 
         # Extra distance distribution
-        axes[0,0].hist(df["extra_distance_nm"], bins=20, alpha=0.7, color="orange", edgecolor="black")
-        axes[0,0].set_xlabel("Extra Distance (NM)")
-        axes[0,0].set_ylabel("Frequency")
-        axes[0,0].set_title("Extra Path Distance Distribution")
+        axes[0, 0].hist(
+            df["extra_distance_nm"], bins=20, alpha=0.7, color="orange", edgecolor="black",
+        )
+        axes[0, 0].set_xlabel("Extra Distance (NM)")
+        axes[0, 0].set_ylabel("Frequency")
+        axes[0, 0].set_title("Extra Path Distance Distribution")
 
         # Delay distribution
-        axes[0,1].hist(df["total_delay_seconds"], bins=20, alpha=0.7, color="red", edgecolor="black")
-        axes[0,1].set_xlabel("Total Delay (seconds)")
-        axes[0,1].set_ylabel("Frequency")
-        axes[0,1].set_title("Delay Distribution")
+        axes[0, 1].hist(
+            df["total_delay_seconds"], bins=20, alpha=0.7, color="red", edgecolor="black",
+        )
+        axes[0, 1].set_xlabel("Total Delay (seconds)")
+        axes[0, 1].set_ylabel("Frequency")
+        axes[0, 1].set_title("Delay Distribution")
 
         # Interventions vs Efficiency
-        axes[1,0].scatter(df["num_interventions"], df["extra_distance_nm"], alpha=0.6, color="blue")
-        axes[1,0].set_xlabel("Number of Interventions")
-        axes[1,0].set_ylabel("Extra Distance (NM)")
-        axes[1,0].set_title("Interventions vs Extra Distance")
-        axes[1,0].grid(True, alpha=0.3)
+        axes[1, 0].scatter(
+            df["num_interventions"], df["extra_distance_nm"], alpha=0.6, color="blue",
+        )
+        axes[1, 0].set_xlabel("Number of Interventions")
+        axes[1, 0].set_ylabel("Extra Distance (NM)")
+        axes[1, 0].set_title("Interventions vs Extra Distance")
+        axes[1, 0].grid(True, alpha=0.3)
 
         # Fuel penalty by complexity
         fuel_by_complexity = df.groupby("complexity_tier")["fuel_penalty_percent"].mean()
-        axes[1,1].bar(fuel_by_complexity.index, fuel_by_complexity.values,
-                     color="green", alpha=0.7)
-        axes[1,1].set_xlabel("Complexity Tier")
-        axes[1,1].set_ylabel("Fuel Penalty (%)")
-        axes[1,1].set_title("Fuel Penalty by Complexity")
-        axes[1,1].tick_params(axis="x", rotation=45)
+        axes[1, 1].bar(
+            fuel_by_complexity.index, fuel_by_complexity.values, color="green", alpha=0.7,
+        )
+        axes[1, 1].set_xlabel("Complexity Tier")
+        axes[1, 1].set_ylabel("Fuel Penalty (%)")
+        axes[1, 1].set_title("Fuel Penalty by Complexity")
+        axes[1, 1].tick_params(axis="x", rotation=45)
 
         plt.tight_layout()
-        plt.savefig(self.output_dir / "visualizations" / "efficiency_metrics.png",
-                   dpi=300, bbox_inches="tight")
+        plt.savefig(
+            self.output_dir / "visualizations" / "efficiency_metrics.png",
+            dpi=300,
+            bbox_inches="tight",
+        )
         plt.close()
 
     def _plot_performance_by_type(self, df: pd.DataFrame, fig_size: tuple[int, int]) -> None:
@@ -1327,40 +1471,45 @@ class MonteCarloBenchmark:
 
         # Accuracy by type
         acc_by_type = df.groupby("scenario_type")["detection_accuracy"].mean()
-        axes[0,0].bar(acc_by_type.index, acc_by_type.values, color="blue", alpha=0.7)
-        axes[0,0].set_xlabel("Scenario Type")
-        axes[0,0].set_ylabel("Detection Accuracy")
-        axes[0,0].set_title("Detection Accuracy by Type")
-        axes[0,0].tick_params(axis="x", rotation=45)
+        axes[0, 0].bar(acc_by_type.index, acc_by_type.values, color="blue", alpha=0.7)
+        axes[0, 0].set_xlabel("Scenario Type")
+        axes[0, 0].set_ylabel("Detection Accuracy")
+        axes[0, 0].set_title("Detection Accuracy by Type")
+        axes[0, 0].tick_params(axis="x", rotation=45)
 
         # Execution time by type
         time_by_type = df.groupby("scenario_type")["execution_time_seconds"].mean()
-        axes[0,1].bar(time_by_type.index, time_by_type.values, color="green", alpha=0.7)
-        axes[0,1].set_xlabel("Scenario Type")
-        axes[0,1].set_ylabel("Execution Time (s)")
-        axes[0,1].set_title("Execution Time by Type")
-        axes[0,1].tick_params(axis="x", rotation=45)
+        axes[0, 1].bar(time_by_type.index, time_by_type.values, color="green", alpha=0.7)
+        axes[0, 1].set_xlabel("Scenario Type")
+        axes[0, 1].set_ylabel("Execution Time (s)")
+        axes[0, 1].set_title("Execution Time by Type")
+        axes[0, 1].tick_params(axis="x", rotation=45)
 
         # Box plot of separations by type
-        type_sep_data = [df[df["scenario_type"] == t]["min_separation_nm"].values
-                        for t in df["scenario_type"].unique()]
-        axes[1,0].boxplot(type_sep_data, labels=df["scenario_type"].unique())
-        axes[1,0].set_xlabel("Scenario Type")
-        axes[1,0].set_ylabel("Min Separation (NM)")
-        axes[1,0].set_title("Separation Distribution by Type")
-        axes[1,0].tick_params(axis="x", rotation=45)
+        type_sep_data = [
+            df[df["scenario_type"] == t]["min_separation_nm"].values
+            for t in df["scenario_type"].unique()
+        ]
+        axes[1, 0].boxplot(type_sep_data, labels=df["scenario_type"].unique())
+        axes[1, 0].set_xlabel("Scenario Type")
+        axes[1, 0].set_ylabel("Min Separation (NM)")
+        axes[1, 0].set_title("Separation Distribution by Type")
+        axes[1, 0].tick_params(axis="x", rotation=45)
 
         # Success rate comparison
         success_by_type = df.groupby("scenario_type")["resolution_success"].mean()
-        axes[1,1].bar(success_by_type.index, success_by_type.values, color="purple", alpha=0.7)
-        axes[1,1].set_xlabel("Scenario Type")
-        axes[1,1].set_ylabel("Resolution Success Rate")
-        axes[1,1].set_title("Resolution Success by Type")
-        axes[1,1].tick_params(axis="x", rotation=45)
+        axes[1, 1].bar(success_by_type.index, success_by_type.values, color="purple", alpha=0.7)
+        axes[1, 1].set_xlabel("Scenario Type")
+        axes[1, 1].set_ylabel("Resolution Success Rate")
+        axes[1, 1].set_title("Resolution Success by Type")
+        axes[1, 1].tick_params(axis="x", rotation=45)
 
         plt.tight_layout()
-        plt.savefig(self.output_dir / "visualizations" / "performance_by_type.png",
-                   dpi=300, bbox_inches="tight")
+        plt.savefig(
+            self.output_dir / "visualizations" / "performance_by_type.png",
+            dpi=300,
+            bbox_inches="tight",
+        )
         plt.close()
 
     def _plot_distribution_shift_impact(self, df: pd.DataFrame, fig_size: tuple[int, int]) -> None:
@@ -1371,50 +1520,64 @@ class MonteCarloBenchmark:
         # Accuracy across shifts
         acc_by_shift = df.groupby("distribution_shift_tier")["detection_accuracy"].mean()
         colors = ["green", "orange", "red"]
-        axes[0,0].bar(acc_by_shift.index, acc_by_shift.values,
-                     color=colors[:len(acc_by_shift)], alpha=0.7)
-        axes[0,0].set_xlabel("Distribution Shift Level")
-        axes[0,0].set_ylabel("Detection Accuracy")
-        axes[0,0].set_title("Accuracy vs Distribution Shift")
-        axes[0,0].tick_params(axis="x", rotation=45)
+        axes[0, 0].bar(
+            acc_by_shift.index, acc_by_shift.values, color=colors[: len(acc_by_shift)], alpha=0.7,
+        )
+        axes[0, 0].set_xlabel("Distribution Shift Level")
+        axes[0, 0].set_ylabel("Detection Accuracy")
+        axes[0, 0].set_title("Accuracy vs Distribution Shift")
+        axes[0, 0].tick_params(axis="x", rotation=45)
 
         # False positives/negatives by shift
         fp_by_shift = df.groupby("distribution_shift_tier")["false_positives"].mean()
         fn_by_shift = df.groupby("distribution_shift_tier")["false_negatives"].mean()
         x = range(len(fp_by_shift))
         width = 0.35
-        axes[0,1].bar([i - width/2 for i in x], fp_by_shift.values, width,
-                     label="False Positives", color="red", alpha=0.7)
-        axes[0,1].bar([i + width/2 for i in x], fn_by_shift.values, width,
-                     label="False Negatives", color="blue", alpha=0.7)
-        axes[0,1].set_xlabel("Distribution Shift Level")
-        axes[0,1].set_ylabel("Average Count")
-        axes[0,1].set_title("FP/FN vs Distribution Shift")
-        axes[0,1].set_xticks(x)
-        axes[0,1].set_xticklabels(fp_by_shift.index, rotation=45)
-        axes[0,1].legend()
+        axes[0, 1].bar(
+            [i - width / 2 for i in x],
+            fp_by_shift.values,
+            width,
+            label="False Positives",
+            color="red",
+            alpha=0.7,
+        )
+        axes[0, 1].bar(
+            [i + width / 2 for i in x],
+            fn_by_shift.values,
+            width,
+            label="False Negatives",
+            color="blue",
+            alpha=0.7,
+        )
+        axes[0, 1].set_xlabel("Distribution Shift Level")
+        axes[0, 1].set_ylabel("Average Count")
+        axes[0, 1].set_title("FP/FN vs Distribution Shift")
+        axes[0, 1].set_xticks(x)
+        axes[0, 1].set_xticklabels(fp_by_shift.index, rotation=45)
+        axes[0, 1].legend()
 
         # Safety margin degradation
         safety_by_shift = df.groupby("distribution_shift_tier")["safety_margin_hz"].mean()
-        axes[1,0].bar(safety_by_shift.index, safety_by_shift.values,
-                     color="purple", alpha=0.7)
-        axes[1,0].set_xlabel("Distribution Shift Level")
-        axes[1,0].set_ylabel("Average Safety Margin (NM)")
-        axes[1,0].set_title("Safety Margin vs Distribution Shift")
-        axes[1,0].tick_params(axis="x", rotation=45)
+        axes[1, 0].bar(safety_by_shift.index, safety_by_shift.values, color="purple", alpha=0.7)
+        axes[1, 0].set_xlabel("Distribution Shift Level")
+        axes[1, 0].set_ylabel("Average Safety Margin (NM)")
+        axes[1, 0].set_title("Safety Margin vs Distribution Shift")
+        axes[1, 0].tick_params(axis="x", rotation=45)
 
         # Execution time impact
         time_by_shift = df.groupby("distribution_shift_tier")["execution_time_seconds"].mean()
-        axes[1,1].bar(time_by_shift.index, time_by_shift.values,
-                     color="orange", alpha=0.7)
-        axes[1,1].set_xlabel("Distribution Shift Level")
-        axes[1,1].set_ylabel("Execution Time (s)")
-        axes[1,1].set_title("Execution Time vs Distribution Shift")
-        axes[1,1].tick_params(axis="x", rotation=45)
+        axes[1, 1].bar(time_by_shift.index, time_by_shift.values, color="orange", alpha=0.7)
+        axes[1, 1].set_xlabel("Distribution Shift Level")
+        axes[1, 1].set_ylabel("Execution Time (s)")
+        axes[1, 1].set_title("Execution Time vs Distribution Shift")
+        axes[1, 1].tick_params(axis="x", rotation=45)
 
         plt.tight_layout()
-        plt.savefig(self.output_dir / "visualizations" / "distribution_shift_impact.png",
-                   dpi=300, bbox_inches="tight")
+        plt.savefig(
+            self.output_dir / "visualizations" / "distribution_shift_impact.png",
+            dpi=300,
+            bbox_inches="tight",
+        )
         plt.close()
 
     def _save_results(self) -> None:
@@ -1463,7 +1626,9 @@ def run_benchmark_with_config(config_path: Optional[str] = None) -> dict[str, An
         if "scenario_types" in config_dict:
             config_dict["scenario_types"] = [ScenarioType(t) for t in config_dict["scenario_types"]]
         if "complexity_tiers" in config_dict:
-            config_dict["complexity_tiers"] = [ComplexityTier(t) for t in config_dict["complexity_tiers"]]
+            config_dict["complexity_tiers"] = [
+                ComplexityTier(t) for t in config_dict["complexity_tiers"]
+            ]
 
         config = BenchmarkConfiguration(**config_dict)
     else:
@@ -1480,20 +1645,30 @@ def main():
 
     parser = argparse.ArgumentParser(description="Monte Carlo Benchmark Runner for LLM-ATC-HAL")
     parser.add_argument("--config", "-c", help="Configuration file path")
-    parser.add_argument("--scenarios", "-n", type=int, default=10,
-                       help="Number of scenarios per type (default: 10)")
-    parser.add_argument("--output", "-o", default="output/monte_carlo_benchmark",
-                       help="Output directory")
-    parser.add_argument("--verbose", "-v", action="store_true",
-                       help="Enable verbose logging")
+    parser.add_argument(
+        "--scenarios", "-n", type=int, default=10, help="Number of scenarios per type (default: 10)",
+    )
+    parser.add_argument(
+        "--output", "-o", default="output/monte_carlo_benchmark", help="Output directory",
+    )
+    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
 
     # NEW: Expose simulation parameters
-    parser.add_argument("--max-interventions", type=int, default=5,
-                       help="Maximum interventions per scenario (default: 5)")
-    parser.add_argument("--step-size", type=float, default=10.0,
-                       help="Simulation step size in seconds (default: 10.0)")
-    parser.add_argument("--time-horizon", type=float, default=10.0,
-                       help="Time horizon in minutes (default: 10.0)")
+    parser.add_argument(
+        "--max-interventions",
+        type=int,
+        default=5,
+        help="Maximum interventions per scenario (default: 5)",
+    )
+    parser.add_argument(
+        "--step-size",
+        type=float,
+        default=10.0,
+        help="Simulation step size in seconds (default: 10.0)",
+    )
+    parser.add_argument(
+        "--time-horizon", type=float, default=10.0, help="Time horizon in minutes (default: 10.0)",
+    )
 
     args = parser.parse_args()
 

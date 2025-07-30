@@ -29,6 +29,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 logger.info(f"Logging to file: {log_filepath}")
 
+
 def initialize_bluesky() -> Optional[bool]:
     """Initialize BlueSky simulation environment."""
     try:
@@ -41,6 +42,7 @@ def initialize_bluesky() -> Optional[bool]:
     except Exception as e:
         logger.exception(f"Failed to initialize BlueSky: {e}")
         return False
+
 
 def detect_conflicts():
     """Detect conflicts using BlueSky's conflict detection system."""
@@ -60,8 +62,16 @@ def detect_conflicts():
                         conflict = {
                             "id1": traf.id[ac1_idx],
                             "id2": traf.id[ac2_idx],
-                            "time": getattr(traf.cd, "tcpa", [120])[i] if hasattr(traf.cd, "tcpa") else 120,
-                            "distance": getattr(traf.cd, "dcpa", [3.0])[i] if hasattr(traf.cd, "dcpa") else 3.0,
+                            "time": (
+                                getattr(traf.cd, "tcpa", [120])[i]
+                                if hasattr(traf.cd, "tcpa")
+                                else 120
+                            ),
+                            "distance": (
+                                getattr(traf.cd, "dcpa", [3.0])[i]
+                                if hasattr(traf.cd, "dcpa")
+                                else 3.0
+                            ),
                             "lat1": traf.lat[ac1_idx] if hasattr(traf, "lat") else 52.3,
                             "lon1": traf.lon[ac1_idx] if hasattr(traf, "lon") else 4.8,
                             "lat2": traf.lat[ac2_idx] if hasattr(traf, "lat") else 52.4,
@@ -76,17 +86,29 @@ def detect_conflicts():
             logger.info("No real conflicts detected, creating mock conflicts for testing")
             conflicts = [
                 {
-                    "id1": "AC001", "id2": "AC002",
-                    "time": 120, "distance": 4.5,
-                    "lat1": 52.3, "lon1": 4.8, "alt1": 35000,
-                    "lat2": 52.4, "lon2": 4.6, "alt2": 35000,
+                    "id1": "AC001",
+                    "id2": "AC002",
+                    "time": 120,
+                    "distance": 4.5,
+                    "lat1": 52.3,
+                    "lon1": 4.8,
+                    "alt1": 35000,
+                    "lat2": 52.4,
+                    "lon2": 4.6,
+                    "alt2": 35000,
                     "mock": True,
                 },
                 {
-                    "id1": "AC003", "id2": "AC004",
-                    "time": 180, "distance": 3.2,
-                    "lat1": 52.2, "lon1": 4.9, "alt1": 33000,
-                    "lat2": 52.6, "lon2": 4.9, "alt2": 33000,
+                    "id1": "AC003",
+                    "id2": "AC004",
+                    "time": 180,
+                    "distance": 3.2,
+                    "lat1": 52.2,
+                    "lon1": 4.9,
+                    "alt1": 33000,
+                    "lat2": 52.6,
+                    "lon2": 4.9,
+                    "alt2": 33000,
                     "mock": True,
                 },
             ]
@@ -96,13 +118,17 @@ def detect_conflicts():
         # Return mock conflicts on error
         conflicts = [
             {
-                "id1": "AC001", "id2": "AC002",
-                "time": 120, "distance": 4.5,
-                "mock": True, "error_fallback": True,
+                "id1": "AC001",
+                "id2": "AC002",
+                "time": 120,
+                "distance": 4.5,
+                "mock": True,
+                "error_fallback": True,
             },
         ]
 
     return conflicts
+
 
 def run_simulation():
     """Main simulation execution function."""
@@ -158,7 +184,11 @@ def run_simulation():
                         continue
 
                     # Use LLM to select best solution
-                    policies = ["prefer minimal path deviation", "avoid altitude changes", "maintain safety margins"]
+                    policies = [
+                        "prefer minimal path deviation",
+                        "avoid altitude changes",
+                        "maintain safety margins",
+                    ]
                     best_by_llm = select_best_solution(candidates, policies)
                     baseline_best = solver.score_best(candidates)
 
@@ -170,12 +200,14 @@ def run_simulation():
 
                     # Check for hallucinations
                     if best_by_llm != baseline_best:
-                        hallucination_events.append({
-                            "conflict": conflict,
-                            "llm_choice": best_by_llm,
-                            "baseline_choice": baseline_best,
-                            "scenario": scenario,
-                        })
+                        hallucination_events.append(
+                            {
+                                "conflict": conflict,
+                                "llm_choice": best_by_llm,
+                                "baseline_choice": baseline_best,
+                                "scenario": scenario,
+                            },
+                        )
 
                     total_resolutions += 1
 
@@ -195,7 +227,9 @@ def run_simulation():
                     with open(log_filepath, "a") as f:
                         f.write(json_log_entry + "\n")
                     logger.info(f"Logged conflict resolution data to {log_filepath}")
-                    logger.info(f"Processed conflict between {conflict.get('id1', 'Unknown')} and {conflict.get('id2', 'Unknown')}")
+                    logger.info(
+                        f"Processed conflict between {conflict.get('id1', 'Unknown')} and {conflict.get('id2', 'Unknown')}",
+                    )
 
                 except Exception as e:
                     logger.exception(f"Error processing conflict {conflict}: {e}")
@@ -208,7 +242,9 @@ def run_simulation():
 
     # Calculate final metrics
     hallucination_rate = len(hallucination_events) / max(total_resolutions, 1)
-    avg_safety_margin_diff = sum(safety_margin_diffs) / max(len(safety_margin_diffs), 1) if safety_margin_diffs else 0
+    avg_safety_margin_diff = (
+        sum(safety_margin_diffs) / max(len(safety_margin_diffs), 1) if safety_margin_diffs else 0
+    )
 
     # Generate summary report
     summary = {
@@ -224,6 +260,7 @@ def run_simulation():
     logger.info(f"Simulation completed. Summary: {summary}")
 
     return summary
+
 
 if __name__ == "__main__":
     summary = run_simulation()

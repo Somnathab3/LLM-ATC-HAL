@@ -59,7 +59,6 @@ class ManualLlamaTest:
         # Get user input for aircraft states
         aircraft_states = []
 
-
         for _i in range(2, 10):  # Allow up to 8 aircraft
 
             aircraft_id = input("  Aircraft ID (e.g., AAL123): ").strip()
@@ -74,15 +73,17 @@ class ManualLlamaTest:
                 spd = int(input("  Speed (kts, e.g., 450): "))
                 vs = int(input("  Vertical Speed (fpm, e.g., 0): "))
 
-                aircraft_states.append({
-                    "id": aircraft_id,
-                    "lat": lat,
-                    "lon": lon,
-                    "alt": alt,
-                    "hdg": hdg,
-                    "spd": spd,
-                    "vs": vs,
-                })
+                aircraft_states.append(
+                    {
+                        "id": aircraft_id,
+                        "lat": lat,
+                        "lon": lon,
+                        "alt": alt,
+                        "hdg": hdg,
+                        "spd": spd,
+                        "vs": vs,
+                    },
+                )
 
             except ValueError:
                 continue
@@ -102,7 +103,6 @@ class ManualLlamaTest:
         try:
             result = self.llm_engine.detect_conflict_via_llm(aircraft_states, time_horizon)
             time.time()
-
 
             for _key, _value in result.items():
                 pass
@@ -124,7 +124,9 @@ class ManualLlamaTest:
         except ValueError:
             return
 
-        conflict_type = input("Conflict type (convergent/head-on/overtaking): ").strip() or "convergent"
+        conflict_type = (
+            input("Conflict type (convergent/head-on/overtaking): ").strip() or "convergent"
+        )
         urgency = input("Urgency level (low/medium/high/critical): ").strip() or "medium"
 
         # Aircraft 1 details
@@ -168,12 +170,20 @@ class ManualLlamaTest:
             "conflict_type": conflict_type,
             "urgency_level": urgency,
             "aircraft_1": {
-                "lat": ac1_lat, "lon": ac1_lon, "alt": ac1_alt,
-                "hdg": ac1_hdg, "spd": ac1_spd, "type": ac1_type,
+                "lat": ac1_lat,
+                "lon": ac1_lon,
+                "alt": ac1_alt,
+                "hdg": ac1_hdg,
+                "spd": ac1_spd,
+                "type": ac1_type,
             },
             "aircraft_2": {
-                "lat": ac2_lat, "lon": ac2_lon, "alt": ac2_alt,
-                "hdg": ac2_hdg, "spd": ac2_spd, "type": ac2_type,
+                "lat": ac2_lat,
+                "lon": ac2_lon,
+                "alt": ac2_alt,
+                "hdg": ac2_hdg,
+                "spd": ac2_spd,
+                "type": ac2_type,
             },
             "environmental_conditions": {
                 "wind_direction": wind_dir,
@@ -189,7 +199,6 @@ class ManualLlamaTest:
         try:
             resolution = self.llm_engine.get_conflict_resolution(conflict_info)
             time.time()
-
 
             if resolution:
                 pass
@@ -231,7 +240,6 @@ class ManualLlamaTest:
             safety_result = self.llm_engine.assess_resolution_safety(command, conflict_info)
             time.time()
 
-
             for _key, _value in safety_result.items():
                 pass
 
@@ -253,12 +261,10 @@ class ManualLlamaTest:
         if not prompt.strip():
             return
 
-
         time.time()
         try:
             self.llm_client.ask(prompt, enable_function_calls=False)
             time.time()
-
 
         except Exception:
             pass
@@ -271,25 +277,81 @@ class ManualLlamaTest:
                 "name": "London Heathrow Approach Conflict",
                 "description": "Two aircraft converging on LHR runway 27L",
                 "aircraft_states": [
-                    {"id": "BAW123", "lat": 51.4700, "lon": -0.4543, "alt": 3000, "hdg": 270, "spd": 180, "vs": -500},
-                    {"id": "VIR456", "lat": 51.4750, "lon": -0.4200, "alt": 3500, "hdg": 225, "spd": 190, "vs": -600},
+                    {
+                        "id": "BAW123",
+                        "lat": 51.4700,
+                        "lon": -0.4543,
+                        "alt": 3000,
+                        "hdg": 270,
+                        "spd": 180,
+                        "vs": -500,
+                    },
+                    {
+                        "id": "VIR456",
+                        "lat": 51.4750,
+                        "lon": -0.4200,
+                        "alt": 3500,
+                        "hdg": 225,
+                        "spd": 190,
+                        "vs": -600,
+                    },
                 ],
             },
             "2": {
                 "name": "Amsterdam Terminal Area",
                 "description": "Multiple aircraft in AMS terminal area",
                 "aircraft_states": [
-                    {"id": "KLM789", "lat": 52.3676, "lon": 4.9041, "alt": 35000, "hdg": 95, "spd": 465, "vs": 0},
-                    {"id": "AFR234", "lat": 52.3720, "lon": 4.9180, "alt": 35000, "hdg": 275, "spd": 455, "vs": 0},
-                    {"id": "DLH567", "lat": 52.3800, "lon": 4.8900, "alt": 36000, "hdg": 180, "spd": 470, "vs": 0},
+                    {
+                        "id": "KLM789",
+                        "lat": 52.3676,
+                        "lon": 4.9041,
+                        "alt": 35000,
+                        "hdg": 95,
+                        "spd": 465,
+                        "vs": 0,
+                    },
+                    {
+                        "id": "AFR234",
+                        "lat": 52.3720,
+                        "lon": 4.9180,
+                        "alt": 35000,
+                        "hdg": 275,
+                        "spd": 455,
+                        "vs": 0,
+                    },
+                    {
+                        "id": "DLH567",
+                        "lat": 52.3800,
+                        "lon": 4.8900,
+                        "alt": 36000,
+                        "hdg": 180,
+                        "spd": 470,
+                        "vs": 0,
+                    },
                 ],
             },
             "3": {
                 "name": "Oceanic Crossing",
                 "description": "Trans-Atlantic crossing conflict",
                 "aircraft_states": [
-                    {"id": "UAL890", "lat": 45.0000, "lon": -30.0000, "alt": 39000, "hdg": 45, "spd": 485, "vs": 0},
-                    {"id": "AAL345", "lat": 45.2000, "lon": -29.8000, "alt": 39000, "hdg": 225, "spd": 480, "vs": 0},
+                    {
+                        "id": "UAL890",
+                        "lat": 45.0000,
+                        "lon": -30.0000,
+                        "alt": 39000,
+                        "hdg": 45,
+                        "spd": 485,
+                        "vs": 0,
+                    },
+                    {
+                        "id": "AAL345",
+                        "lat": 45.2000,
+                        "lon": -29.8000,
+                        "alt": 39000,
+                        "hdg": 225,
+                        "spd": 480,
+                        "vs": 0,
+                    },
                 ],
             },
         }
@@ -304,7 +366,6 @@ class ManualLlamaTest:
 
         scenario = scenarios[choice]
         aircraft_states = scenario["aircraft_states"]
-
 
         # Test conflict detection
         time.time()
@@ -323,8 +384,12 @@ class ManualLlamaTest:
                 ac1_id, ac2_id = pair[0], pair[1]
 
                 # Find aircraft data
-                ac1_data = next((ac for ac in aircraft_states if ac["id"] == ac1_id), aircraft_states[0])
-                ac2_data = next((ac for ac in aircraft_states if ac["id"] == ac2_id), aircraft_states[1])
+                ac1_data = next(
+                    (ac for ac in aircraft_states if ac["id"] == ac1_id), aircraft_states[0],
+                )
+                ac2_data = next(
+                    (ac for ac in aircraft_states if ac["id"] == ac2_id), aircraft_states[1],
+                )
 
                 conflict_info = {
                     "aircraft_1_id": ac1_id,
@@ -355,7 +420,6 @@ class ManualLlamaTest:
             count = self.llm_client.get_inference_count()
             self.llm_client.get_total_inference_time()
             avg_time = self.llm_client.get_average_inference_time()
-
 
             if count > 0:
                 if avg_time < 1.0 or avg_time < 3.0 or avg_time < 10.0:

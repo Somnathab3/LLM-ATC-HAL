@@ -21,6 +21,7 @@ from sentence_transformers import SentenceTransformer
 @dataclass
 class ExperienceDocument:
     """Structured experience document for storage and retrieval"""
+
     experience_id: str
     timestamp: float
     conflict_type: str  # 'convergent', 'parallel', 'crossing', 'overtaking'
@@ -92,14 +93,16 @@ class ExperienceDocumentGenerator:
             )
             self.logger.info("Created new collection: %s", self.collection_name)
 
-    def generate_experience(self,
-                          conflict_desc: str,
-                          commands_do: list[str],
-                          commands_dont: list[str],
-                          reasoning: str,
-                          conflict_type: str,
-                          num_ac: int,
-                          **kwargs) -> dict:
+    def generate_experience(
+        self,
+        conflict_desc: str,
+        commands_do: list[str],
+        commands_dont: list[str],
+        reasoning: str,
+        conflict_type: str,
+        num_ac: int,
+        **kwargs,
+    ) -> dict:
         """
         Generate a structured experience document
 
@@ -216,7 +219,9 @@ class ExperienceDocumentGenerator:
         """Generate comprehensive scenario description"""
         return f"Conflict scenario involving {num_ac} aircraft in a {conflict_type} conflict situation. {conflict_desc}"
 
-    def _generate_decision_text(self, commands_do: list[str], commands_dont: list[str], reasoning: str) -> str:
+    def _generate_decision_text(
+        self, commands_do: list[str], commands_dont: list[str], reasoning: str,
+    ) -> str:
         """Generate decision description text"""
         do_text = "; ".join(commands_do) if commands_do else "No specific actions recommended"
         dont_text = "; ".join(commands_dont) if commands_dont else "No specific restrictions"

@@ -129,7 +129,9 @@ Or provide a regular text response for analysis and reasoning.
 
         return None
 
-    def _execute_function_call(self, function_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+    def _execute_function_call(
+        self, function_name: str, arguments: dict[str, Any],
+    ) -> dict[str, Any]:
         """Execute a function call and return the result"""
         try:
             # Dispatch to the appropriate tool function
@@ -159,8 +161,9 @@ Or provide a regular text response for analysis and reasoning.
                 "timestamp": time.time(),
             }
 
-    def chat_with_function_calling(self, messages: list[dict[str, str]],
-                                 max_function_calls: int = 5) -> dict[str, Any]:
+    def chat_with_function_calling(
+        self, messages: list[dict[str, str]], max_function_calls: int = 5,
+    ) -> dict[str, Any]:
         """
         Extended chat interface with function calling support
 
@@ -186,14 +189,18 @@ Or provide a regular text response for analysis and reasoning.
                 function_calls_made.append(response)
 
                 # Add function call and result to conversation
-                conversation_history.append({
-                    "role": "assistant",
-                    "content": f"Called function {response['function_name']} with args {response['arguments']}",
-                })
-                conversation_history.append({
-                    "role": "function",
-                    "content": json.dumps(response["result"], default=str),
-                })
+                conversation_history.append(
+                    {
+                        "role": "assistant",
+                        "content": f"Called function {response['function_name']} with args {response['arguments']}",
+                    },
+                )
+                conversation_history.append(
+                    {
+                        "role": "function",
+                        "content": json.dumps(response["result"], default=str),
+                    },
+                )
 
                 # Continue the conversation
                 continue

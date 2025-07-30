@@ -24,6 +24,7 @@ from llm_interface.llm_client import LLMClient
 @dataclass
 class ConflictPromptData:
     """Data structure for conflict prompt generation"""
+
     aircraft_pair: tuple[str, str]
     aircraft_1_info: dict[str, Any]
     aircraft_2_info: dict[str, Any]
@@ -37,6 +38,7 @@ class ConflictPromptData:
 @dataclass
 class ResolutionResponse:
     """Parsed resolution response from LLM"""
+
     command: str
     aircraft_id: str
     maneuver_type: str  # 'heading', 'altitude', 'speed'
@@ -51,8 +53,12 @@ class LLMPromptEngine:
     for ATC conflict resolution tasks.
     """
 
-    def __init__(self, model: str = "llama3.1:8b", enable_function_calls: bool = True,
-                 aircraft_id_regex: str = r"^[A-Z0-9-]+$") -> None:
+    def __init__(
+        self,
+        model: str = "llama3.1:8b",
+        enable_function_calls: bool = True,
+        aircraft_id_regex: str = r"^[A-Z0-9-]+$",
+    ) -> None:
         """
         Initialize the LLM prompt engine.
 
@@ -224,7 +230,6 @@ RECOMMENDATION: APPROVE
                 closest_approach_distance=conflict_info.get("closest_approach_distance", 3.5),
                 conflict_type=conflict_info.get("conflict_type", "convergent"),
                 urgency_level=conflict_info.get("urgency_level", "medium"),
-
                 # Aircraft 1 details
                 ac1_lat=ac1_info.get("lat", 52.3676),
                 ac1_lon=ac1_info.get("lon", 4.9041),
@@ -232,7 +237,6 @@ RECOMMENDATION: APPROVE
                 ac1_hdg=ac1_info.get("hdg", 90),
                 ac1_spd=ac1_info.get("spd", 450),
                 ac1_type=ac1_info.get("type", "B738"),
-
                 # Aircraft 2 details
                 ac2_lat=ac2_info.get("lat", 52.3700),
                 ac2_lon=ac2_info.get("lon", 4.9100),
@@ -240,7 +244,6 @@ RECOMMENDATION: APPROVE
                 ac2_hdg=ac2_info.get("hdg", 270),
                 ac2_spd=ac2_info.get("spd", 460),
                 ac2_type=ac2_info.get("type", "A320"),
-
                 # Environmental conditions
                 wind_direction=env_conditions.get("wind_direction_deg", 270),
                 wind_speed=env_conditions.get("wind_speed_kts", 15),
@@ -248,13 +251,13 @@ RECOMMENDATION: APPROVE
                 weather_conditions=env_conditions.get("conditions", "Clear"),
             )
 
-
         except Exception as e:
             self.logger.exception(f"Error formatting conflict prompt: {e}")
             return self._get_fallback_conflict_prompt(conflict_info)
 
-    def format_detector_prompt(self, aircraft_states: list[dict[str, Any]],
-                              time_horizon: float = 5.0) -> str:
+    def format_detector_prompt(
+        self, aircraft_states: list[dict[str, Any]], time_horizon: float = 5.0,
+    ) -> str:
         """
         Create a prompt for LLM-based conflict detection.
 
@@ -343,7 +346,9 @@ Aircraft {aircraft.get('id', f'AC{i+1:03d}')}:
                                 break
 
             if not command:
-                self.logger.warning(f"Could not extract command from response: {response_text[:200]}...")
+                self.logger.warning(
+                    f"Could not extract command from response: {response_text[:200]}...",
+                )
                 return None
 
             # Extract aircraft ID from command
@@ -356,7 +361,9 @@ Aircraft {aircraft.get('id', f'AC{i+1:03d}')}:
                 command=command,
                 aircraft_id=aircraft_id,
                 maneuver_type=maneuver_type,
-                rationale=rationale_match.group(1).strip() if rationale_match else "No rationale provided",
+                rationale=(
+                    rationale_match.group(1).strip() if rationale_match else "No rationale provided"
+                ),
                 confidence=float(confidence_match.group(1)) if confidence_match else 0.5,
                 safety_assessment="Pending verification",
             )
@@ -443,19 +450,25 @@ Aircraft {aircraft.get('id', f'AC{i+1:03d}')}:
 
         try:
             # Parse conflict detection
-            conflict_match = re.search(r"Conflict Detected:\s*(YES|NO)", response_text, re.IGNORECASE)
+            conflict_match = re.search(
+                r"Conflict Detected:\s*(YES|NO)", response_text, re.IGNORECASE,
+            )
             if conflict_match:
                 result["conflict_detected"] = conflict_match.group(1).upper() == "YES"
 
             # Parse aircraft pairs
-            pairs_match = re.search(r"Aircraft Pairs at Risk:\s*([^\n]+)", response_text, re.IGNORECASE)
+            pairs_match = re.search(
+                r"Aircraft Pairs at Risk:\s*([^\n]+)", response_text, re.IGNORECASE,
+            )
             if pairs_match:
                 pairs_text = pairs_match.group(1).strip()
                 if pairs_text.lower() not in ["none", "n/a", ""]:
                     result["aircraft_pairs"] = self._parse_aircraft_pairs(pairs_text)
 
             # Parse time to conflict
-            time_match = re.search(r"Time to Loss of Separation:\s*([^\n]+)", response_text, re.IGNORECASE)
+            time_match = re.search(
+                r"Time to Loss of Separation:\s*([^\n]+)", response_text, re.IGNORECASE,
+            )
             if time_match:
                 result["time_to_conflict"] = self._parse_time_values(time_match.group(1))
 
@@ -476,8 +489,9 @@ Aircraft {aircraft.get('id', f'AC{i+1:03d}')}:
             result["error"] = str(e)
             return result
 
-    def get_conflict_resolution(self, conflict_info: dict[str, Any],
-                               use_function_calls: Optional[bool] = None) -> Optional[str]:
+    def get_conflict_resolution(
+        self, conflict_info: dict[str, Any], use_function_calls: Optional[bool] = None,
+    ) -> Optional[str]:
         """
         High-level API for getting conflict resolution from LLM.
 
@@ -493,7 +507,9 @@ Aircraft {aircraft.get('id', f'AC{i+1:03d}')}:
             prompt = self.format_conflict_prompt(conflict_info)
 
             # Determine function calling setting
-            enable_calls = use_function_calls if use_function_calls is not None else self.enable_function_calls
+            enable_calls = (
+                use_function_calls if use_function_calls is not None else self.enable_function_calls
+            )
 
             # Query the LLM
             response = self.llm_client.ask(prompt, enable_function_calls=enable_calls)
@@ -502,7 +518,9 @@ Aircraft {aircraft.get('id', f'AC{i+1:03d}')}:
             resolution = self.parse_resolution_response(response)
 
             if resolution:
-                self.logger.info(f"Generated resolution: {resolution.command} (confidence: {resolution.confidence:.2f})")
+                self.logger.info(
+                    f"Generated resolution: {resolution.command} (confidence: {resolution.confidence:.2f})",
+                )
                 return resolution.command
             self.logger.warning("Failed to parse resolution from LLM response")
             return None
@@ -511,8 +529,9 @@ Aircraft {aircraft.get('id', f'AC{i+1:03d}')}:
             self.logger.exception(f"Error getting conflict resolution: {e}")
             return None
 
-    def detect_conflict_via_llm(self, aircraft_states: list[dict[str, Any]],
-                               time_horizon: float = 5.0) -> dict[str, Any]:
+    def detect_conflict_via_llm(
+        self, aircraft_states: list[dict[str, Any]], time_horizon: float = 5.0,
+    ) -> dict[str, Any]:
         """
         High-level API for LLM-based conflict detection.
 
@@ -533,8 +552,10 @@ Aircraft {aircraft.get('id', f'AC{i+1:03d}')}:
             # Parse the response
             detection_result = self.parse_detector_response(response)
 
-            self.logger.info(f"Conflict detection: {detection_result['conflict_detected']} "
-                           f"(confidence: {detection_result['confidence']:.2f})")
+            self.logger.info(
+                f"Conflict detection: {detection_result['conflict_detected']} "
+                f"(confidence: {detection_result['confidence']:.2f})",
+            )
 
             return detection_result
 
@@ -542,7 +563,9 @@ Aircraft {aircraft.get('id', f'AC{i+1:03d}')}:
             self.logger.exception(f"Error in LLM-based conflict detection: {e}")
             return {"conflict_detected": False, "error": str(e)}
 
-    def assess_resolution_safety(self, command: str, conflict_info: dict[str, Any]) -> dict[str, Any]:
+    def assess_resolution_safety(
+        self, command: str, conflict_info: dict[str, Any],
+    ) -> dict[str, Any]:
         """
         Use LLM to assess the safety of a proposed resolution.
 
@@ -555,9 +578,11 @@ Aircraft {aircraft.get('id', f'AC{i+1:03d}')}:
         """
         try:
             # Create conflict description
-            conflict_desc = f"Conflict between {conflict_info.get('aircraft_1_id', 'AC1')} " \
-                          f"and {conflict_info.get('aircraft_2_id', 'AC2')} with " \
-                          f"{conflict_info.get('time_to_conflict', 120):.0f}s to impact"
+            conflict_desc = (
+                f"Conflict between {conflict_info.get('aircraft_1_id', 'AC1')} "
+                f"and {conflict_info.get('aircraft_2_id', 'AC2')} with "
+                f"{conflict_info.get('time_to_conflict', 120):.0f}s to impact"
+            )
 
             # Format safety assessment prompt
             prompt = self.safety_assessment_template.format(
@@ -590,7 +615,9 @@ Maintain minimum separation of 5 NM horizontal or 1000 ft vertical.
 Command:
 """
 
-    def _parse_function_call_response(self, response_dict: dict[str, Any]) -> Optional[ResolutionResponse]:
+    def _parse_function_call_response(
+        self, response_dict: dict[str, Any],
+    ) -> Optional[ResolutionResponse]:
         """Parse function call response into ResolutionResponse"""
         try:
             function_name = response_dict.get("function_name", "")
@@ -626,7 +653,11 @@ Command:
         cleaned_text = re.sub(r"[^\w\s:]+", " ", cleaned_text)  # Remove special chars except colons
 
         # Check for SendCommand format: **SendCommand("CLB 1000ft", "UAL890")**
-        sendcommand_match = re.search(r'SendCommand\s*\(\s*["\']([^"\']+)["\']\s*,\s*["\']([^"\']+)["\']\s*\)', text, re.IGNORECASE)
+        sendcommand_match = re.search(
+            r'SendCommand\s*\(\s*["\']([^"\']+)["\']\s*,\s*["\']([^"\']+)["\']\s*\)',
+            text,
+            re.IGNORECASE,
+        )
         if sendcommand_match:
             command_part = sendcommand_match.group(1).strip()
             aircraft_part = sendcommand_match.group(2).strip()
@@ -645,7 +676,7 @@ Command:
         # First pass: Explicit BlueSky command patterns
         explicit_patterns = [
             r"\b(HDG|ALT|SPD|VS)\s+([A-Z0-9-]+)\s+(\d+)\b",  # HDG AC001 270
-            r"\b([A-Z0-9-]+)\s+(HDG|ALT|SPD|VS)\s+(\d+)\b",   # AC001 HDG 270
+            r"\b([A-Z0-9-]+)\s+(HDG|ALT|SPD|VS)\s+(\d+)\b",  # AC001 HDG 270
             r"Command:\s*(HDG|ALT|SPD|VS)\s+([A-Z0-9-]+)\s+(\d+)",  # Command: HDG AC001 270
             r"(HDG|ALT|SPD|VS)\s+([A-Z0-9-]+)\s+(\d+)",  # More flexible version
         ]
@@ -667,9 +698,13 @@ Command:
                     cmd_candidate = match.group(2).upper()
                     value_candidate = match.group(3)
 
-                if (aircraft_candidate and cmd_candidate and value_candidate and
-                    re.match(self.aircraft_id_regex, aircraft_candidate) and
-                    value_candidate.isdigit()):
+                if (
+                    aircraft_candidate
+                    and cmd_candidate
+                    and value_candidate
+                    and re.match(self.aircraft_id_regex, aircraft_candidate)
+                    and value_candidate.isdigit()
+                ):
                     return f"{cmd_candidate} {aircraft_candidate} {value_candidate}"
 
         # Second pass: Natural language patterns (with more flexible matching)
@@ -708,7 +743,11 @@ Command:
                     pattern_lower = pattern.lower()
                     if "heading" in pattern_lower or "turn" in pattern_lower:
                         cmd_type = "HDG"
-                    elif "climb" in pattern_lower or "descend" in pattern_lower or "altitude" in pattern_lower:
+                    elif (
+                        "climb" in pattern_lower
+                        or "descend" in pattern_lower
+                        or "altitude" in pattern_lower
+                    ):
                         cmd_type = "ALT"
                     elif "speed" in pattern_lower:
                         cmd_type = "SPD"
@@ -719,11 +758,15 @@ Command:
                     return f"{cmd_type} {aircraft} {value}"
 
         # Third pass: Check for multiple commands or extraneous text
-        command_count = len(re.findall(r"\b(HDG|ALT|SPD|VS)\s+[A-Z0-9-]+\s+\d+", cleaned_text, re.IGNORECASE))
+        command_count = len(
+            re.findall(r"\b(HDG|ALT|SPD|VS)\s+[A-Z0-9-]+\s+\d+", cleaned_text, re.IGNORECASE),
+        )
         if command_count > 1:
             self.logger.warning(f"Multiple commands detected in response: {text[:100]}...")
             # Return the first valid command found
-            first_match = re.search(r"\b(HDG|ALT|SPD|VS)\s+([A-Z0-9-]+)\s+(\d+)", cleaned_text, re.IGNORECASE)
+            first_match = re.search(
+                r"\b(HDG|ALT|SPD|VS)\s+([A-Z0-9-]+)\s+(\d+)", cleaned_text, re.IGNORECASE,
+            )
             if first_match:
                 cmd, aircraft, value = first_match.groups()
                 aircraft = aircraft.upper()
@@ -739,7 +782,9 @@ Command:
 
         # Clean command: remove degree symbols and other formatting
         cleaned_command = command.replace("°", "").replace("degrees", "").replace("deg", "")
-        cleaned_command = re.sub(r"[^\w\s-]", " ", cleaned_command)  # Remove special chars except hyphens
+        cleaned_command = re.sub(
+            r"[^\w\s-]", " ", cleaned_command,
+        )  # Remove special chars except hyphens
 
         # Remove extra whitespace and convert to uppercase
         cleaned_command = " ".join(cleaned_command.upper().split())
@@ -762,7 +807,7 @@ Command:
             # Try to find valid command anywhere in the parts
             for i, part in enumerate(parts):
                 if part in valid_commands and i > 0 and i < len(parts) - 1:
-                    aircraft, cmd, value = parts[i-1], part, parts[i+1]
+                    aircraft, cmd, value = parts[i - 1], part, parts[i + 1]
                     break
             else:
                 return None
@@ -832,8 +877,7 @@ Command:
             for match in matches:
                 # Validate both aircraft IDs match the full pattern
                 ac1, ac2 = match[0].upper(), match[1].upper()
-                if (re.match(self.aircraft_id_regex, ac1) and
-                    re.match(self.aircraft_id_regex, ac2)):
+                if re.match(self.aircraft_id_regex, ac1) and re.match(self.aircraft_id_regex, ac2):
                     pairs.append((ac1, ac2))
 
         return pairs
@@ -864,10 +908,14 @@ Command:
 
         try:
             # Parse safety rating (new format with underscores)
-            rating_match = re.search(r"SAFETY_RATING:\s*(SAFE|MARGINAL|UNSAFE)", response_text, re.IGNORECASE)
+            rating_match = re.search(
+                r"SAFETY_RATING:\s*(SAFE|MARGINAL|UNSAFE)", response_text, re.IGNORECASE,
+            )
             if not rating_match:
                 # Fallback to old format
-                rating_match = re.search(r"Safety Rating:\s*(SAFE|MARGINAL|UNSAFE)", response_text, re.IGNORECASE)
+                rating_match = re.search(
+                    r"Safety Rating:\s*(SAFE|MARGINAL|UNSAFE)", response_text, re.IGNORECASE,
+                )
 
             if rating_match:
                 result["safety_rating"] = rating_match.group(1).upper()
@@ -878,7 +926,9 @@ Command:
             sep_match = re.search(r"SEPARATION_ACHIEVED:\s*([^\n]+)", response_text, re.IGNORECASE)
             if not sep_match:
                 # Fallback to old format
-                sep_match = re.search(r"Separation Achieved:\s*([^\n]+)", response_text, re.IGNORECASE)
+                sep_match = re.search(
+                    r"Separation Achieved:\s*([^\n]+)", response_text, re.IGNORECASE,
+                )
 
             if sep_match:
                 result["separation_achieved"] = sep_match.group(1).strip()
@@ -886,10 +936,14 @@ Command:
                 missing_fields.append("Separation Achieved")
 
             # Parse compliance (new format)
-            compliance_match = re.search(r"ICAO_COMPLIANT:\s*(YES|NO)", response_text, re.IGNORECASE)
+            compliance_match = re.search(
+                r"ICAO_COMPLIANT:\s*(YES|NO)", response_text, re.IGNORECASE,
+            )
             if not compliance_match:
                 # Fallback to old format
-                compliance_match = re.search(r"ICAO compliant:\s*(YES|NO)", response_text, re.IGNORECASE)
+                compliance_match = re.search(
+                    r"ICAO compliant:\s*(YES|NO)", response_text, re.IGNORECASE,
+                )
 
             if compliance_match:
                 result["icao_compliant"] = compliance_match.group(1).upper() == "YES"
@@ -908,10 +962,14 @@ Command:
                 missing_fields.append("Risk Assessment")
 
             # Parse recommendation (new format)
-            rec_match = re.search(r"RECOMMENDATION:\s*(APPROVE|MODIFY|REJECT)", response_text, re.IGNORECASE)
+            rec_match = re.search(
+                r"RECOMMENDATION:\s*(APPROVE|MODIFY|REJECT)", response_text, re.IGNORECASE,
+            )
             if not rec_match:
                 # Fallback to old format
-                rec_match = re.search(r"Recommendation:\s*(APPROVE|MODIFY|REJECT)", response_text, re.IGNORECASE)
+                rec_match = re.search(
+                    r"Recommendation:\s*(APPROVE|MODIFY|REJECT)", response_text, re.IGNORECASE,
+                )
 
             if rec_match:
                 result["recommendation"] = rec_match.group(1).upper()
@@ -920,7 +978,9 @@ Command:
 
             # Log warnings for missing fields
             if missing_fields:
-                self.logger.warning(f"Missing safety assessment fields: {', '.join(missing_fields)}")
+                self.logger.warning(
+                    f"Missing safety assessment fields: {', '.join(missing_fields)}",
+                )
                 result["missing_fields"] = missing_fields
                 result["parsing_issues"] = True
             else:

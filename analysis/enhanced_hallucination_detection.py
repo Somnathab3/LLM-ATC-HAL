@@ -13,6 +13,7 @@ from typing import Any
 
 class HallucinationType(Enum):
     """Types of hallucinations that can occur in ATC decisions"""
+
     AIRCRAFT_EXISTENCE = "aircraft_existence"
     ALTITUDE_CONFUSION = "altitude_confusion"
     HEADING_CONFUSION = "heading_confusion"
@@ -21,14 +22,17 @@ class HallucinationType(Enum):
     IMPOSSIBLE_MANEUVER = "impossible_maneuver"
     NONSENSICAL_RESPONSE = "nonsensical_response"
 
+
 @dataclass
 class HallucinationResult:
     """Result of hallucination detection"""
+
     detected: bool
     confidence: float
     types: list[HallucinationType]
     explanation: str
     severity: str  # 'low', 'medium', 'high', 'critical'
+
 
 class EnhancedHallucinationDetector:
     """
@@ -49,9 +53,23 @@ class EnhancedHallucinationDetector:
 
         # Known valid aircraft types
         self.valid_aircraft_types = {
-            "A320", "A330", "A340", "A350", "A380",
-            "B737", "B747", "B757", "B767", "B777", "B787",
-            "CRJ200", "CRJ700", "CRJ900", "DHC8", "E170", "E190",
+            "A320",
+            "A330",
+            "A340",
+            "A350",
+            "A380",
+            "B737",
+            "B747",
+            "B757",
+            "B767",
+            "B777",
+            "B787",
+            "CRJ200",
+            "CRJ700",
+            "CRJ900",
+            "DHC8",
+            "E170",
+            "E190",
         }
 
         # Valid altitude ranges
@@ -62,9 +80,12 @@ class EnhancedHallucinationDetector:
         self.min_heading = 0
         self.max_heading = 360
 
-    def detect_hallucinations(self, llm_response: dict[str, Any],
-                            baseline_response: dict[str, Any],
-                            context: dict[str, Any]) -> HallucinationResult:
+    def detect_hallucinations(
+        self,
+        llm_response: dict[str, Any],
+        baseline_response: dict[str, Any],
+        context: dict[str, Any],
+    ) -> HallucinationResult:
         """
         Detect hallucinations in LLM response using multiple strategies
 
@@ -135,7 +156,9 @@ class EnhancedHallucinationDetector:
                 detected=detected,
                 confidence=max_confidence,
                 types=detected_types,
-                explanation="; ".join(explanations) if explanations else "No hallucinations detected",
+                explanation=(
+                    "; ".join(explanations) if explanations else "No hallucinations detected"
+                ),
                 severity=severity,
             )
 
@@ -239,11 +262,17 @@ class EnhancedHallucinationDetector:
         """Check for physically impossible maneuvers"""
         try:
             # Check for extreme climb/descent rates
-            if re.search(r"climb.*[5-9][0-9]{3}|descend.*[5-9][0-9]{3}", response_text, re.IGNORECASE):
+            if re.search(
+                r"climb.*[5-9][0-9]{3}|descend.*[5-9][0-9]{3}", response_text, re.IGNORECASE,
+            ):
                 return True  # >5000 fpm is extreme
 
             # Check for impossible speed changes
-            if re.search(r"reduce speed.*[0-9]{1,2}|increase speed.*[5-9][0-9]{2}", response_text, re.IGNORECASE):
+            if re.search(
+                r"reduce speed.*[0-9]{1,2}|increase speed.*[5-9][0-9]{2}",
+                response_text,
+                re.IGNORECASE,
+            ):
                 return True  # Too slow or too fast
 
             # Check for contradictory instructions
@@ -298,6 +327,7 @@ class EnhancedHallucinationDetector:
         if len(detected_types) > 2:
             return "medium"
         return "low"
+
 
 def create_enhanced_detector() -> EnhancedHallucinationDetector:
     """Factory function to create enhanced hallucination detector"""

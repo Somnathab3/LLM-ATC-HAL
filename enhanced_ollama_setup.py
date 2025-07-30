@@ -15,6 +15,7 @@ import ollama
 @dataclass
 class OllamaModelConfig:
     """Configuration for Ollama model optimization"""
+
     name: str
     temperature: float
     top_p: float
@@ -35,7 +36,7 @@ class EnhancedOllamaManager:
         self.model_configs = {
             "conflict_resolution": OllamaModelConfig(
                 name="llama3.1:8b",
-                temperature=0.1,      # Low for consistent, safe decisions
+                temperature=0.1,  # Low for consistent, safe decisions
                 top_p=0.8,
                 top_k=20,
                 repeat_penalty=1.1,
@@ -44,7 +45,7 @@ class EnhancedOllamaManager:
             ),
             "conflict_detection": OllamaModelConfig(
                 name="llama3.1:8b",
-                temperature=0.05,     # Very low for reliable detection
+                temperature=0.05,  # Very low for reliable detection
                 top_p=0.7,
                 top_k=15,
                 repeat_penalty=1.0,
@@ -52,7 +53,7 @@ class EnhancedOllamaManager:
                 gpu_layers=-1,
             ),
             "safety_assessment": OllamaModelConfig(
-                name="mistral:7b",     # Alternative model for cross-validation
+                name="mistral:7b",  # Alternative model for cross-validation
                 temperature=0.2,
                 top_p=0.9,
                 top_k=25,
@@ -93,9 +94,9 @@ class EnhancedOllamaManager:
     def pull_recommended_models(self) -> dict[str, bool]:
         """Pull recommended models for ATC operations"""
         recommended_models = [
-            "llama3.1:8b",    # Primary model for general ATC tasks
-            "mistral:7b",     # Secondary model for validation
-            "codellama:7b",    # Technical analysis model
+            "llama3.1:8b",  # Primary model for general ATC tasks
+            "mistral:7b",  # Secondary model for validation
+            "codellama:7b",  # Technical analysis model
         ]
 
         results = {}
@@ -181,6 +182,7 @@ PARAMETER stop "Assistant:"
         for model in available_models:
             try:
                 import time
+
                 start_time = time.time()
 
                 response = self.client.chat(
@@ -196,7 +198,9 @@ PARAMETER stop "Assistant:"
                 results[model] = {
                     "response_time": response_time,
                     "response_length": len(content),
-                    "contains_command": any(cmd in content.upper() for cmd in ["HDG", "ALT", "SPD"]),
+                    "contains_command": any(
+                        cmd in content.upper() for cmd in ["HDG", "ALT", "SPD"]
+                    ),
                     "status": "success",
                 }
 
@@ -248,7 +252,8 @@ PARAMETER stop "Assistant:"
                 try:
                     benchmark = self.benchmark_models()
                     avg_response_time = sum(
-                        r["response_time"] for r in benchmark.values()
+                        r["response_time"]
+                        for r in benchmark.values()
                         if r.get("status") == "success"
                     ) / len([r for r in benchmark.values() if r.get("status") == "success"])
 
@@ -278,7 +283,6 @@ PARAMETER stop "Assistant:"
 def setup_atc_environment():
     """Setup and optimize Ollama environment for ATC operations"""
     manager = EnhancedOllamaManager()
-
 
     # Health check
     health = manager.health_check()
@@ -312,4 +316,3 @@ def setup_atc_environment():
 if __name__ == "__main__":
     # Setup ATC environment
     manager = setup_atc_environment()
-

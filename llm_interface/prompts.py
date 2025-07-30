@@ -13,6 +13,7 @@ from typing import Any, Optional
 @dataclass
 class ConflictScenario:
     """Data structure for conflict scenario information"""
+
     aircraft_data: list[dict[str, Any]]
     conflict_type: str
     urgency_level: str
@@ -37,7 +38,9 @@ You are an expert Air Traffic Controller AI assistant with deep knowledge of:
 Always prioritize safety, provide clear rationale, and suggest ICAO-compliant solutions.
 """
 
-    def generate_conflict_prompt(self, aircraft_data: list[dict], conflict_type: str, urgency_level: str) -> str:
+    def generate_conflict_prompt(
+        self, aircraft_data: list[dict], conflict_type: str, urgency_level: str,
+    ) -> str:
         """Generate conflict resolution prompt"""
 
         aircraft_info = self._format_aircraft_data(aircraft_data)

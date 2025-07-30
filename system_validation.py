@@ -10,21 +10,25 @@ import os
 import sys
 import time
 from dataclasses import dataclass
+from pathlib import Path
 
 import ollama
 
 # Add project root to path
-project_root = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, project_root)
+project_root = Path(__file__).parent.absolute()
+sys.path.insert(0, str(project_root))
+
 
 @dataclass
 class ValidationResult:
     """Result of a validation check"""
+
     component: str
     status: str  # 'pass', 'fail', 'warning'
     message: str
     details: dict = None
     execution_time: float = 0.0
+
 
 class SystemValidator:
     """Comprehensive system validation for LLM-ATC-HAL"""
@@ -90,14 +94,18 @@ class SystemValidator:
                     component="Python Environment",
                     status="fail",
                     message=f"Python 3.9+ required, found {python_version.major}.{python_version.minor}",
-                    details={"version": f"{python_version.major}.{python_version.minor}.{python_version.micro}"},
+                    details={
+                        "version": f"{python_version.major}.{python_version.minor}.{python_version.micro}",
+                    },
                 )
 
             return ValidationResult(
                 component="Python Environment",
                 status="pass",
                 message=f"Python {python_version.major}.{python_version.minor}.{python_version.micro} OK",
-                details={"version": f"{python_version.major}.{python_version.minor}.{python_version.micro}"},
+                details={
+                    "version": f"{python_version.major}.{python_version.minor}.{python_version.micro}",
+                },
             )
 
         except Exception as e:
@@ -137,7 +145,6 @@ class SystemValidator:
                 details={"error": str(e)},
             )
 
-
     def _validate_ollama_service(self) -> ValidationResult:
         """Validate Ollama service availability"""
         try:
@@ -154,14 +161,20 @@ class SystemValidator:
                     component="Ollama Service",
                     status="warning",
                     message=f"Ollama responding but slow ({response_time:.1f}s)",
-                    details={"response_time": response_time, "models_count": len(models_response.get("models", []))},
+                    details={
+                        "response_time": response_time,
+                        "models_count": len(models_response.get("models", [])),
+                    },
                 )
 
             return ValidationResult(
                 component="Ollama Service",
                 status="pass",
                 message=f"Ollama service active ({response_time:.1f}s response)",
-                details={"response_time": response_time, "models_count": len(models_response.get("models", []))},
+                details={
+                    "response_time": response_time,
+                    "models_count": len(models_response.get("models", [])),
+                },
             )
 
         except Exception as e:
@@ -177,7 +190,11 @@ class SystemValidator:
         try:
             client = ollama.Client()
             models_response = client.list()
-            available_models = [model.model for model in models_response.models] if hasattr(models_response, "models") else []
+            available_models = (
+                [model.model for model in models_response.models]
+                if hasattr(models_response, "models")
+                else []
+            )
 
             required_models = ["llama3.1:8b"]
             recommended_models = ["mistral:7b", "codellama:7b"]
@@ -250,21 +267,28 @@ class SystemValidator:
         """Validate project directory structure"""
         try:
             required_dirs = [
-                "analysis", "llm_atc", "scenarios", "llm_interface",
-                "agents", "bluesky_sim", "solver", "data", "testing",
+                "analysis",
+                "llm_atc",
+                "scenarios",
+                "llm_interface",
+                "agents",
+                "bluesky_sim",
+                "solver",
+                "data",
+                "testing",
             ]
 
             missing_dirs = []
             for dir_name in required_dirs:
-                dir_path = os.path.join(project_root, dir_name)
-                if not os.path.exists(dir_path):
+                dir_path = project_root / dir_name
+                if not dir_path.exists():
                     missing_dirs.append(dir_name)
 
             # Also check for llm_atc subdirectories
             llm_atc_subdirs = ["metrics", "memory"]
             for subdir in llm_atc_subdirs:
-                subdir_path = os.path.join(project_root, "llm_atc", subdir)
-                if not os.path.exists(subdir_path):
+                subdir_path = project_root / "llm_atc" / subdir
+                if not subdir_path.exists():
                     missing_dirs.append(f"llm_atc/{subdir}")
 
             if missing_dirs:
@@ -294,7 +318,12 @@ class SystemValidator:
         """Validate Python package dependencies"""
         try:
             required_packages = [
-                "numpy", "pandas", "matplotlib", "yaml", "tqdm", "ollama",
+                "numpy",
+                "pandas",
+                "matplotlib",
+                "yaml",
+                "tqdm",
+                "ollama",
             ]
 
             missing_packages = []
@@ -343,9 +372,9 @@ class SystemValidator:
 
             created_dirs = []
             for dir_path in data_dirs:
-                full_path = os.path.join(project_root, dir_path)
-                if not os.path.exists(full_path):
-                    os.makedirs(full_path, exist_ok=True)
+                full_path = project_root / dir_path
+                if not full_path.exists():
+                    full_path.mkdir(parents=True, exist_ok=True)
                     created_dirs.append(dir_path)
 
             return ValidationResult(
@@ -367,7 +396,7 @@ class SystemValidator:
         """Validate logging system configuration"""
         try:
             # Test log file creation
-            log_file = os.path.join(project_root, "logs", "validation_test.log")
+            log_file = project_root / "logs" / "validation_test.log"
 
             test_logger = logging.getLogger("validation_test")
             handler = logging.FileHandler(log_file)
@@ -379,14 +408,14 @@ class SystemValidator:
             test_logger.removeHandler(handler)
 
             # Check if file was created and has content
-            if os.path.exists(log_file) and os.path.getsize(log_file) > 0:
-                os.remove(log_file)  # Clean up test file
+            if log_file.exists() and log_file.stat().st_size > 0:
+                log_file.unlink()  # Clean up test file
 
                 return ValidationResult(
                     component="Logging System",
                     status="pass",
                     message="Logging system functional",
-                    details={"log_directory": os.path.join(project_root, "logs")},
+                    details={"log_directory": str(project_root / "logs")},
                 )
             return ValidationResult(
                 component="Logging System",
@@ -450,9 +479,9 @@ class SystemValidator:
     def generate_validation_report(self) -> str:
         """Generate comprehensive validation report"""
         report = []
-        report.append("="*80)
+        report.append("=" * 80)
         report.append("LLM-ATC-HAL SYSTEM VALIDATION REPORT")
-        report.append("="*80)
+        report.append("=" * 80)
         report.append(f"Generated: {time.strftime('%Y-%m-%d %H:%M:%S')}")
         report.append(f"Project Root: {project_root}")
         report.append("")
@@ -477,7 +506,9 @@ class SystemValidator:
         report.append("-" * 40)
 
         for result in self.validation_results:
-            status_symbol = "✓" if result.status == "pass" else "⚠" if result.status == "warning" else "✗"
+            status_symbol = (
+                "✓" if result.status == "pass" else "⚠" if result.status == "warning" else "✗"
+            )
             report.append(f"{status_symbol} {result.component}")
             report.append(f"   Status: {result.status.upper()}")
             report.append(f"   Message: {result.message}")
@@ -487,6 +518,7 @@ class SystemValidator:
             report.append("")
 
         return "\\n".join(report)
+
 
 # Main validation function
 def validate_system() -> bool:
@@ -502,10 +534,8 @@ def validate_system() -> bool:
     # Generate and save report
     report = validator.generate_validation_report()
 
-    report_file = os.path.join(project_root, "logs", "system_validation_report.txt")
-    with open(report_file, "w", encoding="utf-8") as f:
-        f.write(report)
-
+    report_file = project_root / "logs" / "system_validation_report.txt"
+    report_file.write_text(report, encoding="utf-8")
 
     if not success:
         sys.exit(1)
@@ -513,6 +543,7 @@ def validate_system() -> bool:
         pass
 
     return success
+
 
 if __name__ == "__main__":
     validate_system()

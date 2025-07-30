@@ -28,13 +28,11 @@ def test_distribution_shift_runner() -> Optional[bool]:
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
-
     try:
         # Run small test experiment
         results_file = run_distribution_shift_experiment(
             n_sims_per_tier=5,  # Very small test
         )
-
 
         # Load and analyze results
         df = pd.read_parquet(results_file)
@@ -53,13 +51,14 @@ def test_distribution_shift_runner() -> Optional[bool]:
         for tier, _rate in hallucination.get("detection_rate_by_tier", {}).items():
             safety.get("safety_score_by_tier", {}).get(tier, 0)
 
-
         return True
 
     except Exception:
         import traceback
+
         traceback.print_exc()
         return False
+
 
 if __name__ == "__main__":
     success = test_distribution_shift_runner()

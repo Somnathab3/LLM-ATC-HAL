@@ -24,6 +24,7 @@ import pandas as pd
 try:
     import matplotlib.pyplot as plt
     import seaborn as sns
+
     PLOTTING_AVAILABLE = True
 except ImportError:
     PLOTTING_AVAILABLE = False
@@ -39,6 +40,7 @@ except ImportError:
         # Mock functions for testing
         def calc_separation_margin(trajectories):
             return {"hz": 5.0, "vt": 1000.0}
+
         def calc_efficiency_penalty(planned, executed) -> float:
             return 2.0
 
@@ -171,7 +173,9 @@ class MonteCarloResultsAnalyzer:
 
         return conflict_pairs
 
-    def compute_success_rates_by_scenario(self, results_df: pd.DataFrame) -> dict[str, dict[str, float]]:
+    def compute_success_rates_by_scenario(
+        self, results_df: pd.DataFrame,
+    ) -> dict[str, dict[str, float]]:
         """
         Compute success rates grouped by scenario type.
 
@@ -216,7 +220,9 @@ class MonteCarloResultsAnalyzer:
 
         return success_rates
 
-    def compute_success_rates_by_group(self, results_df: pd.DataFrame, group_cols: list[str]) -> pd.DataFrame:
+    def compute_success_rates_by_group(
+        self, results_df: pd.DataFrame, group_cols: list[str],
+    ) -> pd.DataFrame:
         """
         Compute success rates grouped by specified columns.
 
@@ -241,7 +247,9 @@ class MonteCarloResultsAnalyzer:
             # Try to determine success from other columns
             if "errors" in results_df.columns:
                 results_df = results_df.copy()
-                results_df["success"] = results_df["errors"].apply(lambda x: len(x) == 0 if isinstance(x, list) else True)
+                results_df["success"] = results_df["errors"].apply(
+                    lambda x: len(x) == 0 if isinstance(x, list) else True,
+                )
             elif "resolution_success" in results_df.columns:
                 results_df = results_df.copy()
                 results_df["success"] = results_df["resolution_success"]
@@ -255,7 +263,13 @@ class MonteCarloResultsAnalyzer:
         }
 
         # Add optional columns if they exist
-        optional_columns = ["detection_accuracy", "precision", "recall", "min_separation_nm", "separation_violations"]
+        optional_columns = [
+            "detection_accuracy",
+            "precision",
+            "recall",
+            "min_separation_nm",
+            "separation_violations",
+        ]
         for col in optional_columns:
             if col in results_df.columns:
                 if col == "separation_violations":
@@ -269,11 +283,13 @@ class MonteCarloResultsAnalyzer:
         grouped.columns = ["_".join(col).strip() for col in grouped.columns.values]
 
         # Rename for clarity
-        grouped = grouped.rename(columns={
-            "success_count": "total_scenarios",
-            "success_sum": "successful_scenarios",
-            "success_mean": "success_rate",
-        })
+        grouped = grouped.rename(
+            columns={
+                "success_count": "total_scenarios",
+                "success_sum": "successful_scenarios",
+                "success_mean": "success_rate",
+            },
+        )
 
         # Add failure scenarios
         grouped["failed_scenarios"] = grouped["total_scenarios"] - grouped["successful_scenarios"]
@@ -361,9 +377,12 @@ class MonteCarloResultsAnalyzer:
             "num_penalty_samples": len(penalties),
         }
 
-    def generate_report(self, results_df: pd.DataFrame,
-                       aggregated_metrics: Optional[dict[str, Any]] = None,
-                       output_file: Union[str, Path] = "monte_carlo_report.md") -> str:
+    def generate_report(
+        self,
+        results_df: pd.DataFrame,
+        aggregated_metrics: Optional[dict[str, Any]] = None,
+        output_file: Union[str, Path] = "monte_carlo_report.md",
+    ) -> str:
         """
         Generate a comprehensive markdown report with all metrics and analysis.
 
@@ -381,7 +400,11 @@ class MonteCarloResultsAnalyzer:
         output_file = Path(output_file)
 
         # Generate grouped success rates for detailed analysis
-        group_cols = ["scenario_type", "complexity_tier"] if "complexity_tier" in results_df.columns else ["scenario_type"]
+        group_cols = (
+            ["scenario_type", "complexity_tier"]
+            if "complexity_tier" in results_df.columns
+            else ["scenario_type"]
+        )
         if "distribution_shift_level" in results_df.columns:
             group_cols.append("distribution_shift_level")
 
@@ -391,143 +414,165 @@ class MonteCarloResultsAnalyzer:
         report_lines = []
 
         # Header
-        report_lines.extend([
-            "# Monte Carlo Analysis Report",
-            "",
-            f"**Generated:** {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}",
-            f"**Total Scenarios:** {aggregated_metrics['summary']['total_scenarios']}",
-            f"**Scenario Types:** {', '.join(aggregated_metrics['summary']['scenario_types'])}",
-            "",
-            "---",
-            "",
-        ])
+        report_lines.extend(
+            [
+                "# Monte Carlo Analysis Report",
+                "",
+                f"**Generated:** {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}",
+                f"**Total Scenarios:** {aggregated_metrics['summary']['total_scenarios']}",
+                f"**Scenario Types:** {', '.join(aggregated_metrics['summary']['scenario_types'])}",
+                "",
+                "---",
+                "",
+            ],
+        )
 
         # Executive Summary
-        report_lines.extend([
-            "## Executive Summary",
-            "",
-            self._generate_executive_summary(aggregated_metrics),
-            "",
-            "---",
-            "",
-        ])
+        report_lines.extend(
+            [
+                "## Executive Summary",
+                "",
+                self._generate_executive_summary(aggregated_metrics),
+                "",
+                "---",
+                "",
+            ],
+        )
 
         # Detection Performance
         detection = aggregated_metrics["detection_performance"]
-        report_lines.extend([
-            "## Detection Performance",
-            "",
-            f"- **False Positive Rate:** {detection['false_positive_rate']:.3f}",
-            f"- **False Negative Rate:** {detection['false_negative_rate']:.3f}",
-            f"- **Total False Positives:** {detection.get('total_false_positives', 'N/A')}",
-            f"- **Total False Negatives:** {detection.get('total_false_negatives', 'N/A')}",
-            f"- **Total Predicted Conflicts:** {detection.get('total_predicted_conflicts', 'N/A')}",
-            f"- **Total Actual Conflicts:** {detection.get('total_actual_conflicts', 'N/A')}",
-            "",
-            "### Performance Assessment",
-            self._assess_detection_performance(detection),
-            "",
-            "---",
-            "",
-        ])
+        report_lines.extend(
+            [
+                "## Detection Performance",
+                "",
+                f"- **False Positive Rate:** {detection['false_positive_rate']:.3f}",
+                f"- **False Negative Rate:** {detection['false_negative_rate']:.3f}",
+                f"- **Total False Positives:** {detection.get('total_false_positives', 'N/A')}",
+                f"- **Total False Negatives:** {detection.get('total_false_negatives', 'N/A')}",
+                f"- **Total Predicted Conflicts:** {detection.get('total_predicted_conflicts', 'N/A')}",
+                f"- **Total Actual Conflicts:** {detection.get('total_actual_conflicts', 'N/A')}",
+                "",
+                "### Performance Assessment",
+                self._assess_detection_performance(detection),
+                "",
+                "---",
+                "",
+            ],
+        )
 
         # Success Rates by Scenario Type
-        report_lines.extend([
-            "## Success Rates by Scenario Type",
-            "",
-        ])
+        report_lines.extend(
+            [
+                "## Success Rates by Scenario Type",
+                "",
+            ],
+        )
 
         success_rates = aggregated_metrics["success_rates_by_scenario"]
         if success_rates:
             for scenario_type, metrics in success_rates.items():
-                report_lines.extend([
-                    f"### {scenario_type.title()} Scenarios",
-                    f"- **Success Rate:** {metrics['success_rate']:.3f} ({metrics['success_rate']*100:.1f}%)",
-                    f"- **Successful Scenarios:** {metrics['successful_scenarios']}/{metrics['total_scenarios']}",
-                    f"- **Failure Rate:** {metrics['failure_rate']:.3f} ({metrics['failure_rate']*100:.1f}%)",
-                    "",
-                ])
+                report_lines.extend(
+                    [
+                        f"### {scenario_type.title()} Scenarios",
+                        f"- **Success Rate:** {metrics['success_rate']:.3f} ({metrics['success_rate']*100:.1f}%)",
+                        f"- **Successful Scenarios:** {metrics['successful_scenarios']}/{metrics['total_scenarios']}",
+                        f"- **Failure Rate:** {metrics['failure_rate']:.3f} ({metrics['failure_rate']*100:.1f}%)",
+                        "",
+                    ],
+                )
         else:
             report_lines.append("No scenario-specific success rate data available.\n")
 
         # Detailed Grouped Analysis
         if not grouped_success_rates.empty:
-            report_lines.extend([
-                "### Detailed Success Rate Analysis",
-                "",
-                self._format_grouped_success_table(grouped_success_rates),
-                "",
-            ])
+            report_lines.extend(
+                [
+                    "### Detailed Success Rate Analysis",
+                    "",
+                    self._format_grouped_success_table(grouped_success_rates),
+                    "",
+                ],
+            )
 
         report_lines.extend(["---", ""])
 
         # Safety Margins
         margins = aggregated_metrics["separation_margins"]
-        report_lines.extend([
-            "## Safety Margins",
-            "",
-            f"- **Average Horizontal Margin:** {margins['avg_horizontal_margin']:.2f} NM",
-            f"- **Average Vertical Margin:** {margins['avg_vertical_margin']:.0f} ft",
-            f"- **Std Horizontal Margin:** {margins.get('std_horizontal_margin', 0):.2f} NM",
-            f"- **Std Vertical Margin:** {margins.get('std_vertical_margin', 0):.0f} ft",
-            f"- **Margin Samples:** {margins.get('num_margin_samples', 0)}",
-            "",
-            "### Safety Assessment",
-            self._assess_safety_margins(margins),
-            "",
-            "---",
-            "",
-        ])
+        report_lines.extend(
+            [
+                "## Safety Margins",
+                "",
+                f"- **Average Horizontal Margin:** {margins['avg_horizontal_margin']:.2f} NM",
+                f"- **Average Vertical Margin:** {margins['avg_vertical_margin']:.0f} ft",
+                f"- **Std Horizontal Margin:** {margins.get('std_horizontal_margin', 0):.2f} NM",
+                f"- **Std Vertical Margin:** {margins.get('std_vertical_margin', 0):.0f} ft",
+                f"- **Margin Samples:** {margins.get('num_margin_samples', 0)}",
+                "",
+                "### Safety Assessment",
+                self._assess_safety_margins(margins),
+                "",
+                "---",
+                "",
+            ],
+        )
 
         # Efficiency Metrics
         efficiency = aggregated_metrics["efficiency_metrics"]
-        report_lines.extend([
-            "## Efficiency Metrics",
-            "",
-            f"- **Average Efficiency Penalty:** {efficiency['avg_efficiency_penalty']:.2f}%",
-            f"- **Std Efficiency Penalty:** {efficiency.get('std_efficiency_penalty', 0):.2f}%",
-            f"- **Max Efficiency Penalty:** {efficiency.get('max_efficiency_penalty', 0):.2f}%",
-            f"- **Penalty Samples:** {efficiency.get('num_penalty_samples', 0)}",
-            "",
-            "### Efficiency Assessment",
-            self._assess_efficiency_performance(efficiency),
-            "",
-            "---",
-            "",
-        ])
+        report_lines.extend(
+            [
+                "## Efficiency Metrics",
+                "",
+                f"- **Average Efficiency Penalty:** {efficiency['avg_efficiency_penalty']:.2f}%",
+                f"- **Std Efficiency Penalty:** {efficiency.get('std_efficiency_penalty', 0):.2f}%",
+                f"- **Max Efficiency Penalty:** {efficiency.get('max_efficiency_penalty', 0):.2f}%",
+                f"- **Penalty Samples:** {efficiency.get('num_penalty_samples', 0)}",
+                "",
+                "### Efficiency Assessment",
+                self._assess_efficiency_performance(efficiency),
+                "",
+                "---",
+                "",
+            ],
+        )
 
         # Distribution Shift Analysis
         shift_analysis = aggregated_metrics.get("distribution_shift_analysis", {})
         if shift_analysis:
-            report_lines.extend([
-                "## Distribution Shift Analysis",
+            report_lines.extend(
+                [
+                    "## Distribution Shift Analysis",
+                    "",
+                    self._format_distribution_shift_analysis(shift_analysis),
+                    "",
+                    "---",
+                    "",
+                ],
+            )
+
+        # Recommendations
+        report_lines.extend(
+            [
+                "## Recommendations",
                 "",
-                self._format_distribution_shift_analysis(shift_analysis),
+                self._generate_recommendations(aggregated_metrics),
                 "",
                 "---",
                 "",
-            ])
-
-        # Recommendations
-        report_lines.extend([
-            "## Recommendations",
-            "",
-            self._generate_recommendations(aggregated_metrics),
-            "",
-            "---",
-            "",
-        ])
+            ],
+        )
 
         # Technical Details
-        report_lines.extend([
-            "## Technical Details",
-            "",
-            "- **Analysis Tool:** LLM-ATC Monte Carlo Analyzer",
-            f"- **Results File:** {len(results_df)} scenarios",
-            f"- **Analysis Date:** {pd.Timestamp.now().strftime('%Y-%m-%d')}",
-            f"- **Data Columns:** {', '.join(results_df.columns.tolist())}",
-            "",
-        ])
+        report_lines.extend(
+            [
+                "## Technical Details",
+                "",
+                "- **Analysis Tool:** LLM-ATC Monte Carlo Analyzer",
+                f"- **Results File:** {len(results_df)} scenarios",
+                f"- **Analysis Date:** {pd.Timestamp.now().strftime('%Y-%m-%d')}",
+                f"- **Data Columns:** {', '.join(results_df.columns.tolist())}",
+                "",
+            ],
+        )
 
         # Write the report
         with open(output_file, "w", encoding="utf-8") as f:
@@ -549,24 +594,36 @@ class MonteCarloResultsAnalyzer:
             overall_success = 0.0
 
         summary = []
-        summary.append(f"This Monte Carlo analysis evaluated {metrics['summary']['total_scenarios']} scenarios across {len(metrics['summary']['scenario_types'])} scenario types.")
+        summary.append(
+            f"This Monte Carlo analysis evaluated {metrics['summary']['total_scenarios']} scenarios across {len(metrics['summary']['scenario_types'])} scenario types.",
+        )
 
         # Performance assessment
         if overall_success >= 0.9:
-            summary.append(f"**Overall Performance: EXCELLENT** - Success rate of {overall_success:.1%} indicates robust performance.")
+            summary.append(
+                f"**Overall Performance: EXCELLENT** - Success rate of {overall_success:.1%} indicates robust performance.",
+            )
         elif overall_success >= 0.8:
-            summary.append(f"**Overall Performance: GOOD** - Success rate of {overall_success:.1%} shows generally reliable operation.")
+            summary.append(
+                f"**Overall Performance: GOOD** - Success rate of {overall_success:.1%} shows generally reliable operation.",
+            )
         elif overall_success >= 0.7:
-            summary.append(f"**Overall Performance: ACCEPTABLE** - Success rate of {overall_success:.1%} suggests room for improvement.")
+            summary.append(
+                f"**Overall Performance: ACCEPTABLE** - Success rate of {overall_success:.1%} suggests room for improvement.",
+            )
         else:
-            summary.append(f"**Overall Performance: NEEDS IMPROVEMENT** - Success rate of {overall_success:.1%} indicates significant issues.")
+            summary.append(
+                f"**Overall Performance: NEEDS IMPROVEMENT** - Success rate of {overall_success:.1%} indicates significant issues.",
+            )
 
         # Detection assessment
         fp_rate = detection["false_positive_rate"]
         fn_rate = detection["false_negative_rate"]
 
         if fp_rate < 0.1 and fn_rate < 0.1:
-            summary.append("Detection accuracy is excellent with low false positive and false negative rates.")
+            summary.append(
+                "Detection accuracy is excellent with low false positive and false negative rates.",
+            )
         elif fp_rate < 0.2 and fn_rate < 0.2:
             summary.append("Detection accuracy is good but could be improved.")
         else:
@@ -579,7 +636,9 @@ class MonteCarloResultsAnalyzer:
         elif h_margin >= 3.0:
             summary.append("Safety margins meet regulatory requirements but are close to limits.")
         else:
-            summary.append("**SAFETY CONCERN**: Average horizontal margins below 3 NM indicate potential safety issues.")
+            summary.append(
+                "**SAFETY CONCERN**: Average horizontal margins below 3 NM indicate potential safety issues.",
+            )
 
         return " ".join(summary)
 
@@ -591,18 +650,26 @@ class MonteCarloResultsAnalyzer:
         assessment = []
 
         if fp_rate < 0.05:
-            assessment.append("✅ **False Positive Rate**: Excellent - very few unnecessary alerts.")
+            assessment.append(
+                "✅ **False Positive Rate**: Excellent - very few unnecessary alerts.",
+            )
         elif fp_rate < 0.15:
             assessment.append("⚠️ **False Positive Rate**: Good - acceptable level of false alerts.")
         else:
-            assessment.append("❌ **False Positive Rate**: Poor - too many false alerts may reduce trust.")
+            assessment.append(
+                "❌ **False Positive Rate**: Poor - too many false alerts may reduce trust.",
+            )
 
         if fn_rate < 0.05:
             assessment.append("✅ **False Negative Rate**: Excellent - very few missed conflicts.")
         elif fn_rate < 0.15:
-            assessment.append("⚠️ **False Negative Rate**: Acceptable - some conflicts missed but manageable.")
+            assessment.append(
+                "⚠️ **False Negative Rate**: Acceptable - some conflicts missed but manageable.",
+            )
         else:
-            assessment.append("❌ **False Negative Rate**: Dangerous - too many conflicts missed, safety risk.")
+            assessment.append(
+                "❌ **False Negative Rate**: Dangerous - too many conflicts missed, safety risk.",
+            )
 
         return "\n".join(assessment)
 
@@ -615,19 +682,31 @@ class MonteCarloResultsAnalyzer:
 
         # Horizontal margin assessment (5 NM standard, 3 NM minimum)
         if h_margin >= 5.0:
-            assessment.append("✅ **Horizontal Margins**: Excellent - well above standard separation.")
+            assessment.append(
+                "✅ **Horizontal Margins**: Excellent - well above standard separation.",
+            )
         elif h_margin >= 3.0:
-            assessment.append("⚠️ **Horizontal Margins**: Acceptable - meeting minimum separation requirements.")
+            assessment.append(
+                "⚠️ **Horizontal Margins**: Acceptable - meeting minimum separation requirements.",
+            )
         else:
-            assessment.append("❌ **Horizontal Margins**: Critical - below minimum separation standards.")
+            assessment.append(
+                "❌ **Horizontal Margins**: Critical - below minimum separation standards.",
+            )
 
         # Vertical margin assessment (1000 ft standard)
         if v_margin >= 1000:
-            assessment.append("✅ **Vertical Margins**: Excellent - maintaining standard vertical separation.")
+            assessment.append(
+                "✅ **Vertical Margins**: Excellent - maintaining standard vertical separation.",
+            )
         elif v_margin >= 500:
-            assessment.append("⚠️ **Vertical Margins**: Marginal - below standard but some separation maintained.")
+            assessment.append(
+                "⚠️ **Vertical Margins**: Marginal - below standard but some separation maintained.",
+            )
         else:
-            assessment.append("❌ **Vertical Margins**: Critical - insufficient vertical separation.")
+            assessment.append(
+                "❌ **Vertical Margins**: Critical - insufficient vertical separation.",
+            )
 
         return "\n".join(assessment)
 
@@ -646,7 +725,10 @@ class MonteCarloResultsAnalyzer:
         if grouped_df.empty:
             return "No grouped success rate data available."
 
-        lines = ["| Group | Success Rate | Successful | Total | Failed |", "|-------|--------------|------------|-------|--------|"]
+        lines = [
+            "| Group | Success Rate | Successful | Total | Failed |",
+            "|-------|--------------|------------|-------|--------|",
+        ]
 
         for index, row in grouped_df.iterrows():
             # Handle multi-index
@@ -660,15 +742,23 @@ class MonteCarloResultsAnalyzer:
             total = int(row.get("total_scenarios", 0))
             failed = int(row.get("failed_scenarios", 0))
 
-            lines.append(f"| {group_name} | {success_rate:.3f} ({success_rate*100:.1f}%) | {successful} | {total} | {failed} |")
+            lines.append(
+                f"| {group_name} | {success_rate:.3f} ({success_rate*100:.1f}%) | {successful} | {total} | {failed} |",
+            )
 
         return "\n".join(lines)
 
-    def _format_distribution_shift_analysis(self, shift_analysis: dict[str, dict[str, float]]) -> str:
+    def _format_distribution_shift_analysis(
+        self, shift_analysis: dict[str, dict[str, float]],
+    ) -> str:
         """Format distribution shift analysis as markdown."""
         lines = ["Performance degradation analysis across distribution shift levels:", ""]
-        lines.extend(["| Shift Level | Scenarios | FP Rate | FN Rate | Success Rate | H-Margin |",
-                     "|-------------|-----------|---------|---------|--------------|----------|"])
+        lines.extend(
+            [
+                "| Shift Level | Scenarios | FP Rate | FN Rate | Success Rate | H-Margin |",
+                "|-------------|-----------|---------|---------|--------------|----------|",
+            ],
+        )
 
         for shift_level, metrics in shift_analysis.items():
             fp_rate = metrics["false_positive_rate"]
@@ -677,7 +767,9 @@ class MonteCarloResultsAnalyzer:
             h_margin = metrics["avg_horizontal_margin"]
             count = metrics["scenario_count"]
 
-            lines.append(f"| {shift_level} | {count} | {fp_rate:.3f} | {fn_rate:.3f} | {success_rate:.3f} | {h_margin:.2f} |")
+            lines.append(
+                f"| {shift_level} | {count} | {fp_rate:.3f} | {fn_rate:.3f} | {success_rate:.3f} | {h_margin:.2f} |",
+            )
 
         return "\n".join(lines)
 
@@ -692,24 +784,34 @@ class MonteCarloResultsAnalyzer:
 
         # Detection recommendations
         if detection["false_positive_rate"] > 0.15:
-            recommendations.append("🔧 **Reduce False Positives**: Consider tuning conflict detection thresholds to reduce unnecessary alerts.")
+            recommendations.append(
+                "🔧 **Reduce False Positives**: Consider tuning conflict detection thresholds to reduce unnecessary alerts.",
+            )
 
         if detection["false_negative_rate"] > 0.10:
-            recommendations.append("🚨 **Critical - Improve Detection**: False negative rate is concerning. Review detection algorithms immediately.")
+            recommendations.append(
+                "🚨 **Critical - Improve Detection**: False negative rate is concerning. Review detection algorithms immediately.",
+            )
 
         # Success rate recommendations
         if success_rates:
             worst_scenario = min(success_rates.items(), key=lambda x: x[1]["success_rate"])
             if worst_scenario[1]["success_rate"] < 0.7:
-                recommendations.append(f"📊 **Focus on {worst_scenario[0]} Scenarios**: Success rate of {worst_scenario[1]['success_rate']:.1%} needs attention.")
+                recommendations.append(
+                    f"📊 **Focus on {worst_scenario[0]} Scenarios**: Success rate of {worst_scenario[1]['success_rate']:.1%} needs attention.",
+                )
 
         # Safety margin recommendations
         if margins["avg_horizontal_margin"] < 4.0:
-            recommendations.append("⚠️ **Improve Safety Margins**: Horizontal margins are close to minimum standards. Consider more conservative conflict resolution.")
+            recommendations.append(
+                "⚠️ **Improve Safety Margins**: Horizontal margins are close to minimum standards. Consider more conservative conflict resolution.",
+            )
 
         # Efficiency recommendations
         if efficiency["avg_efficiency_penalty"] > 20.0:
-            recommendations.append("✈️ **Optimize Efficiency**: High efficiency penalties suggest room for route optimization improvements.")
+            recommendations.append(
+                "✈️ **Optimize Efficiency**: High efficiency penalties suggest room for route optimization improvements.",
+            )
 
         # Distribution shift recommendations
         shift_analysis = metrics.get("distribution_shift_analysis", {})
@@ -721,10 +823,14 @@ class MonteCarloResultsAnalyzer:
                 worst = shift_analysis[shift_levels[-1]]
 
                 if worst["avg_success_rate"] < baseline["avg_success_rate"] * 0.8:
-                    recommendations.append("🎯 **Address Distribution Shift**: Significant performance degradation under distribution shift. Consider domain adaptation techniques.")
+                    recommendations.append(
+                        "🎯 **Address Distribution Shift**: Significant performance degradation under distribution shift. Consider domain adaptation techniques.",
+                    )
 
         if not recommendations:
-            recommendations.append("✅ **Overall Good Performance**: No critical issues identified. Continue monitoring and gradual improvements.")
+            recommendations.append(
+                "✅ **Overall Good Performance**: No critical issues identified. Continue monitoring and gradual improvements.",
+            )
 
         return "\n".join(f"{i+1}. {rec}" for i, rec in enumerate(recommendations))
 
@@ -791,7 +897,9 @@ class MonteCarloResultsAnalyzer:
                 "scenario_count": len(shift_data),
                 "false_positive_rate": fp_fn["false_positive_rate"],
                 "false_negative_rate": fp_fn["false_negative_rate"],
-                "avg_success_rate": np.mean([s["success_rate"] for s in success.values()]) if success else 0.0,
+                "avg_success_rate": (
+                    np.mean([s["success_rate"] for s in success.values()]) if success else 0.0
+                ),
                 "avg_horizontal_margin": margins["avg_horizontal_margin"],
                 "avg_vertical_margin": margins["avg_vertical_margin"],
             }
@@ -834,9 +942,9 @@ class MonteCarloVisualizer:
         if not PLOTTING_AVAILABLE:
             self.logger.warning("Plotting libraries not available - visualizations disabled")
 
-    def create_performance_summary_charts(self,
-                                        aggregated_metrics: dict[str, Any],
-                                        output_dir: Union[str, Path] = "monte_carlo_plots") -> list[str]:
+    def create_performance_summary_charts(
+        self, aggregated_metrics: dict[str, Any], output_dir: Union[str, Path] = "monte_carlo_plots",
+    ) -> list[str]:
         """
         Create bar charts summarizing performance across scenario types.
 
@@ -882,9 +990,9 @@ class MonteCarloVisualizer:
 
         return created_plots
 
-    def create_distribution_shift_plots(self,
-                                      aggregated_metrics: dict[str, Any],
-                                      output_dir: Union[str, Path] = "monte_carlo_plots") -> list[str]:
+    def create_distribution_shift_plots(
+        self, aggregated_metrics: dict[str, Any], output_dir: Union[str, Path] = "monte_carlo_plots",
+    ) -> list[str]:
         """
         Create scatter plots showing performance differences under distribution shifts.
 
@@ -919,8 +1027,9 @@ class MonteCarloVisualizer:
 
         return created_plots
 
-    def _create_success_rate_chart(self, success_data: dict[str, dict[str, float]],
-                                 save_path: Path) -> Optional[str]:
+    def _create_success_rate_chart(
+        self, success_data: dict[str, dict[str, float]], save_path: Path,
+    ) -> Optional[str]:
         """Create bar chart of success rates by scenario type."""
         try:
             if not success_data:
@@ -937,9 +1046,14 @@ class MonteCarloVisualizer:
             # Add value labels on bars
             for _i, (bar, count) in enumerate(zip(bars, total_scenarios)):
                 height = bar.get_height()
-                ax.text(bar.get_x() + bar.get_width()/2., height + 0.01,
-                       f"{height:.2%}\n(n={count})",
-                       ha="center", va="bottom", fontsize=10)
+                ax.text(
+                    bar.get_x() + bar.get_width() / 2.0,
+                    height + 0.01,
+                    f"{height:.2%}\n(n={count})",
+                    ha="center",
+                    va="bottom",
+                    fontsize=10,
+                )
 
             ax.set_ylabel("Success Rate")
             ax.set_title("ATC Resolution Success Rates by Scenario Type")
@@ -957,8 +1071,9 @@ class MonteCarloVisualizer:
             self.logger.exception(f"Failed to create success rate chart: {e}")
             return None
 
-    def _create_detection_performance_chart(self, detection_data: dict[str, float],
-                                          save_path: Path) -> Optional[str]:
+    def _create_detection_performance_chart(
+        self, detection_data: dict[str, float], save_path: Path,
+    ) -> Optional[str]:
         """Create bar chart of false positive/negative rates."""
         try:
             fig, ax = plt.subplots(figsize=(8, 6))
@@ -975,8 +1090,14 @@ class MonteCarloVisualizer:
             # Add value labels
             for bar, value in zip(bars, values):
                 height = bar.get_height()
-                ax.text(bar.get_x() + bar.get_width()/2., height + 0.005,
-                       f"{value:.3f}", ha="center", va="bottom", fontsize=12)
+                ax.text(
+                    bar.get_x() + bar.get_width() / 2.0,
+                    height + 0.005,
+                    f"{value:.3f}",
+                    ha="center",
+                    va="bottom",
+                    fontsize=12,
+                )
 
             ax.set_ylabel("Rate")
             ax.set_title("Conflict Detection Performance")
@@ -993,8 +1114,9 @@ class MonteCarloVisualizer:
             self.logger.exception(f"Failed to create detection performance chart: {e}")
             return None
 
-    def _create_safety_margins_chart(self, margins_data: dict[str, float],
-                                   save_path: Path) -> Optional[str]:
+    def _create_safety_margins_chart(
+        self, margins_data: dict[str, float], save_path: Path,
+    ) -> Optional[str]:
         """Create bar chart of safety margins."""
         try:
             fig, ax = plt.subplots(figsize=(8, 6))
@@ -1011,8 +1133,14 @@ class MonteCarloVisualizer:
             # Add value labels
             for bar, value in zip(bars, values):
                 height = bar.get_height()
-                ax.text(bar.get_x() + bar.get_width()/2., height + max(values) * 0.01,
-                       f"{value:.2f}", ha="center", va="bottom", fontsize=12)
+                ax.text(
+                    bar.get_x() + bar.get_width() / 2.0,
+                    height + max(values) * 0.01,
+                    f"{value:.2f}",
+                    ha="center",
+                    va="bottom",
+                    fontsize=12,
+                )
 
             ax.set_ylabel("Margin")
             ax.set_title("Average Safety Separation Margins")
@@ -1030,8 +1158,9 @@ class MonteCarloVisualizer:
             self.logger.exception(f"Failed to create safety margins chart: {e}")
             return None
 
-    def _create_shift_performance_scatter(self, shift_data: dict[str, dict[str, float]],
-                                        save_path: Path) -> Optional[str]:
+    def _create_shift_performance_scatter(
+        self, shift_data: dict[str, dict[str, float]], save_path: Path,
+    ) -> Optional[str]:
         """Create scatter plot of performance vs distribution shift level."""
         try:
             fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(12, 10))
@@ -1092,8 +1221,9 @@ class MonteCarloVisualizer:
 
 
 # Convenience functions for direct usage
-def analyze_monte_carlo_results(results_file: Union[str, Path],
-                              output_dir: Union[str, Path] = "monte_carlo_analysis") -> dict[str, Any]:
+def analyze_monte_carlo_results(
+    results_file: Union[str, Path], output_dir: Union[str, Path] = "monte_carlo_analysis",
+) -> dict[str, Any]:
     """
     Complete Monte Carlo analysis pipeline from results file to metrics and plots.
 

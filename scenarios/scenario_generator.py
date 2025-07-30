@@ -33,6 +33,7 @@ from scenarios.monte_carlo_framework import (
 
 class ScenarioType(Enum):
     """Environment-specific scenario types"""
+
     HORIZONTAL = "horizontal"
     VERTICAL = "vertical"
     SECTOR = "sector"
@@ -41,6 +42,7 @@ class ScenarioType(Enum):
 @dataclass
 class GroundTruthConflict:
     """Ground truth conflict information for validation"""
+
     aircraft_pair: tuple[str, str]
     conflict_type: str  # 'horizontal', 'vertical', 'convergent', 'overtaking'
     time_to_conflict: float  # seconds
@@ -52,6 +54,7 @@ class GroundTruthConflict:
 @dataclass
 class Scenario:
     """Enhanced scenario representation with ground truth"""
+
     # Core scenario data
     scenario_id: str
     scenario_type: ScenarioType
@@ -100,8 +103,11 @@ class ScenarioGenerator:
     environment-specific scenario creation.
     """
 
-    def __init__(self, ranges_file: str = "scenario_ranges.yaml",
-                 distribution_shift_file: str = "distribution_shift_levels.yaml") -> None:
+    def __init__(
+        self,
+        ranges_file: str = "scenario_ranges.yaml",
+        distribution_shift_file: str = "distribution_shift_levels.yaml",
+    ) -> None:
         """
         Initialize scenario generator.
 
@@ -141,11 +147,13 @@ class ScenarioGenerator:
         msg = f"Unknown scenario type: {scenario_type}"
         raise ValueError(msg)
 
-    def generate_horizontal_scenario(self,
-                                   n_aircraft: int = 2,
-                                   conflict: bool = True,
-                                   complexity_tier: ComplexityTier = ComplexityTier.SIMPLE,
-                                   distribution_shift_tier: str = "in_distribution") -> Scenario:
+    def generate_horizontal_scenario(
+        self,
+        n_aircraft: int = 2,
+        conflict: bool = True,
+        complexity_tier: ComplexityTier = ComplexityTier.SIMPLE,
+        distribution_shift_tier: str = "in_distribution",
+    ) -> Scenario:
         """
         Generate horizontal conflict scenario.
 
@@ -161,7 +169,9 @@ class ScenarioGenerator:
         Returns:
             Horizontal conflict scenario with ground truth
         """
-        self.logger.info(f"Generating horizontal scenario: {n_aircraft} aircraft, conflict={conflict}")
+        self.logger.info(
+            f"Generating horizontal scenario: {n_aircraft} aircraft, conflict={conflict}",
+        )
 
         # Generate base scenario using Monte Carlo framework
         base_scenario = self.base_generator.generate_scenario(
@@ -215,7 +225,9 @@ class ScenarioGenerator:
             modified_commands.extend(self._avoid_horizontal_conflicts(modified_states))
 
         # Add environmental commands
-        modified_commands.extend(self._add_environmental_commands(base_scenario.environmental_conditions))
+        modified_commands.extend(
+            self._add_environmental_commands(base_scenario.environmental_conditions),
+        )
 
         # Calculate ground truth conflicts
         ground_truth_conflicts = self._calculate_horizontal_ground_truth(modified_states, conflict)
@@ -238,16 +250,20 @@ class ScenarioGenerator:
             distribution_shift_tier=distribution_shift_tier,
         )
 
-        self.logger.info(f"Generated horizontal scenario {scenario_id} with {len(ground_truth_conflicts)} conflicts")
+        self.logger.info(
+            f"Generated horizontal scenario {scenario_id} with {len(ground_truth_conflicts)} conflicts",
+        )
         return scenario
 
-    def generate_vertical_scenario(self,
-                                 n_aircraft: int = 3,
-                                 conflict: bool = True,
-                                 climb_rates: Optional[list[int]] = None,
-                                 crossing_altitudes: Optional[list[int]] = None,
-                                 complexity_tier: ComplexityTier = ComplexityTier.SIMPLE,
-                                 distribution_shift_tier: str = "in_distribution") -> Scenario:
+    def generate_vertical_scenario(
+        self,
+        n_aircraft: int = 3,
+        conflict: bool = True,
+        climb_rates: Optional[list[int]] = None,
+        crossing_altitudes: Optional[list[int]] = None,
+        complexity_tier: ComplexityTier = ComplexityTier.SIMPLE,
+        distribution_shift_tier: str = "in_distribution",
+    ) -> Scenario:
         """
         Generate vertical conflict scenario.
 
@@ -264,7 +280,9 @@ class ScenarioGenerator:
         Returns:
             Vertical conflict scenario with ground truth
         """
-        self.logger.info(f"Generating vertical scenario: {n_aircraft} aircraft, conflict={conflict}")
+        self.logger.info(
+            f"Generating vertical scenario: {n_aircraft} aircraft, conflict={conflict}",
+        )
 
         # Set default climb rates if not provided
         if climb_rates is None:
@@ -298,7 +316,11 @@ class ScenarioGenerator:
             crossing_altitudes.append(crossing_altitudes[-1] + 2000)
 
         for i in range(n_aircraft):
-            aircraft = base_scenario.aircraft_list[i] if i < len(base_scenario.aircraft_list) else base_scenario.aircraft_list[0]
+            aircraft = (
+                base_scenario.aircraft_list[i]
+                if i < len(base_scenario.aircraft_list)
+                else base_scenario.aircraft_list[0]
+            )
             callsign = f"AC{i+1:03d}"
 
             # Assign initial altitude (offset from crossing altitude)
@@ -330,12 +352,18 @@ class ScenarioGenerator:
 
         # Add vertical maneuvers to create/avoid conflicts
         if conflict and n_aircraft >= 2:
-            modified_commands.extend(self._create_vertical_conflicts_enhanced(modified_states, climb_rates))
+            modified_commands.extend(
+                self._create_vertical_conflicts_enhanced(modified_states, climb_rates),
+            )
         elif not conflict:
-            modified_commands.extend(self._avoid_vertical_conflicts_enhanced(modified_states, climb_rates))
+            modified_commands.extend(
+                self._avoid_vertical_conflicts_enhanced(modified_states, climb_rates),
+            )
 
         # Add environmental commands
-        modified_commands.extend(self._add_environmental_commands(base_scenario.environmental_conditions))
+        modified_commands.extend(
+            self._add_environmental_commands(base_scenario.environmental_conditions),
+        )
 
         # Calculate ground truth conflicts
         ground_truth_conflicts = self._calculate_vertical_ground_truth(modified_states, conflict)
@@ -358,13 +386,17 @@ class ScenarioGenerator:
             distribution_shift_tier=distribution_shift_tier,
         )
 
-        self.logger.info(f"Generated vertical scenario {scenario_id} with {len(ground_truth_conflicts)} conflicts")
+        self.logger.info(
+            f"Generated vertical scenario {scenario_id} with {len(ground_truth_conflicts)} conflicts",
+        )
         return scenario
 
-    def generate_sector_scenario(self,
-                               complexity: ComplexityTier = ComplexityTier.MODERATE,
-                               shift_level: str = "in_distribution",
-                               force_conflicts: bool = False) -> Scenario:
+    def generate_sector_scenario(
+        self,
+        complexity: ComplexityTier = ComplexityTier.MODERATE,
+        shift_level: str = "in_distribution",
+        force_conflicts: bool = False,
+    ) -> Scenario:
         """
         Generate realistic sector scenario.
 
@@ -378,7 +410,9 @@ class ScenarioGenerator:
         Returns:
             Sector scenario with ground truth
         """
-        self.logger.info(f"Generating sector scenario: {complexity.value}, shift={shift_level}, force_conflicts={force_conflicts}")
+        self.logger.info(
+            f"Generating sector scenario: {complexity.value}, shift={shift_level}, force_conflicts={force_conflicts}",
+        )
 
         # Generate base scenario using full Monte Carlo framework
         base_scenario = self.base_generator.generate_scenario(
@@ -425,7 +459,9 @@ class ScenarioGenerator:
             distribution_shift_tier=shift_level,
         )
 
-        self.logger.info(f"Generated sector scenario {scenario_id} with {len(ground_truth_conflicts)} conflicts")
+        self.logger.info(
+            f"Generated sector scenario {scenario_id} with {len(ground_truth_conflicts)} conflicts",
+        )
         return scenario
 
     def _create_horizontal_conflicts(self, aircraft_states: list[dict[str, Any]]) -> list[str]:
@@ -439,8 +475,10 @@ class ScenarioGenerator:
 
             # Calculate bearing between aircraft
             bearing = self._calculate_bearing(
-                ac1["latitude"], ac1["longitude"],
-                ac2["latitude"], ac2["longitude"],
+                ac1["latitude"],
+                ac1["longitude"],
+                ac2["latitude"],
+                ac2["longitude"],
             )
 
             # Set convergent headings
@@ -511,8 +549,9 @@ class ScenarioGenerator:
 
         return commands
 
-    def _create_vertical_conflicts_enhanced(self, aircraft_states: list[dict[str, Any]],
-                                          climb_rates: list[int]) -> list[str]:
+    def _create_vertical_conflicts_enhanced(
+        self, aircraft_states: list[dict[str, Any]], climb_rates: list[int],
+    ) -> list[str]:
         """Enhanced vertical conflict creation with configurable climb rates"""
         commands = []
 
@@ -539,8 +578,9 @@ class ScenarioGenerator:
 
         return commands
 
-    def _avoid_vertical_conflicts_enhanced(self, aircraft_states: list[dict[str, Any]],
-                                         climb_rates: list[int]) -> list[str]:
+    def _avoid_vertical_conflicts_enhanced(
+        self, aircraft_states: list[dict[str, Any]], climb_rates: list[int],
+    ) -> list[str]:
         """Enhanced vertical conflict avoidance ensuring >1000ft separation"""
         commands = []
 
@@ -575,8 +615,9 @@ class ScenarioGenerator:
 
         return commands
 
-    def _optimize_conflict_timing(self, aircraft_states: list[dict[str, Any]],
-                                commands: list[str]) -> None:
+    def _optimize_conflict_timing(
+        self, aircraft_states: list[dict[str, Any]], commands: list[str],
+    ) -> None:
         """Optimize timing to create near-threshold vertical conflicts"""
         # Add timing commands to ensure conflicts occur within simulation window
         for i in range(len(aircraft_states) - 1):
@@ -613,8 +654,9 @@ class ScenarioGenerator:
 
         return commands
 
-    def _calculate_horizontal_ground_truth(self, aircraft_states: list[dict[str, Any]],
-                                         expect_conflicts: bool) -> list[GroundTruthConflict]:
+    def _calculate_horizontal_ground_truth(
+        self, aircraft_states: list[dict[str, Any]], expect_conflicts: bool,
+    ) -> list[GroundTruthConflict]:
         """Calculate ground truth conflicts for horizontal scenarios"""
         conflicts = []
 
@@ -626,14 +668,20 @@ class ScenarioGenerator:
 
                 # Calculate horizontal distance
                 distance_nm = self._calculate_distance_nm(
-                    ac1["latitude"], ac1["longitude"],
-                    ac2["latitude"], ac2["longitude"],
+                    ac1["latitude"],
+                    ac1["longitude"],
+                    ac2["latitude"],
+                    ac2["longitude"],
                 )
 
                 # Check if headings are convergent
                 is_convergent = self._are_headings_convergent(
-                    ac1["latitude"], ac1["longitude"], ac1["heading"],
-                    ac2["latitude"], ac2["longitude"], ac2["heading"],
+                    ac1["latitude"],
+                    ac1["longitude"],
+                    ac1["heading"],
+                    ac2["latitude"],
+                    ac2["longitude"],
+                    ac2["heading"],
                 )
 
                 if expect_conflicts and is_convergent:
@@ -649,15 +697,18 @@ class ScenarioGenerator:
                             "horizontal_nm": min(distance_nm, self.CRITICAL_HORIZONTAL_SEP_NM),
                             "vertical_ft": 0,  # Same altitude
                         },
-                        severity="high" if distance_nm < self.CRITICAL_HORIZONTAL_SEP_NM else "medium",
+                        severity=(
+                            "high" if distance_nm < self.CRITICAL_HORIZONTAL_SEP_NM else "medium"
+                        ),
                         is_actual_conflict=distance_nm < self.MIN_HORIZONTAL_SEP_NM,
                     )
                     conflicts.append(conflict)
 
         return conflicts
 
-    def _calculate_vertical_ground_truth(self, aircraft_states: list[dict[str, Any]],
-                                       expect_conflicts: bool) -> list[GroundTruthConflict]:
+    def _calculate_vertical_ground_truth(
+        self, aircraft_states: list[dict[str, Any]], expect_conflicts: bool,
+    ) -> list[GroundTruthConflict]:
         """Calculate ground truth conflicts for vertical scenarios"""
         conflicts = []
 
@@ -676,7 +727,9 @@ class ScenarioGenerator:
                 if expect_conflicts and (vr1 != 0 or vr2 != 0):
                     # Estimate time when altitudes will be closest
                     if vr1 != vr2:  # Aircraft have different vertical rates
-                        time_to_closest = vertical_sep_ft / abs(vr1 - vr2) * 60  # Convert to seconds
+                        time_to_closest = (
+                            vertical_sep_ft / abs(vr1 - vr2) * 60
+                        )  # Convert to seconds
 
                         conflict = GroundTruthConflict(
                             aircraft_pair=(ac1["callsign"], ac2["callsign"]),
@@ -686,15 +739,20 @@ class ScenarioGenerator:
                                 "horizontal_nm": 0,  # Assuming same horizontal position
                                 "vertical_ft": min(vertical_sep_ft, self.CRITICAL_VERTICAL_SEP_FT),
                             },
-                            severity="critical" if vertical_sep_ft < self.CRITICAL_VERTICAL_SEP_FT else "high",
+                            severity=(
+                                "critical"
+                                if vertical_sep_ft < self.CRITICAL_VERTICAL_SEP_FT
+                                else "high"
+                            ),
                             is_actual_conflict=vertical_sep_ft < self.MIN_VERTICAL_SEP_FT,
                         )
                         conflicts.append(conflict)
 
         return conflicts
 
-    def _calculate_sector_ground_truth(self, aircraft_states: list[dict[str, Any]],
-                                     base_scenario: ScenarioConfiguration) -> list[GroundTruthConflict]:
+    def _calculate_sector_ground_truth(
+        self, aircraft_states: list[dict[str, Any]], base_scenario: ScenarioConfiguration,
+    ) -> list[GroundTruthConflict]:
         """Calculate ground truth conflicts for sector scenarios using trajectory analysis"""
         conflicts = []
 
@@ -706,8 +764,10 @@ class ScenarioGenerator:
 
                 # Calculate current separation
                 self._calculate_distance_nm(
-                    ac1["latitude"], ac1["longitude"],
-                    ac2["latitude"], ac2["longitude"],
+                    ac1["latitude"],
+                    ac1["longitude"],
+                    ac2["latitude"],
+                    ac2["longitude"],
                 )
                 abs(ac1["altitude"] - ac2["altitude"])
 
@@ -735,7 +795,9 @@ class ScenarioGenerator:
 
         return conflicts
 
-    def _analyze_trajectory_conflict(self, ac1: dict[str, Any], ac2: dict[str, Any]) -> dict[str, Any]:
+    def _analyze_trajectory_conflict(
+        self, ac1: dict[str, Any], ac2: dict[str, Any],
+    ) -> dict[str, Any]:
         """Analyze if two aircraft trajectories will conflict"""
         # Simplified trajectory analysis
         # In a full implementation, this would use proper 4D trajectory prediction
@@ -753,10 +815,18 @@ class ScenarioGenerator:
 
         # Project positions based on headings and speeds
         new_lat1, new_lon1 = self._project_position(
-            lat1, lon1, ac1["heading"], ac1["ground_speed"], projection_time,
+            lat1,
+            lon1,
+            ac1["heading"],
+            ac1["ground_speed"],
+            projection_time,
         )
         new_lat2, new_lon2 = self._project_position(
-            lat2, lon2, ac2["heading"], ac2["ground_speed"], projection_time,
+            lat2,
+            lon2,
+            ac2["heading"],
+            ac2["ground_speed"],
+            projection_time,
         )
 
         # Project altitudes based on vertical rates
@@ -774,13 +844,13 @@ class ScenarioGenerator:
         min_vertical_sep = min(vertical_sep, future_vertical_sep)
 
         has_conflict = (
-            min_horizontal_sep < self.MIN_HORIZONTAL_SEP_NM * 1.5 and  # Within 1.5x minimum
-            min_vertical_sep < self.MIN_VERTICAL_SEP_FT * 1.5
+            min_horizontal_sep < self.MIN_HORIZONTAL_SEP_NM * 1.5  # Within 1.5x minimum
+            and min_vertical_sep < self.MIN_VERTICAL_SEP_FT * 1.5
         )
 
         violates_separation = (
-            min_horizontal_sep < self.MIN_HORIZONTAL_SEP_NM and
-            min_vertical_sep < self.MIN_VERTICAL_SEP_FT
+            min_horizontal_sep < self.MIN_HORIZONTAL_SEP_NM
+            and min_vertical_sep < self.MIN_VERTICAL_SEP_FT
         )
 
         # Estimate time to closest approach
@@ -808,14 +878,17 @@ class ScenarioGenerator:
 
     def _determine_conflict_severity(self, horizontal_sep: float, vertical_sep: float) -> str:
         """Determine conflict severity based on separation"""
-        if (horizontal_sep < self.CRITICAL_HORIZONTAL_SEP_NM and
-            vertical_sep < self.CRITICAL_VERTICAL_SEP_FT):
+        if (
+            horizontal_sep < self.CRITICAL_HORIZONTAL_SEP_NM
+            and vertical_sep < self.CRITICAL_VERTICAL_SEP_FT
+        ):
             return "critical"
-        if (horizontal_sep < self.MIN_HORIZONTAL_SEP_NM and
-              vertical_sep < self.MIN_VERTICAL_SEP_FT):
+        if horizontal_sep < self.MIN_HORIZONTAL_SEP_NM and vertical_sep < self.MIN_VERTICAL_SEP_FT:
             return "high"
-        if (horizontal_sep < self.MIN_HORIZONTAL_SEP_NM * 1.5 or
-              vertical_sep < self.MIN_VERTICAL_SEP_FT * 1.5):
+        if (
+            horizontal_sep < self.MIN_HORIZONTAL_SEP_NM * 1.5
+            or vertical_sep < self.MIN_VERTICAL_SEP_FT * 1.5
+        ):
             return "medium"
         return "low"
 
@@ -826,8 +899,9 @@ class ScenarioGenerator:
         dlon_rad = math.radians(lon2 - lon1)
 
         y = math.sin(dlon_rad) * math.cos(lat2_rad)
-        x = (math.cos(lat1_rad) * math.sin(lat2_rad) -
-             math.sin(lat1_rad) * math.cos(lat2_rad) * math.cos(dlon_rad))
+        x = math.cos(lat1_rad) * math.sin(lat2_rad) - math.sin(lat1_rad) * math.cos(
+            lat2_rad,
+        ) * math.cos(dlon_rad)
 
         bearing_rad = math.atan2(y, x)
         bearing_deg = math.degrees(bearing_rad)
@@ -842,17 +916,19 @@ class ScenarioGenerator:
         dlat_rad = math.radians(lat2 - lat1)
         dlon_rad = math.radians(lon2 - lon1)
 
-        a = (math.sin(dlat_rad/2)**2 +
-             math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon_rad/2)**2)
-        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+        a = (
+            math.sin(dlat_rad / 2) ** 2
+            + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon_rad / 2) ** 2
+        )
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
         # Earth radius in nautical miles
         R_nm = 3440.065
         return R_nm * c
 
-
-    def _are_headings_convergent(self, lat1: float, lon1: float, hdg1: float,
-                                lat2: float, lon2: float, hdg2: float) -> bool:
+    def _are_headings_convergent(
+        self, lat1: float, lon1: float, hdg1: float, lat2: float, lon2: float, hdg2: float,
+    ) -> bool:
         """Check if two aircraft headings are convergent"""
         # Calculate bearing from AC1 to AC2
         bearing_1_to_2 = self._calculate_bearing(lat1, lon1, lat2, lon2)
@@ -869,8 +945,9 @@ class ScenarioGenerator:
         # Consider convergent if both aircraft are heading roughly toward each other
         return hdg1_diff < 45 and hdg2_diff < 45
 
-    def _project_position(self, lat: float, lon: float, heading: float,
-                         speed_kts: float, time_min: float) -> tuple[float, float]:
+    def _project_position(
+        self, lat: float, lon: float, heading: float, speed_kts: float, time_min: float,
+    ) -> tuple[float, float]:
         """Project aircraft position based on heading and speed"""
         # Convert to radians
         lat_rad = math.radians(lat)
@@ -886,8 +963,8 @@ class ScenarioGenerator:
 
         # Calculate new position
         new_lat_rad = math.asin(
-            math.sin(lat_rad) * math.cos(angular_distance) +
-            math.cos(lat_rad) * math.sin(angular_distance) * math.cos(heading_rad),
+            math.sin(lat_rad) * math.cos(angular_distance)
+            + math.cos(lat_rad) * math.sin(angular_distance) * math.cos(heading_rad),
         )
 
         new_lon_rad = lon_rad + math.atan2(
@@ -935,9 +1012,13 @@ class SectorCREnv:
     def __init__(self, generator: Optional[ScenarioGenerator] = None) -> None:
         self.generator = generator or ScenarioGenerator()
 
-    def generate_scenario(self, complexity: ComplexityTier = ComplexityTier.MODERATE,
-                         shift_level: str = "in_distribution",
-                         force_conflicts: bool = False, **kwargs) -> Scenario:
+    def generate_scenario(
+        self,
+        complexity: ComplexityTier = ComplexityTier.MODERATE,
+        shift_level: str = "in_distribution",
+        force_conflicts: bool = False,
+        **kwargs,
+    ) -> Scenario:
         """Generate sector scenario"""
         return self.generator.generate_sector_scenario(
             complexity=complexity,
@@ -960,9 +1041,12 @@ def generate_vertical_scenario(n_aircraft: int = 2, conflict: bool = True, **kwa
     return generator.generate_vertical_scenario(n_aircraft, conflict, **kwargs)
 
 
-def generate_sector_scenario(complexity: ComplexityTier = ComplexityTier.MODERATE,
-                            shift_level: str = "in_distribution",
-                            force_conflicts: bool = False, **kwargs) -> Scenario:
+def generate_sector_scenario(
+    complexity: ComplexityTier = ComplexityTier.MODERATE,
+    shift_level: str = "in_distribution",
+    force_conflicts: bool = False,
+    **kwargs,
+) -> Scenario:
     """Generate sector scenario - convenience function"""
     generator = ScenarioGenerator()
     return generator.generate_sector_scenario(complexity, shift_level, force_conflicts, **kwargs)

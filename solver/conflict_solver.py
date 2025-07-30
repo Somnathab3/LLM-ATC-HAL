@@ -8,10 +8,12 @@ sys.path.insert(0, project_root)
 
 try:
     from bluesky import traf
+
     BLUESKY_AVAILABLE = True
 except ImportError:
     logging.warning("BlueSky not available, using mock resolution system")
     BLUESKY_AVAILABLE = False
+
 
 class ConflictSolver:
     def __init__(self) -> None:
@@ -85,33 +87,39 @@ class ConflictSolver:
 
         # Heading change solutions
         for heading_change in [-20, -10, 10, 20]:
-            candidates.append({
-                "type": "heading",
-                "aircraft": ac1_id,
-                "action": f"turn {heading_change} degrees",
-                "heading_change": heading_change,
-                "safety_score": self._calculate_safety_score("heading", abs(heading_change)),
-            })
+            candidates.append(
+                {
+                    "type": "heading",
+                    "aircraft": ac1_id,
+                    "action": f"turn {heading_change} degrees",
+                    "heading_change": heading_change,
+                    "safety_score": self._calculate_safety_score("heading", abs(heading_change)),
+                },
+            )
 
         # Altitude change solutions
         for alt_change in [-1000, -500, 500, 1000]:
-            candidates.append({
-                "type": "altitude",
-                "aircraft": ac1_id,
-                "action": f'{"climb" if alt_change > 0 else "descend"} {abs(alt_change)} ft',
-                "altitude_change": alt_change,
-                "safety_score": self._calculate_safety_score("altitude", abs(alt_change)),
-            })
+            candidates.append(
+                {
+                    "type": "altitude",
+                    "aircraft": ac1_id,
+                    "action": f'{"climb" if alt_change > 0 else "descend"} {abs(alt_change)} ft',
+                    "altitude_change": alt_change,
+                    "safety_score": self._calculate_safety_score("altitude", abs(alt_change)),
+                },
+            )
 
         # Speed change solutions
         for speed_change in [-30, -15, 15, 30]:
-            candidates.append({
-                "type": "speed",
-                "aircraft": ac1_id,
-                "action": f'{"accelerate" if speed_change > 0 else "decelerate"} {abs(speed_change)} knots',
-                "speed_change": speed_change,
-                "safety_score": self._calculate_safety_score("speed", abs(speed_change)),
-            })
+            candidates.append(
+                {
+                    "type": "speed",
+                    "aircraft": ac1_id,
+                    "action": f'{"accelerate" if speed_change > 0 else "decelerate"} {abs(speed_change)} knots',
+                    "speed_change": speed_change,
+                    "safety_score": self._calculate_safety_score("speed", abs(speed_change)),
+                },
+            )
 
         return candidates
 
@@ -133,9 +141,11 @@ class ConflictSolver:
         def sort_key(candidate):
             safety_score = candidate.get("safety_score", 0.5)
             # Prefer smaller maneuvers for same safety score
-            magnitude = abs(candidate.get("heading_change", 0)) + \
-                       abs(candidate.get("altitude_change", 0)) + \
-                       abs(candidate.get("speed_change", 0))
+            magnitude = (
+                abs(candidate.get("heading_change", 0))
+                + abs(candidate.get("altitude_change", 0))
+                + abs(candidate.get("speed_change", 0))
+            )
             return (-safety_score, magnitude)
 
         sorted_candidates = sorted(candidates, key=sort_key)

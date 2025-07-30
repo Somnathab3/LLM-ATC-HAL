@@ -23,9 +23,11 @@ class ModelRole(Enum):
     TECHNICAL = "technical"
     SAFETY = "safety"
 
+
 @dataclass
 class ModelConfig:
     """Configuration for individual model in ensemble"""
+
     name: str
     model_id: str
     role: ModelRole
@@ -34,9 +36,11 @@ class ModelConfig:
     max_tokens: int
     timeout: float
 
+
 @dataclass
 class EnsembleResponse:
     """Response from ensemble of models"""
+
     consensus_response: dict
     individual_responses: dict[str, dict]
     confidence: float
@@ -45,6 +49,7 @@ class EnsembleResponse:
     response_time: float
     safety_flags: list[str]
     uncertainty_metrics: dict[str, float]
+
 
 class OllamaEnsembleClient:
     """Ensemble client for multiple Ollama models"""
@@ -177,6 +182,7 @@ class OllamaEnsembleClient:
             # Try alternative method with raw API call if available
             try:
                 import requests
+
                 response = requests.get("http://localhost:11434/api/tags", timeout=5)
                 if response.status_code == 200:
                     tags_data = response.json()
@@ -192,11 +198,9 @@ class OllamaEnsembleClient:
             logging.warning(f"Using fallback models: {fallback_models}")
             return fallback_models
 
-    def query_ensemble(self,
-                      prompt: str,
-                      context: dict,
-                      require_json: bool = True,
-                      timeout: float = 30.0) -> EnsembleResponse:
+    def query_ensemble(
+        self, prompt: str, context: dict, require_json: bool = True, timeout: float = 30.0,
+    ) -> EnsembleResponse:
         """Query ensemble of models and return consensus response"""
 
         start_time = time.time()
@@ -264,13 +268,17 @@ class OllamaEnsembleClient:
             logging.exception(f"Ensemble query failed: {e}")
             return self._create_error_response(str(e), time.time() - start_time)
 
-    def _create_role_specific_prompts(self, base_prompt: str, context: dict) -> dict[ModelRole, str]:
+    def _create_role_specific_prompts(
+        self, base_prompt: str, context: dict,
+    ) -> dict[ModelRole, str]:
         """Create role-specific prompts for different models"""
 
         role_prompts = {}
 
         # Primary model - General decision making
-        role_prompts[ModelRole.PRIMARY] = f"""You are the primary ATC conflict resolution assistant.
+        role_prompts[
+            ModelRole.PRIMARY
+        ] = f"""You are the primary ATC conflict resolution assistant.
         Analyze the following conflict and recommend the best resolution maneuver.
 
         Context: {json.dumps(context)}
@@ -280,7 +288,9 @@ class OllamaEnsembleClient:
         Provide a JSON response with: action, type, safety_score, reasoning."""
 
         # Validator model - Cross-validation
-        role_prompts[ModelRole.VALIDATOR] = f"""You are a validation specialist for ATC decisions.
+        role_prompts[
+            ModelRole.VALIDATOR
+        ] = f"""You are a validation specialist for ATC decisions.
         Review the conflict scenario and independently determine the optimal resolution.
 
         Context: {json.dumps(context)}
@@ -291,7 +301,9 @@ class OllamaEnsembleClient:
         Provide JSON response with: action, type, safety_score, validation_notes."""
 
         # Technical model - Technical accuracy
-        role_prompts[ModelRole.TECHNICAL] = f"""You are a technical aviation systems specialist.
+        role_prompts[
+            ModelRole.TECHNICAL
+        ] = f"""You are a technical aviation systems specialist.
         Analyze the conflict from a technical perspective, considering aircraft performance and flight dynamics.
 
         Context: {json.dumps(context)}
@@ -302,7 +314,9 @@ class OllamaEnsembleClient:
         Provide JSON response with: action, type, safety_score, technical_analysis."""
 
         # Safety model - Safety assessment
-        role_prompts[ModelRole.SAFETY] = f"""You are a safety assessment specialist for aviation.
+        role_prompts[
+            ModelRole.SAFETY
+        ] = f"""You are a safety assessment specialist for aviation.
         Evaluate the conflict scenario specifically for safety risks and mitigation strategies.
 
         Context: {json.dumps(context)}
@@ -314,10 +328,9 @@ class OllamaEnsembleClient:
 
         return role_prompts
 
-    def _query_single_model(self,
-                           model_config: ModelConfig,
-                           prompt: str,
-                           require_json: bool) -> dict:
+    def _query_single_model(
+        self, model_config: ModelConfig, prompt: str, require_json: bool,
+    ) -> dict:
         """Query a single model in the ensemble"""
 
         try:
@@ -344,6 +357,7 @@ class OllamaEnsembleClient:
                     except json.JSONDecodeError:
                         # Try to extract JSON from text
                         import re
+
                         json_match = re.search(r"\{.*\}", content, re.DOTALL)
                         if json_match:
                             try:
@@ -527,8 +541,11 @@ class OllamaEnsembleClient:
 
         # Model-specific performance
         for model_name in self.models:
-            model_errors = sum(1 for r in self.response_history
-                             if "error" in r.individual_responses.get(model_name, {}))
+            model_errors = sum(
+                1
+                for r in self.response_history
+                if "error" in r.individual_responses.get(model_name, {})
+            )
             model_success_rate = 1.0 - (model_errors / len(self.response_history))
 
             stats["model_performance"][model_name] = {
@@ -550,7 +567,7 @@ class OllamaEnsembleClient:
         start_idx = json_str.find("{")
         end_idx = json_str.rfind("}")
         if start_idx != -1 and end_idx != -1:
-            json_str = json_str[start_idx:end_idx+1]
+            json_str = json_str[start_idx : end_idx + 1]
 
         # Fix missing commas between fields
         json_str = re.sub(r'"\s*\n\s*"', '",\n"', json_str)
@@ -563,7 +580,6 @@ class OllamaEnsembleClient:
 
         # Fix unescaped quotes in strings
         return re.sub(r':\s*"([^"]*)"([^,}\]]*)"', r': "\1\2"', json_str)
-
 
     def _create_valid_response_structure(self, raw_content: str) -> dict[str, Any]:
         """Create a valid response structure from failed JSON parsing"""
@@ -599,6 +615,7 @@ class OllamaEnsembleClient:
 
         return result
 
+
 class RAGValidator:
     """Retrieval-Augmented Generation validator for aviation knowledge"""
 
@@ -612,31 +629,31 @@ class RAGValidator:
             "separation_standards": {
                 "horizontal_minimum": 5.0,  # nautical miles
                 "vertical_minimum": 1000,  # feet
-                "time_minimum": 60,        # seconds
+                "time_minimum": 60,  # seconds
             },
             "maneuver_types": {
                 "heading_change": {
                     "typical_range": (-30, 30),  # degrees
-                    "execution_time": 15,        # seconds
+                    "execution_time": 15,  # seconds
                     "fuel_impact": "minimal",
                 },
                 "altitude_change": {
                     "typical_range": (-2000, 2000),  # feet
-                    "execution_time": 60,             # seconds
+                    "execution_time": 60,  # seconds
                     "fuel_impact": "moderate",
                 },
                 "speed_change": {
                     "typical_range": (-50, 50),  # knots
-                    "execution_time": 30,        # seconds
+                    "execution_time": 30,  # seconds
                     "fuel_impact": "moderate",
                 },
             },
             "aircraft_constraints": {
                 "B737": {
-                    "max_climb_rate": 2000,    # ft/min
+                    "max_climb_rate": 2000,  # ft/min
                     "max_descent_rate": 2500,  # ft/min
-                    "max_bank_angle": 30,      # degrees
-                    "service_ceiling": 41000,   # feet
+                    "max_bank_angle": 30,  # degrees
+                    "service_ceiling": 41000,  # feet
                 },
                 "A320": {
                     "max_climb_rate": 2200,
@@ -703,7 +720,9 @@ class RAGValidator:
                 constraints = self.knowledge_base["aircraft_constraints"][aircraft_type]
 
                 # Check altitude constraints
-                target_altitude = context.get("altitude", 35000) + response.get("altitude_change", 0)
+                target_altitude = context.get("altitude", 35000) + response.get(
+                    "altitude_change", 0,
+                )
                 if target_altitude > constraints["service_ceiling"]:
                     validation_result["violations"].append(
                         f"Target altitude {target_altitude}ft exceeds service ceiling {constraints['service_ceiling']}ft",
@@ -724,6 +743,7 @@ class RAGValidator:
             validation_result["knowledge_score"] = 0.0
 
         return validation_result
+
 
 # Example usage and testing
 if __name__ == "__main__":
@@ -751,7 +771,6 @@ if __name__ == "__main__":
     }
 
     response = ensemble.query_ensemble(test_prompt, test_context)
-
 
     # Test RAG validator
     rag_validator = RAGValidator()

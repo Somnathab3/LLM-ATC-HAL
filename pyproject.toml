@@ -85,7 +85,16 @@ extend-exclude = ["__pycache__", "*.pyc"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "ANN", "S", "B", "A", "COM", "C4", "DTZ", "EM", "ISC", "ICN", "G", "PIE", "T20", "PYI", "PT", "Q", "RSE", "RET", "SIM", "TID", "TCH", "ARG", "PTH", "ERA", "PD", "PGH", "PL", "TRY", "NPY", "RUF"]
-ignore = ["ANN101", "ANN102", "S101", "PLR0913", "PLR0912", "PLR0915"]
+ignore = [
+    "ANN101", "ANN102", "S101", "PLR0913", "PLR0912", "PLR0915",
+    # Additional ignores for practical development
+    "G004",    # Logging statement uses f-string (more readable)
+    "TRY300",  # Consider moving to else block (can reduce readability)
+    "TRY401",  # Redundant exception object in logging.exception (sometimes useful for context)
+    "PLR2004", # Magic value used in comparison (common in domain-specific code)
+    "ARG002",  # Unused method argument (keep for interface consistency)
+    "S311",    # Standard pseudo-random generators are not suitable for cryptographic purposes (not crypto usage)
+]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["S101", "PLR2004"]

@@ -21,12 +21,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
 @click.group()
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging")
 def cli(verbose) -> None:
     """LLM-ATC-HAL: Embodied LLM Air Traffic Controller"""
     if verbose:
         logging.getLogger().setLevel(logging.DEBUG)
+
 
 @cli.command()
 @click.option("--duration", default=300, help="Simulation duration in seconds")
@@ -64,6 +66,7 @@ def demo(duration, aircraft) -> None:
         click.echo(f" Demo failed: {e}", err=True)
         sys.exit(1)
 
+
 @cli.command()
 @click.argument("scenario_path", type=click.Path(exists=True))
 @click.option("--output", "-o", default="output", help="Output directory")
@@ -90,11 +93,18 @@ def run_scenario(scenario_path, output) -> None:
         click.echo(f" Scenario execution failed: {e}", err=True)
         sys.exit(1)
 
+
 @cli.command()
-@click.option("--config", default="llm_atc/experiments/shift_experiment_config.yaml",
-              help="Experiment configuration file")
-@click.option("--tiers", default="in_distribution,out_distribution",
-              help="Comma-separated list of distribution shift tiers")
+@click.option(
+    "--config",
+    default="llm_atc/experiments/shift_experiment_config.yaml",
+    help="Experiment configuration file",
+)
+@click.option(
+    "--tiers",
+    default="in_distribution,out_distribution",
+    help="Comma-separated list of distribution shift tiers",
+)
 @click.option("--n", default=10, help="Number of scenarios per tier")
 @click.option("--output", "-o", default="experiments/results", help="Output directory")
 def shift_benchmark(config, tiers, n, output) -> None:
@@ -134,9 +144,11 @@ def shift_benchmark(config, tiers, n, output) -> None:
         click.echo(f" Benchmark failed: {e}", err=True)
         sys.exit(1)
 
+
 @cli.command()
-@click.option("--models", default="llama3.1:8b,mistral:7b",
-              help="Comma-separated list of models to test")
+@click.option(
+    "--models", default="llama3.1:8b,mistral:7b", help="Comma-separated list of models to test",
+)
 @click.option("--scenarios", default=50, help="Number of test scenarios")
 def hallucination_test(models, scenarios) -> None:
     """Run hallucination detection tests"""
@@ -160,6 +172,7 @@ def hallucination_test(models, scenarios) -> None:
     except Exception as e:
         click.echo(f" Hallucination tests failed: {e}", err=True)
         sys.exit(1)
+
 
 @cli.command()
 @click.option("--log-file", "-l", help="Log file to analyze")
@@ -189,16 +202,25 @@ def analyze(log_file, results_dir) -> None:
         click.echo(f" Analysis failed: {e}", err=True)
         sys.exit(1)
 
+
 @cli.command()
 @click.option("--num-horizontal", default=50, help="Number of horizontal scenarios")
 @click.option("--num-vertical", default=50, help="Number of vertical scenarios")
 @click.option("--num-sector", default=50, help="Number of sector scenarios")
-@click.option("--complexities", default="simple,moderate,complex", help="Comma-separated complexity tiers")
-@click.option("--shift-levels", default="in_distribution,moderate_shift,extreme_shift", help="Comma-separated shift levels")
+@click.option(
+    "--complexities", default="simple,moderate,complex", help="Comma-separated complexity tiers",
+)
+@click.option(
+    "--shift-levels",
+    default="in_distribution,moderate_shift,extreme_shift",
+    help="Comma-separated shift levels",
+)
 @click.option("--horizon", default=5, help="Minutes to simulate after each resolution")
 @click.option("--max-interventions", default=5, help="Maximum interventions per scenario")
 @click.option("--step-size", default=10.0, help="Simulation step size in seconds")
-@click.option("--output-dir", default="experiments/monte_carlo_results", help="Directory to save results")
+@click.option(
+    "--output-dir", default="experiments/monte_carlo_results", help="Directory to save results",
+)
 def monte_carlo_benchmark(**opts) -> None:
     """Run the Monte Carlo safety benchmark."""
     click.echo("🚀 Starting Monte Carlo Safety Benchmark...")
@@ -266,10 +288,7 @@ def monte_carlo_benchmark(**opts) -> None:
             raise click.BadParameter(msg)
 
         # Determine scenario types from counts
-        scenario_types = [
-            getattr(ScenarioType, key.upper())
-            for key in scenario_counts
-        ]
+        scenario_types = [getattr(ScenarioType, key.upper()) for key in scenario_counts]
 
         # Calculate adaptive step size based on time horizon
         horizon_seconds = float(opts["horizon"]) * 60
@@ -308,7 +327,9 @@ def monte_carlo_benchmark(**opts) -> None:
         click.echo(f"   Step size: {default_step_size:.1f}s")
         click.echo(f"   Time horizon: {opts['horizon']} minutes")
 
-        total_scenarios_expanded = sum(scenario_counts.values()) * len(complexity_tiers) * len(shift_levels)
+        total_scenarios_expanded = (
+            sum(scenario_counts.values()) * len(complexity_tiers) * len(shift_levels)
+        )
         click.echo(f"   Total scenarios: {total_scenarios_expanded}")
 
         # Initialize and run benchmark
@@ -326,7 +347,9 @@ def monte_carlo_benchmark(**opts) -> None:
             total = scenario_counts_summary.get("total_scenarios", 0)
             success_rate = scenario_counts_summary.get("success_rate", 0.0)
 
-            click.echo(f"📈 Summary: {successful}/{total} scenarios successful ({success_rate:.1%})")
+            click.echo(
+                f"📈 Summary: {successful}/{total} scenarios successful ({success_rate:.1%})",
+            )
         else:
             click.echo("📈 Summary: Benchmark completed")
 
@@ -341,9 +364,11 @@ def monte_carlo_benchmark(**opts) -> None:
     except Exception as e:
         click.echo(f"❌ Benchmark execution failed: {e}", err=True)
         import traceback
+
         if verbose_logging := os.getenv("VERBOSE_LOGGING"):
             click.echo(traceback.format_exc(), err=True)
         sys.exit(1)
+
 
 @cli.command()
 def validate() -> bool:
@@ -363,8 +388,13 @@ def validate() -> bool:
 
     # Check core dependencies
     required_packages = [
-        "numpy", "pandas", "matplotlib", "yaml", "click",
-        "sentence_transformers", "chromadb",
+        "numpy",
+        "pandas",
+        "matplotlib",
+        "yaml",
+        "click",
+        "sentence_transformers",
+        "chromadb",
     ]
 
     for package in required_packages:
@@ -392,6 +422,7 @@ def validate() -> bool:
         return True
     click.echo(" Some validations failed. Check installation.", err=True)
     return False
+
 
 if __name__ == "__main__":
     cli()

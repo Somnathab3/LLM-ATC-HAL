@@ -13,6 +13,7 @@ from typing import Any, Optional
 
 class ManeuverType(Enum):
     """Types of conflict resolution maneuvers"""
+
     ALTITUDE_CHANGE = "altitude_change"
     HEADING_CHANGE = "heading_change"
     SPEED_CHANGE = "speed_change"
@@ -20,9 +21,11 @@ class ManeuverType(Enum):
     HOLD = "hold"
     NO_ACTION = "no_action"
 
+
 @dataclass
 class ResolutionManeuver:
     """Conflict resolution maneuver"""
+
     aircraft_id: str
     maneuver_type: ManeuverType
     parameters: dict[str, float]  # e.g., {'altitude_change': 1000, 'heading_change': 20}
@@ -47,8 +50,8 @@ class BaselineConflictResolver:
 
         # Standard maneuver parameters
         self.standard_altitude_change = 1000  # feet
-        self.standard_heading_change = 20     # degrees
-        self.standard_speed_change = 20       # knots
+        self.standard_heading_change = 20  # degrees
+        self.standard_speed_change = 20  # knots
 
         # Resolution preferences (priority order)
         self.resolution_hierarchy = [
@@ -84,7 +87,9 @@ class BaselineConflictResolver:
         # Process each conflict using vertical-then-lateral strategy
         for conflict in conflicts:
             conflict_maneuvers = self._resolve_single_conflict(
-                conflict, aircraft_list, environmental,
+                conflict,
+                aircraft_list,
+                environmental,
             )
             maneuvers.extend(conflict_maneuvers)
 
@@ -96,9 +101,12 @@ class BaselineConflictResolver:
 
         return maneuvers
 
-    def _resolve_single_conflict(self, conflict: dict[str, Any],
-                                aircraft_list: list[dict[str, Any]],
-                                environmental: dict[str, Any]) -> list[ResolutionManeuver]:
+    def _resolve_single_conflict(
+        self,
+        conflict: dict[str, Any],
+        aircraft_list: list[dict[str, Any]],
+        environmental: dict[str, Any],
+    ) -> list[ResolutionManeuver]:
         """Resolve a single conflict using rule-based strategy"""
 
         ac1_id = conflict.get("aircraft1_id", conflict.get("id1", ""))
@@ -120,36 +128,49 @@ class BaselineConflictResolver:
 
         # 1. Try vertical separation first (preferred)
         vertical_maneuver = self._try_vertical_resolution(
-            ac1_data, ac2_data, geometry, environmental,
+            ac1_data,
+            ac2_data,
+            geometry,
+            environmental,
         )
         if vertical_maneuver:
             maneuvers.append(vertical_maneuver)
         else:
             # 2. Try lateral separation (heading change)
             lateral_maneuver = self._try_lateral_resolution(
-                ac1_data, ac2_data, geometry, environmental,
+                ac1_data,
+                ac2_data,
+                geometry,
+                environmental,
             )
             if lateral_maneuver:
                 maneuvers.append(lateral_maneuver)
             else:
                 # 3. Try speed-based resolution
                 speed_maneuver = self._try_speed_resolution(
-                    ac1_data, ac2_data, geometry, environmental,
+                    ac1_data,
+                    ac2_data,
+                    geometry,
+                    environmental,
                 )
                 if speed_maneuver:
                     maneuvers.append(speed_maneuver)
                 else:
                     # 4. Last resort: vector or hold
                     fallback_maneuver = self._try_fallback_resolution(
-                        ac1_data, ac2_data, geometry, environmental,
+                        ac1_data,
+                        ac2_data,
+                        geometry,
+                        environmental,
                     )
                     if fallback_maneuver:
                         maneuvers.append(fallback_maneuver)
 
         return maneuvers
 
-    def _try_vertical_resolution(self, ac1: dict, ac2: dict,
-                               geometry: dict, environmental: dict) -> Optional[ResolutionManeuver]:
+    def _try_vertical_resolution(
+        self, ac1: dict, ac2: dict, geometry: dict, environmental: dict,
+    ) -> Optional[ResolutionManeuver]:
         """Try to resolve conflict with altitude change"""
 
         # Determine which aircraft should change altitude
@@ -181,7 +202,10 @@ class BaselineConflictResolver:
 
         # Calculate safety score
         safety_score = self._calculate_vertical_safety_score(
-            target_aircraft, other_aircraft, altitude_change, environmental,
+            target_aircraft,
+            other_aircraft,
+            altitude_change,
+            environmental,
         )
 
         # Estimate delay and fuel penalty
@@ -198,8 +222,9 @@ class BaselineConflictResolver:
             fuel_penalty=fuel_penalty,
         )
 
-    def _try_lateral_resolution(self, ac1: dict, ac2: dict,
-                              geometry: dict, environmental: dict) -> Optional[ResolutionManeuver]:
+    def _try_lateral_resolution(
+        self, ac1: dict, ac2: dict, geometry: dict, environmental: dict,
+    ) -> Optional[ResolutionManeuver]:
         """Try to resolve conflict with heading change"""
 
         # Determine which aircraft should change heading
@@ -216,12 +241,16 @@ class BaselineConflictResolver:
 
         # Turn away from conflict (perpendicular avoidance)
         heading_change = self._calculate_optimal_heading_change(
-            current_heading, conflict_bearing, geometry,
+            current_heading,
+            conflict_bearing,
+            geometry,
         )
 
         # Calculate safety score
         safety_score = self._calculate_lateral_safety_score(
-            target_aircraft, heading_change, environmental,
+            target_aircraft,
+            heading_change,
+            environmental,
         )
 
         # Estimate delay and fuel penalty
@@ -238,8 +267,9 @@ class BaselineConflictResolver:
             fuel_penalty=fuel_penalty,
         )
 
-    def _try_speed_resolution(self, ac1: dict, ac2: dict,
-                            geometry: dict, environmental: dict) -> Optional[ResolutionManeuver]:
+    def _try_speed_resolution(
+        self, ac1: dict, ac2: dict, geometry: dict, environmental: dict,
+    ) -> Optional[ResolutionManeuver]:
         """Try to resolve conflict with speed change"""
 
         # Determine which aircraft should change speed
@@ -266,7 +296,9 @@ class BaselineConflictResolver:
 
         # Calculate safety score
         safety_score = self._calculate_speed_safety_score(
-            target_aircraft, speed_change, environmental,
+            target_aircraft,
+            speed_change,
+            environmental,
         )
 
         # Estimate delay and fuel penalty
@@ -283,8 +315,9 @@ class BaselineConflictResolver:
             fuel_penalty=fuel_penalty,
         )
 
-    def _try_fallback_resolution(self, ac1: dict, ac2: dict,
-                               geometry: dict, environmental: dict) -> Optional[ResolutionManeuver]:
+    def _try_fallback_resolution(
+        self, ac1: dict, ac2: dict, geometry: dict, environmental: dict,
+    ) -> Optional[ResolutionManeuver]:
         """Try fallback resolution (vector or hold)"""
 
         # Choose aircraft with lower priority for fallback maneuver
@@ -295,7 +328,7 @@ class BaselineConflictResolver:
 
         # Default to vector maneuver (heading + speed)
         heading_change = 30  # More aggressive turn
-        speed_change = -10   # Slight speed reduction
+        speed_change = -10  # Slight speed reduction
 
         safety_score = 0.6  # Lower safety score for fallback
         estimated_delay = 180  # 3 minutes
@@ -314,8 +347,7 @@ class BaselineConflictResolver:
             fuel_penalty=fuel_penalty,
         )
 
-    def _analyze_conflict_geometry(self, ac1: dict, ac2: dict,
-                                 conflict: dict) -> dict[str, float]:
+    def _analyze_conflict_geometry(self, ac1: dict, ac2: dict, conflict: dict) -> dict[str, float]:
         """Analyze geometric relationship between conflicting aircraft"""
 
         # Calculate bearing between aircraft
@@ -344,7 +376,7 @@ class BaselineConflictResolver:
         vx2 = speed2 * math.sin(math.radians(heading2))
         vy2 = speed2 * math.cos(math.radians(heading2))
 
-        rel_speed = math.sqrt((vx1-vx2)**2 + (vy1-vy2)**2)
+        rel_speed = math.sqrt((vx1 - vx2) ** 2 + (vy1 - vy2) ** 2)
 
         return {
             "bearing": bearing,
@@ -372,9 +404,9 @@ class BaselineConflictResolver:
 
         return base_priority
 
-    def _calculate_optimal_heading_change(self, current_heading: float,
-                                        conflict_bearing: float,
-                                        geometry: dict) -> float:
+    def _calculate_optimal_heading_change(
+        self, current_heading: float, conflict_bearing: float, geometry: dict,
+    ) -> float:
         """Calculate optimal heading change to avoid conflict"""
 
         # Turn perpendicular to conflict bearing
@@ -388,8 +420,9 @@ class BaselineConflictResolver:
 
         return heading_change
 
-    def _calculate_vertical_safety_score(self, target_ac: dict, other_ac: dict,
-                                       altitude_change: float, env: dict) -> float:
+    def _calculate_vertical_safety_score(
+        self, target_ac: dict, other_ac: dict, altitude_change: float, env: dict,
+    ) -> float:
         """Calculate safety score for altitude change"""
         base_score = 0.85
 
@@ -407,8 +440,9 @@ class BaselineConflictResolver:
 
         return max(0.5, base_score)
 
-    def _calculate_lateral_safety_score(self, target_ac: dict,
-                                      heading_change: float, env: dict) -> float:
+    def _calculate_lateral_safety_score(
+        self, target_ac: dict, heading_change: float, env: dict,
+    ) -> float:
         """Calculate safety score for heading change"""
         base_score = 0.75
 
@@ -422,8 +456,9 @@ class BaselineConflictResolver:
 
         return max(0.5, base_score)
 
-    def _calculate_speed_safety_score(self, target_ac: dict,
-                                    speed_change: float, env: dict) -> float:
+    def _calculate_speed_safety_score(
+        self, target_ac: dict, speed_change: float, env: dict,
+    ) -> float:
         """Calculate safety score for speed change"""
         base_score = 0.70
 
@@ -473,7 +508,9 @@ class BaselineConflictResolver:
         """Estimate fuel penalty for speed change"""
         return abs(speed_change) * 0.3  # kg per knot
 
-    def _deduplicate_maneuvers(self, maneuvers: list[ResolutionManeuver]) -> list[ResolutionManeuver]:
+    def _deduplicate_maneuvers(
+        self, maneuvers: list[ResolutionManeuver],
+    ) -> list[ResolutionManeuver]:
         """Remove duplicate maneuvers for same aircraft"""
         seen_aircraft = set()
         unique_maneuvers = []

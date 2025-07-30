@@ -9,11 +9,13 @@ logging.basicConfig(level=logging.INFO)
 # Global LLM client instance to track stats across calls
 _llm_client = None
 
+
 def get_llm_client():
     global _llm_client
     if _llm_client is None:
         _llm_client = LLMClient()
     return _llm_client
+
 
 def get_llm_stats():
     """Get LLM timing statistics."""
@@ -23,6 +25,7 @@ def get_llm_stats():
         "total_time": client.get_total_inference_time(),
         "avg_time_per_call": client.get_average_inference_time(),
     }
+
 
 def select_best_solution(candidates, policies):
     """Filter and select the best solution using LLM based on policies."""
@@ -48,39 +51,47 @@ Consider safety margins, operational efficiency, and standard ATC procedures."""
 
             try:
                 answer = llm.ask(prompt).strip().lower()
-                logging.info(f"LLM response for candidate {candidate.get('action', 'Unknown')} and policy '{policy}': {answer}")
+                logging.info(
+                    f"LLM response for candidate {candidate.get('action', 'Unknown')} and policy '{policy}': {answer}",
+                )
 
                 # Check for hallucination indicators
                 if not any(keyword in answer for keyword in ["yes", "no"]):
-                    hallucination_events.append({
-                        "type": "invalid_response",
-                        "candidate": candidate,
-                        "policy": policy,
-                        "response": answer,
-                    })
+                    hallucination_events.append(
+                        {
+                            "type": "invalid_response",
+                            "candidate": candidate,
+                            "policy": policy,
+                            "response": answer,
+                        },
+                    )
                     logging.warning(f"Potential hallucination - unexpected response: {answer}")
                     violation = True  # Err on side of caution
                 elif "yes" in answer:
                     violation = True
                     candidate_violations.append(policy)
                 elif "no" not in answer:
-                    hallucination_events.append({
-                        "type": "ambiguous_response",
-                        "candidate": candidate,
-                        "policy": policy,
-                        "response": answer,
-                    })
+                    hallucination_events.append(
+                        {
+                            "type": "ambiguous_response",
+                            "candidate": candidate,
+                            "policy": policy,
+                            "response": answer,
+                        },
+                    )
                     logging.warning(f"Ambiguous LLM response: {answer}")
 
             except Exception as e:
                 logging.exception(f"Error querying LLM: {e}")
                 violation = True  # Err on side of caution
-                hallucination_events.append({
-                    "type": "llm_error",
-                    "candidate": candidate,
-                    "policy": policy,
-                    "error": str(e),
-                })
+                hallucination_events.append(
+                    {
+                        "type": "llm_error",
+                        "candidate": candidate,
+                        "policy": policy,
+                        "error": str(e),
+                    },
+                )
 
         if not violation:
             filtered.append(candidate)

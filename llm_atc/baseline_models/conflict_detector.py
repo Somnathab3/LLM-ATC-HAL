@@ -22,6 +22,7 @@ try:
     )
     from sklearn.model_selection import cross_val_score, train_test_split
     from sklearn.preprocessing import StandardScaler
+
     SKLEARN_AVAILABLE = True
 except ImportError:
     SKLEARN_AVAILABLE = False
@@ -29,6 +30,7 @@ except ImportError:
 
 try:
     import xgboost as xgb
+
     XGBOOST_AVAILABLE = True
 except ImportError:
     XGBOOST_AVAILABLE = False
@@ -38,6 +40,7 @@ except ImportError:
 @dataclass
 class ConflictPrediction:
     """Conflict detection prediction result"""
+
     has_conflict: bool
     confidence: float
     time_to_conflict: float
@@ -117,12 +120,14 @@ class BaselineConflictDetector:
             return np.array([0] * 20)  # Return zero vector
 
         # Basic scenario features
-        features.extend([
-            len(aircraft_data),  # Number of aircraft
-            scenario.get("time_horizon", 600),  # Time horizon
-            scenario.get("traffic_density", 0.5),  # Traffic density
-            scenario.get("weather_severity", 0.0),  # Weather severity
-        ])
+        features.extend(
+            [
+                len(aircraft_data),  # Number of aircraft
+                scenario.get("time_horizon", 600),  # Time horizon
+                scenario.get("traffic_density", 0.5),  # Traffic density
+                scenario.get("weather_severity", 0.0),  # Weather severity
+            ],
+        )
 
         # Pairwise aircraft features (take first two for simplicity)
         ac1, ac2 = aircraft_data[0], aircraft_data[1]
@@ -167,8 +172,7 @@ class BaselineConflictDetector:
 
         return np.array(features, dtype=np.float32)
 
-    def train(self, training_data: list[dict[str, Any]],
-              labels: list[bool]) -> dict[str, float]:
+    def train(self, training_data: list[dict[str, Any]], labels: list[bool]) -> dict[str, float]:
         """
         Train the baseline model.
 
@@ -189,16 +193,35 @@ class BaselineConflictDetector:
 
         # Store feature names for reference
         self.feature_names = [
-            "num_aircraft", "time_horizon", "traffic_density", "weather_severity",
-            "lat_diff", "lon_diff", "alt_diff", "speed_diff", "heading_diff", "vspeed_diff",
-            "horizontal_distance", "relative_speed", "approach_rate",
-            "ac1_type", "ac2_type", "ac1_phase", "ac2_phase",
-            "feature_18", "feature_19", "feature_20",
+            "num_aircraft",
+            "time_horizon",
+            "traffic_density",
+            "weather_severity",
+            "lat_diff",
+            "lon_diff",
+            "alt_diff",
+            "speed_diff",
+            "heading_diff",
+            "vspeed_diff",
+            "horizontal_distance",
+            "relative_speed",
+            "approach_rate",
+            "ac1_type",
+            "ac2_type",
+            "ac1_phase",
+            "ac2_phase",
+            "feature_18",
+            "feature_19",
+            "feature_20",
         ]
 
         # Split data
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=42, stratify=y,
+            X,
+            y,
+            test_size=0.2,
+            random_state=42,
+            stratify=y,
         )
 
         # Scale features
@@ -255,8 +278,9 @@ class BaselineConflictDetector:
         aircraft_data = scenario.get("aircraft", [])
         conflict_pairs = []
         if len(aircraft_data) >= 2 and has_conflict:
-            conflict_pairs = [(aircraft_data[0].get("id", "AC1"),
-                             aircraft_data[1].get("id", "AC2"))]
+            conflict_pairs = [
+                (aircraft_data[0].get("id", "AC1"), aircraft_data[1].get("id", "AC2")),
+            ]
 
         # Analyze risk factors
         risk_factors = self._analyze_risk_factors(features[0])
@@ -325,8 +349,7 @@ class BaselineConflictDetector:
         }
         return phase_mapping.get(flight_phase.lower(), 3.0)  # Default to cruise
 
-    def _estimate_time_to_conflict(self, scenario: dict[str, Any],
-                                 features: np.ndarray) -> float:
+    def _estimate_time_to_conflict(self, scenario: dict[str, Any], features: np.ndarray) -> float:
         """Estimate time to conflict based on features"""
         # Simplified calculation based on approach rate
         approach_rate = features[12] if len(features) > 12 else 1.0
@@ -341,7 +364,9 @@ class BaselineConflictDetector:
         risk_factors = {}
 
         if len(features) >= 20:
-            risk_factors["proximity_risk"] = 1.0 - min(features[10] / 10.0, 1.0)  # Horizontal distance
+            risk_factors["proximity_risk"] = 1.0 - min(
+                features[10] / 10.0, 1.0,
+            )  # Horizontal distance
             risk_factors["altitude_risk"] = min(features[6] / 1000.0, 1.0)  # Altitude difference
             risk_factors["speed_risk"] = min(features[7] / 100.0, 1.0)  # Speed difference
             risk_factors["approach_risk"] = 1.0 - min(features[12] / 10.0, 1.0)  # Approach rate
