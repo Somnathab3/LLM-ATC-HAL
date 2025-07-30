@@ -1,0 +1,41 @@
+# BlueSky Integration Configuration
+# Configuration for connecting to BlueSky simulator
+
+# BlueSky Connection Settings
+bluesky:
+  # Connection method: 'local' for direct import, 'network' for TCP/socket connection
+  connection_type: "local"
+  
+  # Network connection settings (for remote BlueSky instances)
+  network:
+    host: "localhost"
+    port: 8080
+    timeout: 10.0
+    
+  # Simulation settings
+  simulation:
+    default_dt_mult: 1.0
+    max_simulation_time: 3600  # seconds
+    conflict_detection_method: "SWARM"
+    separation_standards:
+      horizontal_nm: 5.0
+      vertical_ft: 1000.0
+      
+  # Mock data settings (fallback when BlueSky unavailable)
+  mock_data:
+    use_realistic_aircraft_count: true
+    default_aircraft_count: 10
+    airspace_bounds:
+      lat_min: 51.0
+      lat_max: 53.0
+      lon_min: 3.0
+      lon_max: 6.0
+    altitude_range:
+      min_fl: 200  # FL200
+      max_fl: 400  # FL400
+
+# Logging configuration
+logging:
+  level: "INFO"
+  log_bluesky_commands: true
+  log_aircraft_states: false  # Can be verbose
