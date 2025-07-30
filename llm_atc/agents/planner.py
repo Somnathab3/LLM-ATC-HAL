@@ -40,6 +40,7 @@ class PlanType(Enum):
 @dataclass
 class ConflictAssessment:
     """Assessment of a conflict situation"""
+
     conflict_id: str
     aircraft_involved: list[str]
     severity: str  # low, medium, high, critical
@@ -53,6 +54,7 @@ class ConflictAssessment:
 @dataclass
 class ActionPlan:
     """Generated action plan for conflict resolution"""
+
     plan_id: str
     conflict_id: str
     plan_type: PlanType
@@ -183,14 +185,18 @@ class Planner:
                 separation = self._calculate_separation(ac1_data, ac2_data)
 
                 # Check if below minimum separation
-                if (separation["horizontal"] < MIN_HORIZONTAL_SEPARATION_NM or
-                    separation["vertical"] < MIN_VERTICAL_SEPARATION_FT):
-                    conflicts.append({
-                        "aircraft": [ac1_id, ac2_id],
-                        "separation": separation,
-                        "severity": self._assess_severity(separation),
-                        "time_to_conflict": self._estimate_time_to_conflict(ac1_data, ac2_data),
-                    })
+                if (
+                    separation["horizontal"] < MIN_HORIZONTAL_SEPARATION_NM
+                    or separation["vertical"] < MIN_VERTICAL_SEPARATION_FT
+                ):
+                    conflicts.append(
+                        {
+                            "aircraft": [ac1_id, ac2_id],
+                            "separation": separation,
+                            "severity": self._assess_severity(separation),
+                            "time_to_conflict": self._estimate_time_to_conflict(ac1_data, ac2_data),
+                        },
+                    )
 
         return conflicts
 
@@ -213,14 +219,20 @@ class Planner:
 
     def _assess_severity(self, separation: dict[str, float]) -> str:
         """Assess conflict severity based on separation"""
-        if (separation["horizontal"] < CRITICAL_HORIZONTAL_SEPARATION_NM or
-            separation["vertical"] < CRITICAL_VERTICAL_SEPARATION_FT):
+        if (
+            separation["horizontal"] < CRITICAL_HORIZONTAL_SEPARATION_NM
+            or separation["vertical"] < CRITICAL_VERTICAL_SEPARATION_FT
+        ):
             return "critical"
-        if (separation["horizontal"] < HIGH_HORIZONTAL_SEPARATION_NM or
-            separation["vertical"] < HIGH_VERTICAL_SEPARATION_FT):
+        if (
+            separation["horizontal"] < HIGH_HORIZONTAL_SEPARATION_NM
+            or separation["vertical"] < HIGH_VERTICAL_SEPARATION_FT
+        ):
             return "high"
-        if (separation["horizontal"] < MEDIUM_HORIZONTAL_SEPARATION_NM or
-            separation["vertical"] < MEDIUM_VERTICAL_SEPARATION_FT):
+        if (
+            separation["horizontal"] < MEDIUM_HORIZONTAL_SEPARATION_NM
+            or separation["vertical"] < MEDIUM_VERTICAL_SEPARATION_FT
+        ):
             return "medium"
         return "low"
 
@@ -238,10 +250,13 @@ class Planner:
         # Sort by severity and time to conflict
         severity_order = {"critical": 4, "high": 3, "medium": 2, "low": 1}
 
-        return max(conflicts, key=lambda c: (
-            severity_order.get(c["severity"], 0),
-            -c["time_to_conflict"],  # Negative to prioritize shorter times
-        ))
+        return max(
+            conflicts,
+            key=lambda c: (
+                severity_order.get(c["severity"], 0),
+                -c["time_to_conflict"],  # Negative to prioritize shorter times
+            ),
+        )
 
     def _generate_assessment(self, conflict: dict, aircraft_data: dict) -> ConflictAssessment:
         """Generate comprehensive conflict assessment"""
@@ -285,9 +300,11 @@ class Planner:
         severity = conflict["severity"]
         time_to_conflict = conflict["time_to_conflict"]
 
-        return (f"Detected {severity} conflict between {aircraft} with "
-                f"{time_to_conflict:.0f}s to impact. "
-                f"Recommended {action.value} to ensure safe separation.")
+        return (
+            f"Detected {severity} conflict between {aircraft} with "
+            f"{time_to_conflict:.0f}s to impact. "
+            f"Recommended {action.value} to ensure safe separation."
+        )
 
     def _generate_commands(self, assessment: ConflictAssessment) -> list[str]:
         """Generate specific BlueSky commands for conflict resolution"""
@@ -320,8 +337,9 @@ class Planner:
 
         return commands
 
-    def _calculate_expected_outcome(self, _assessment: ConflictAssessment,
-                                  _commands: list[str]) -> dict[str, Any]:
+    def _calculate_expected_outcome(
+        self, _assessment: ConflictAssessment, _commands: list[str],
+    ) -> dict[str, Any]:
         """Calculate expected outcome of executing the commands"""
         return {
             "expected_separation_increase": DEFAULT_EXPECTED_SEPARATION_INCREASE_NM,  # nm

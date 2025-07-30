@@ -4,7 +4,6 @@ Experience Replay Integration for LLM-ATC-HAL System
 Connects vector memory store with real-time conflict resolution
 """
 
-import json
 import logging
 import time
 from typing import Any, Optional
@@ -17,7 +16,7 @@ from llm_atc.metrics.safety_margin_quantifier import SafetyMarginQuantifier
 class ExperienceIntegrator:
     """Integrates experience replay with real-time conflict resolution"""
 
-    def __init__(self, replay_store: VectorReplayStore):
+    def __init__(self, replay_store: VectorReplayStore) -> None:
         self.replay_store = replay_store
         self.hallucination_detector = EnhancedHallucinationDetector()
         self.safety_quantifier = SafetyMarginQuantifier()
@@ -29,12 +28,14 @@ class ExperienceIntegrator:
 
         logging.info("Experience integrator initialized")
 
-    def process_conflict_resolution(self,
-                                  scenario_context: dict[str, Any],
-                                  conflict_geometry: dict[str, float],
-                                  environmental_conditions: dict[str, Any],
-                                  llm_decision: dict[str, Any],
-                                  baseline_decision: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
+    def process_conflict_resolution(
+        self,
+        scenario_context: dict[str, Any],
+        conflict_geometry: dict[str, float],
+        environmental_conditions: dict[str, Any],
+        llm_decision: dict[str, Any],
+        baseline_decision: dict[str, Any],
+    ) -> tuple[dict[str, Any], list[str]]:
         """
         Process a conflict resolution with experience replay integration
 
@@ -45,18 +46,24 @@ class ExperienceIntegrator:
         try:
             # Step 1: Find similar past experiences
             similar_experiences = self._find_relevant_experiences(
-                scenario_context, conflict_geometry, environmental_conditions,
+                scenario_context,
+                conflict_geometry,
+                environmental_conditions,
             )
 
             # Step 2: Extract lessons and patterns
             lessons_learned = self._extract_lessons(similar_experiences)
             pattern_warnings = self._check_hallucination_patterns(
-                scenario_context, environmental_conditions, similar_experiences,
+                scenario_context,
+                environmental_conditions,
+                similar_experiences,
             )
 
             # Step 3: Enhance current decision with historical insights
             enhanced_decision = self._enhance_decision_with_experience(
-                llm_decision, baseline_decision, similar_experiences,
+                llm_decision,
+                baseline_decision,
+                similar_experiences,
             )
 
             # Step 4: Prepare comprehensive guidance
@@ -69,10 +76,12 @@ class ExperienceIntegrator:
             logging.exception("Failed to process conflict resolution")
             return llm_decision, []
 
-    def _find_relevant_experiences(self,
-                                 scenario_context: dict[str, Any],
-                                 conflict_geometry: dict[str, float],
-                                 environmental_conditions: dict[str, Any]) -> list[SimilarityResult]:
+    def _find_relevant_experiences(
+        self,
+        scenario_context: dict[str, Any],
+        conflict_geometry: dict[str, float],
+        environmental_conditions: dict[str, Any],
+    ) -> list[SimilarityResult]:
         """Find experiences relevant to current scenario"""
 
         try:
@@ -99,7 +108,6 @@ class ExperienceIntegrator:
                 top_k=self.max_similar_experiences,
                 similarity_threshold=self.similarity_threshold,
             )
-
 
         except Exception:
             logging.exception("Failed to find relevant experiences")
@@ -137,7 +145,9 @@ class ExperienceIntegrator:
                 # Hallucination warnings
                 if experience.hallucination_detected:
                     h_types = ", ".join(experience.hallucination_types)
-                    lessons.append(f"Hallucination risk: Previous {h_types} detected in similar scenarios")
+                    lessons.append(
+                        f"Hallucination risk: Previous {h_types} detected in similar scenarios",
+                    )
 
             # Remove duplicates while preserving order
             unique_lessons = []
@@ -153,10 +163,12 @@ class ExperienceIntegrator:
             logging.exception("Failed to extract lessons")
             return []
 
-    def _check_hallucination_patterns(self,
-                                    scenario_context: dict[str, Any],
-                                    environmental_conditions: dict[str, Any],
-                                    similar_experiences: list[SimilarityResult]) -> list[str]:
+    def _check_hallucination_patterns(
+        self,
+        scenario_context: dict[str, Any],
+        environmental_conditions: dict[str, Any],
+        similar_experiences: list[SimilarityResult],
+    ) -> list[str]:
         """Check for hallucination risk patterns"""
 
         warnings = []
@@ -174,7 +186,9 @@ class ExperienceIntegrator:
                 count = patterns["environmental_correlations"][current_weather]
                 total = patterns.get("total_hallucinations", 1)
                 if count / total > 0.3:  # More than 30% of hallucinations
-                    warnings.append(f"High hallucination risk: {current_weather} weather conditions")
+                    warnings.append(
+                        f"High hallucination risk: {current_weather} weather conditions",
+                    )
 
             # Check aircraft type risk factors
             for aircraft in scenario_context.get("aircraft_list", []):
@@ -186,11 +200,14 @@ class ExperienceIntegrator:
                         warnings.append(f"Hallucination risk with {ac_type} aircraft")
 
             # Check similar experience hallucination rate
-            similar_hallucinations = sum(1 for result in similar_experiences
-                                       if result.experience.hallucination_detected)
+            similar_hallucinations = sum(
+                1 for result in similar_experiences if result.experience.hallucination_detected
+            )
 
             if similar_experiences and similar_hallucinations / len(similar_experiences) > 0.5:
-                warnings.append("High hallucination risk: Similar scenarios had frequent hallucinations")
+                warnings.append(
+                    "High hallucination risk: Similar scenarios had frequent hallucinations",
+                )
 
             # Check geometric risk factors
             geom_factors = patterns.get("geometric_factors", {})
@@ -200,11 +217,15 @@ class ExperienceIntegrator:
 
                 current_sep = 10  # Default if not available
                 for result in similar_experiences:
-                    current_sep = result.experience.conflict_geometry.get("closest_approach_distance", 10)
+                    current_sep = result.experience.conflict_geometry.get(
+                        "closest_approach_distance", 10,
+                    )
                     break
 
                 if current_sep < avg_sep * 0.8:  # 20% below average
-                    warnings.append("Hallucination risk: Close separation scenarios are problematic")
+                    warnings.append(
+                        "Hallucination risk: Close separation scenarios are problematic",
+                    )
 
             return warnings
 
@@ -212,10 +233,12 @@ class ExperienceIntegrator:
             logging.exception("Failed to check hallucination patterns")
             return []
 
-    def _enhance_decision_with_experience(self,
-                                        llm_decision: dict[str, Any],
-                                        baseline_decision: dict[str, Any],
-                                        similar_experiences: list[SimilarityResult]) -> dict[str, Any]:
+    def _enhance_decision_with_experience(
+        self,
+        llm_decision: dict[str, Any],
+        baseline_decision: dict[str, Any],
+        similar_experiences: list[SimilarityResult],
+    ) -> dict[str, Any]:
         """Enhance current decision using historical experience"""
 
         try:
@@ -243,25 +266,31 @@ class ExperienceIntegrator:
             # Boost confidence if similar successful experiences
             if successful_actions:
                 similar_successful_actions = [
-                    action for action in successful_actions
+                    action
+                    for action in successful_actions
                     if action.get("type") == llm_decision.get("type")
                 ]
 
                 if similar_successful_actions:
                     confidence_boost = min(0.2, len(similar_successful_actions) * 0.05)
-                    enhanced_decision["confidence"] = min(1.0, original_confidence + confidence_boost)
+                    enhanced_decision["confidence"] = min(
+                        1.0, original_confidence + confidence_boost,
+                    )
                     enhanced_decision["experience_support"] = "positive"
 
             # Reduce confidence if similar failed experiences
             if failed_actions:
                 similar_failed_actions = [
-                    action for action in failed_actions
+                    action
+                    for action in failed_actions
                     if action.get("type") == llm_decision.get("type")
                 ]
 
                 if similar_failed_actions:
                     confidence_penalty = min(0.3, len(similar_failed_actions) * 0.1)
-                    enhanced_decision["confidence"] = max(0.1, original_confidence - confidence_penalty)
+                    enhanced_decision["confidence"] = max(
+                        0.1, original_confidence - confidence_penalty,
+                    )
                     enhanced_decision["experience_support"] = "negative"
 
             # Add experience-based safety score
@@ -279,8 +308,9 @@ class ExperienceIntegrator:
             # Add alternative recommendations based on successful experiences
             alternative_actions = []
             for result in similar_experiences:
-                if (result.experience.actual_outcome.get("resolution_success", False) and
-                    result.experience.llm_decision.get("type") != llm_decision.get("type")):
+                if result.experience.actual_outcome.get(
+                    "resolution_success", False,
+                ) and result.experience.llm_decision.get("type") != llm_decision.get("type"):
 
                     alternative = {
                         "action": result.experience.llm_decision.get("action", ""),
@@ -301,17 +331,19 @@ class ExperienceIntegrator:
             logging.exception("Failed to enhance decision")
             return llm_decision
 
-    def record_resolution_outcome(self,
-                                scenario_context: dict[str, Any],
-                                conflict_geometry: dict[str, float],
-                                environmental_conditions: dict[str, Any],
-                                llm_decision: dict[str, Any],
-                                baseline_decision: dict[str, Any],
-                                actual_outcome: dict[str, Any],
-                                safety_metrics: dict[str, float],
-                                hallucination_result: dict[str, Any],
-                                controller_override: Optional[dict[str, Any]] = None,
-                                lessons_learned: str = "") -> str:
+    def record_resolution_outcome(
+        self,
+        scenario_context: dict[str, Any],
+        conflict_geometry: dict[str, float],
+        environmental_conditions: dict[str, Any],
+        llm_decision: dict[str, Any],
+        baseline_decision: dict[str, Any],
+        actual_outcome: dict[str, Any],
+        safety_metrics: dict[str, float],
+        hallucination_result: dict[str, Any],
+        controller_override: Optional[dict[str, Any]] = None,
+        lessons_learned: str = "",
+    ) -> str:
         """Record the outcome of a conflict resolution for future learning"""
 
         try:
@@ -358,14 +390,13 @@ class ExperienceIntegrator:
                 "learning_insights": self._generate_learning_insights(stats, patterns),
             }
 
-
         except Exception as e:
             logging.exception("Failed to get experience summary")
             return {"error": str(e)}
 
-    def _generate_learning_insights(self,
-                                  stats: dict[str, Any],
-                                  patterns: dict[str, Any]) -> list[str]:
+    def _generate_learning_insights(
+        self, stats: dict[str, Any], patterns: dict[str, Any],
+    ) -> list[str]:
         """Generate insights from experience data"""
 
         insights = []
@@ -395,10 +426,14 @@ class ExperienceIntegrator:
 
             # Recommendations
             if total_exp < 100:
-                insights.append("Recommendation: Collect more experience data for better pattern analysis")
+                insights.append(
+                    "Recommendation: Collect more experience data for better pattern analysis",
+                )
 
             if stats.get("hallucination_rate", 0) > 0.2:
-                insights.append("Alert: High hallucination rate detected - review detection thresholds")
+                insights.append(
+                    "Alert: High hallucination rate detected - review detection thresholds",
+                )
 
             if stats.get("override_rate", 0) > 0.3:
                 insights.append("Alert: High override rate - LLM decisions may need improvement")
@@ -425,8 +460,12 @@ class ExperienceIntegrator:
                 baseline_decision=experience_data.get("baseline_decision", {}),
                 actual_outcome=experience_data.get("outcome", {}),
                 safety_metrics=experience_data.get("outcome", {}),
-                hallucination_detected=experience_data.get("outcome", {}).get("hallucination_detected", False),
-                hallucination_types=experience_data.get("outcome", {}).get("hallucination_types", []),
+                hallucination_detected=experience_data.get("outcome", {}).get(
+                    "hallucination_detected", False,
+                ),
+                hallucination_types=experience_data.get("outcome", {}).get(
+                    "hallucination_types", [],
+                ),
                 controller_override=experience_data.get("controller_override"),
                 lessons_learned=experience_data.get("lessons_learned", ""),
             )
@@ -436,6 +475,7 @@ class ExperienceIntegrator:
         except Exception:
             logging.exception("Failed to store experience")
             return ""
+
 
 # Testing and usage example
 if __name__ == "__main__":
@@ -483,15 +523,15 @@ if __name__ == "__main__":
 
     # Process with experience integration
     enhanced_decision, lessons = integrator.process_conflict_resolution(
-        scenario_context, conflict_geometry, environmental_conditions,
-        llm_decision, baseline_decision,
+        scenario_context,
+        conflict_geometry,
+        environmental_conditions,
+        llm_decision,
+        baseline_decision,
     )
 
-    print("Enhanced Decision:")
-    print(json.dumps(enhanced_decision, indent=2))
-    print("\nLessons Learned:")
-    for lesson in lessons:
-        print(f"- {lesson}")
+    for _lesson in lessons:
+        pass
 
     # Record outcome
     actual_outcome = {
@@ -512,14 +552,16 @@ if __name__ == "__main__":
     }
 
     exp_id = integrator.record_resolution_outcome(
-        scenario_context, conflict_geometry, environmental_conditions,
-        llm_decision, baseline_decision, actual_outcome, safety_metrics,
-        hallucination_result, lessons_learned="Heading changes effective for parallel conflicts",
+        scenario_context,
+        conflict_geometry,
+        environmental_conditions,
+        llm_decision,
+        baseline_decision,
+        actual_outcome,
+        safety_metrics,
+        hallucination_result,
+        lessons_learned="Heading changes effective for parallel conflicts",
     )
-
-    print(f"\nRecorded experience: {exp_id}")
 
     # Get summary
     summary = integrator.get_experience_summary()
-    print("\nExperience Summary:")
-    print(json.dumps(summary, indent=2))

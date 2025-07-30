@@ -22,24 +22,29 @@ TIME_WINDOW_SECONDS = 30
 
 class SeparationStandard(Enum):
     """ICAO separation standards"""
+
     HORIZONTAL_MIN = 5.0  # nautical miles
-    VERTICAL_MIN = 1000   # feet
-    TIME_MIN = 60         # seconds
+    VERTICAL_MIN = 1000  # feet
+    TIME_MIN = 60  # seconds
+
 
 @dataclass
 class SafetyMargin:
     """Safety margin calculation result"""
+
     horizontal_margin: float  # nautical miles
-    vertical_margin: float    # feet
-    temporal_margin: float    # seconds
-    effective_margin: float   # combined normalized margin
+    vertical_margin: float  # feet
+    temporal_margin: float  # seconds
+    effective_margin: float  # combined normalized margin
     margin_to_uncertainty_ratio: float
     degradation_factor: float
     safety_level: str  # 'critical', 'marginal', 'adequate', 'excellent'
 
+
 @dataclass
 class ConflictGeometry:
     """3D conflict geometry representation"""
+
     aircraft1_pos: tuple[float, float, float]  # lat, lon, alt
     aircraft2_pos: tuple[float, float, float]
     aircraft1_velocity: tuple[float, float, float]  # ground speed, vertical rate, heading
@@ -47,6 +52,7 @@ class ConflictGeometry:
     time_to_closest_approach: float
     closest_approach_distance: float
     closest_approach_altitude_diff: float
+
 
 class SafetyMarginQuantifier:
     """
@@ -64,29 +70,32 @@ class SafetyMarginQuantifier:
         self.uncertainty_factors = {
             "navigation_accuracy": 0.1,  # 0.1 NM typical GPS accuracy
             "pilot_response_time": 5.0,  # 5 seconds typical response
-            "turbulence_factor": 0.05,   # 5% additional uncertainty
-            "equipment_error": 0.02,      # 2% equipment uncertainty
+            "turbulence_factor": 0.05,  # 5% additional uncertainty
+            "equipment_error": 0.02,  # 2% equipment uncertainty
         }
 
         # Safety level thresholds
         self.safety_thresholds = {
-            "critical": 0.2,    # < 20% of minimum separation
-            "marginal": 0.5,    # 20-50% of minimum separation
-            "adequate": 1.0,    # 50-100% of minimum separation
-            "excellent": 2.0,    # > 100% of minimum separation
+            "critical": 0.2,  # < 20% of minimum separation
+            "marginal": 0.5,  # 20-50% of minimum separation
+            "adequate": 1.0,  # 50-100% of minimum separation
+            "excellent": 2.0,  # > 100% of minimum separation
         }
 
-    def calculate_safety_margins(self,
-                                conflict_geometry: ConflictGeometry,
-                                resolution_maneuver: dict,
-                                environmental_conditions: Optional[dict] = None) -> SafetyMargin:
+    def calculate_safety_margins(
+        self,
+        conflict_geometry: ConflictGeometry,
+        resolution_maneuver: dict,
+        environmental_conditions: Optional[dict] = None,
+    ) -> SafetyMargin:
         """
         Calculate comprehensive safety margins for a conflict resolution
         """
         try:
             # Apply resolution maneuver to predict future geometry
             future_geometry = self._apply_resolution_maneuver(
-                conflict_geometry, resolution_maneuver,
+                conflict_geometry,
+                resolution_maneuver,
             )
 
             # Calculate individual margin components
@@ -96,13 +105,15 @@ class SafetyMarginQuantifier:
 
             # Account for environmental conditions
             if environmental_conditions:
-                horizontal_margin *= (1 - environmental_conditions.get("turbulence_factor", 0))
-                vertical_margin *= (1 - environmental_conditions.get("wind_shear_factor", 0))
-                temporal_margin *= (1 - environmental_conditions.get("response_delay_factor", 0))
+                horizontal_margin *= 1 - environmental_conditions.get("turbulence_factor", 0)
+                vertical_margin *= 1 - environmental_conditions.get("wind_shear_factor", 0)
+                temporal_margin *= 1 - environmental_conditions.get("response_delay_factor", 0)
 
             # Calculate effective margin (weighted combination)
             effective_margin = self._calculate_effective_margin(
-                horizontal_margin, vertical_margin, temporal_margin,
+                horizontal_margin,
+                vertical_margin,
+                temporal_margin,
             )
 
             # Calculate margin-to-uncertainty ratio
@@ -130,9 +141,9 @@ class SafetyMarginQuantifier:
             logging.exception("Safety margin calculation failed")
             return self._create_default_safety_margin()
 
-    def _apply_resolution_maneuver(self,
-                                 geometry: ConflictGeometry,
-                                 maneuver: dict) -> ConflictGeometry:
+    def _apply_resolution_maneuver(
+        self, geometry: ConflictGeometry, maneuver: dict,
+    ) -> ConflictGeometry:
         """Apply resolution maneuver and predict future conflict geometry"""
         try:
             # Extract current positions and velocities
@@ -173,7 +184,10 @@ class SafetyMarginQuantifier:
 
             # Calculate new closest approach
             time_to_ca, ca_distance, ca_alt_diff = self._calculate_closest_approach(
-                future_ac1_pos, future_ac2_pos, ac1_vel, ac2_vel,
+                future_ac1_pos,
+                future_ac2_pos,
+                ac1_vel,
+                ac2_vel,
             )
 
             return ConflictGeometry(
@@ -191,7 +205,10 @@ class SafetyMarginQuantifier:
             return geometry  # Return original geometry if calculation fails
 
     def _predict_position(
-        self, position: list[float], velocity: list[float], time: float,
+        self,
+        position: list[float],
+        velocity: list[float],
+        time: float,
     ) -> list[float]:
         """Predict future position based on current velocity"""
         try:
@@ -242,8 +259,11 @@ class SafetyMarginQuantifier:
             if rel_vel_magnitude < MINIMUM_RELATIVE_VELOCITY:  # Essentially no relative motion
                 return 999999, rel_pos_magnitude, abs(rel_pos[2])
             # Simplified calculation for time to closest approach
-            time_to_ca = max(0, -sum(rel_pos[i] * rel_vel[i] for i in range(2)) /
-                           sum(rel_vel[i]**2 for i in range(2)))
+            time_to_ca = max(
+                0,
+                -sum(rel_pos[i] * rel_vel[i] for i in range(2))
+                / sum(rel_vel[i] ** 2 for i in range(2)),
+            )
 
             # Distance at closest approach
             future_rel_pos = [rel_pos[i] + rel_vel[i] * time_to_ca for i in range(3)]
@@ -282,7 +302,10 @@ class SafetyMarginQuantifier:
         return max(margin, 0)  # Negative margin indicates immediate action needed
 
     def _calculate_effective_margin(
-        self, h_margin: float, v_margin: float, t_margin: float,
+        self,
+        h_margin: float,
+        v_margin: float,
+        t_margin: float,
     ) -> float:
         """Calculate effective combined margin using weighted approach"""
         # Weights based on criticality (horizontal separation most critical)
@@ -293,9 +316,11 @@ class SafetyMarginQuantifier:
         v_normalized = v_margin / self.separation_standards["vertical"]
         t_normalized = t_margin / self.separation_standards["temporal"]
 
-        effective = (weights["horizontal"] * h_normalized +
-                    weights["vertical"] * v_normalized +
-                    weights["temporal"] * t_normalized)
+        effective = (
+            weights["horizontal"] * h_normalized
+            + weights["vertical"] * v_normalized
+            + weights["temporal"] * t_normalized
+        )
 
         return max(effective, 0)
 
@@ -331,7 +356,9 @@ class SafetyMarginQuantifier:
         )
 
         return self._calculate_effective_margin(
-            baseline_horizontal, baseline_vertical, baseline_temporal,
+            baseline_horizontal,
+            baseline_vertical,
+            baseline_temporal,
         )
 
     def _determine_safety_level(self, effective_margin: float) -> str:
@@ -356,6 +383,7 @@ class SafetyMarginQuantifier:
             safety_level="critical",
         )
 
+
 class SafetyMetricsAggregator:
     """Aggregates safety metrics across multiple scenarios and conflicts"""
 
@@ -363,21 +391,27 @@ class SafetyMetricsAggregator:
         self.metrics_history = []
         self.quantifier = SafetyMarginQuantifier()
 
-    def add_conflict_resolution(self,
-                               conflict_id: str,
-                               geometry: ConflictGeometry,
-                               llm_resolution: dict,
-                               baseline_resolution: dict,
-                               environmental_conditions: Optional[dict] = None) -> dict:
+    def add_conflict_resolution(
+        self,
+        conflict_id: str,
+        geometry: ConflictGeometry,
+        llm_resolution: dict,
+        baseline_resolution: dict,
+        environmental_conditions: Optional[dict] = None,
+    ) -> dict:
         """Add a conflict resolution case and compute comparative metrics"""
 
         # Calculate safety margins for both resolutions
         llm_margins = self.quantifier.calculate_safety_margins(
-            geometry, llm_resolution, environmental_conditions,
+            geometry,
+            llm_resolution,
+            environmental_conditions,
         )
 
         baseline_margins = self.quantifier.calculate_safety_margins(
-            geometry, baseline_resolution, environmental_conditions,
+            geometry,
+            baseline_resolution,
+            environmental_conditions,
         )
 
         # Create comparison metrics
@@ -388,8 +422,10 @@ class SafetyMetricsAggregator:
             "baseline_margins": baseline_margins,
             "margin_difference": llm_margins.effective_margin - baseline_margins.effective_margin,
             "safety_degradation": baseline_margins.effective_margin - llm_margins.effective_margin,
-            "uncertainty_ratio_diff": (llm_margins.margin_to_uncertainty_ratio -
-                                     baseline_margins.margin_to_uncertainty_ratio),
+            "uncertainty_ratio_diff": (
+                llm_margins.margin_to_uncertainty_ratio
+                - baseline_margins.margin_to_uncertainty_ratio
+            ),
             "environmental_conditions": environmental_conditions or {},
         }
 
@@ -431,7 +467,6 @@ class SafetyMetricsAggregator:
                 },
             },
         }
-
 
     def export_detailed_metrics(self, filepath: str) -> None:
         """Export detailed metrics to JSON file"""
@@ -515,8 +550,10 @@ def calc_separation_margin(trajectories: list[dict[str, Any]]) -> dict[str, floa
 
                         dlat = lat2 - lat1
                         dlon = lon2 - lon1
-                        a = (math.sin(dlat/2)**2 +
-                             math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2)
+                        a = (
+                            math.sin(dlat / 2) ** 2
+                            + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+                        )
                         c = 2 * math.asin(math.sqrt(a))
                         horizontal_dist = 3440.065 * c  # Convert to nautical miles
 
@@ -532,8 +569,9 @@ def calc_separation_margin(trajectories: list[dict[str, Any]]) -> dict[str, floa
     }
 
 
-def calc_efficiency_penalty(planned_path: list[dict[str, Any]],
-                           executed_path: list[dict[str, Any]]) -> float:
+def calc_efficiency_penalty(
+    planned_path: list[dict[str, Any]], executed_path: list[dict[str, Any]],
+) -> float:
     """
     Calculate efficiency penalty as extra distance traveled due to conflict resolution.
 
@@ -545,6 +583,7 @@ def calc_efficiency_penalty(planned_path: list[dict[str, Any]],
     Returns:
         Extra distance in nautical miles
     """
+
     def calculate_path_distance(path: list[dict[str, Any]]) -> float:
         """Calculate total distance of a path in nautical miles"""
         total_distance = 0.0
@@ -556,8 +595,7 @@ def calc_efficiency_penalty(planned_path: list[dict[str, Any]],
 
             dlat = lat2 - lat1
             dlon = lon2 - lon1
-            a = (math.sin(dlat/2)**2 +
-                 math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2)
+            a = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
             c = 2 * math.asin(math.sqrt(a))
             distance = 3440.065 * c  # Convert to nautical miles
             total_distance += distance
@@ -588,9 +626,17 @@ def count_interventions(commands: list[dict[str, Any]]) -> int:
         return 0
 
     intervention_types = {
-        "heading_change", "altitude_change", "speed_change",
-        "vector", "climb", "descend", "turn", "direct",
-        "hold", "expedite", "reduce_speed",
+        "heading_change",
+        "altitude_change",
+        "speed_change",
+        "vector",
+        "climb",
+        "descend",
+        "turn",
+        "direct",
+        "hold",
+        "expedite",
+        "reduce_speed",
     }
 
     intervention_count = 0
@@ -618,7 +664,7 @@ if __name__ == "__main__":
         aircraft1_pos=(52.3, 4.8, 35000),
         aircraft2_pos=(52.4, 4.6, 35000),
         aircraft1_velocity=(350, 0, 90),  # 350 knots, level, heading 90
-        aircraft2_velocity=(350, 0, 270), # 350 knots, level, heading 270
+        aircraft2_velocity=(350, 0, 270),  # 350 knots, level, heading 270
         time_to_closest_approach=120,
         closest_approach_distance=3.0,
         closest_approach_altitude_diff=0,
@@ -653,7 +699,10 @@ if __name__ == "__main__":
     # Test aggregator
     aggregator = SafetyMetricsAggregator()
     comparison = aggregator.add_conflict_resolution(
-        "TEST-001", conflict_geometry, llm_resolution, baseline_resolution,
+        "TEST-001",
+        conflict_geometry,
+        llm_resolution,
+        baseline_resolution,
     )
 
     summary = aggregator.generate_safety_summary()

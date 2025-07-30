@@ -15,6 +15,7 @@ import pandas as pd
 try:
     import matplotlib.pyplot as plt
     import seaborn as sns
+
     plt.style.use("default")  # Set a default style
     PLOTTING_AVAILABLE = True
 except ImportError:
@@ -26,10 +27,12 @@ except ImportError:
 project_root = Path(__file__).parent.parent.resolve()
 sys.path.insert(0, str(project_root))
 
+
 # Hallucination analysis stub - removed legacy analysis module dependency
 def analyze_hallucinations_in_log(_log_file: str) -> dict[str, Any]:
     """Analyze hallucinations in log file - simplified implementation"""
     return {"total_hallucinations": 0, "by_type": {}, "by_model": {}}
+
 
 def compute_metrics(log_file: str) -> dict[str, Any]:
     """Compute hallucination and performance metrics from simulation logs."""
@@ -53,7 +56,8 @@ def compute_metrics(log_file: str) -> dict[str, Any]:
                         except json.JSONDecodeError as e:
                             logging.warning(
                                 "Failed to parse JSON line: %s. Error: %s",
-                                log_entry, e,
+                                log_entry,
+                                e,
                             )
                     else:
                         # Try to extract JSON from within log line
@@ -62,10 +66,12 @@ def compute_metrics(log_file: str) -> dict[str, Any]:
                             json_start = log_entry.find("{")
                             json_end = log_entry.rfind("}")
                             if json_start >= 0 and json_end > json_start:
-                                json_str = log_entry[json_start:json_end + 1]
+                                json_str = log_entry[json_start : json_end + 1]
                                 parsed_entry = json.loads(json_str)
-                                if ("best_by_llm" in parsed_entry and
-                                    "baseline_best" in parsed_entry):
+                                if (
+                                    "best_by_llm" in parsed_entry
+                                    and "baseline_best" in parsed_entry
+                                ):
                                     data.append(parsed_entry)
                         except (json.JSONDecodeError, ValueError):
                             # Skip lines that don't contain valid JSON
@@ -128,10 +134,10 @@ def compute_metrics(log_file: str) -> dict[str, Any]:
             "hallucination_analysis": hallucination_analysis,
         }
 
-
     except Exception:
         logging.exception("Error computing metrics from %s", log_file)
         return create_empty_metrics()
+
 
 def create_empty_metrics() -> dict[str, Any]:
     """Create empty metrics structure when no data is available."""
@@ -147,6 +153,7 @@ def create_empty_metrics() -> dict[str, Any]:
         "avg_efficiency_penalty": 0,
         "hallucination_analysis": {"total_hallucinations": 0, "by_type": {}, "by_model": {}},
     }
+
 
 def print_metrics_summary(metrics: dict[str, Any]) -> None:
     """Print a formatted summary of the metrics using logging."""
@@ -179,8 +186,10 @@ def print_metrics_summary(metrics: dict[str, Any]) -> None:
 
     logger.info("=" * 60)
 
-def calc_fp_fn(pred_conflicts: list[dict[str, Any]],
-               gt_conflicts: list[dict[str, Any]]) -> tuple[float, float]:
+
+def calc_fp_fn(
+    pred_conflicts: list[dict[str, Any]], gt_conflicts: list[dict[str, Any]],
+) -> tuple[float, float]:
     """Calculate false positive and false negative rates."""
     if not pred_conflicts and not gt_conflicts:
         return 0.0, 0.0
@@ -210,8 +219,10 @@ def calc_fp_fn(pred_conflicts: list[dict[str, Any]],
 
     return fp_rate, fn_rate
 
-def calc_path_extra(actual_traj: list[dict[str, Any]],
-                   original_traj: list[dict[str, Any]]) -> float:
+
+def calc_path_extra(
+    actual_traj: list[dict[str, Any]], original_traj: list[dict[str, Any]],
+) -> float:
     """Calculate extra distance traveled due to resolution maneuvers."""
     if not actual_traj or not original_traj:
         return 0.0
@@ -220,13 +231,15 @@ def calc_path_extra(actual_traj: list[dict[str, Any]],
         """Calculate total distance of a trajectory."""
         total_dist = 0.0
         for i in range(1, len(traj)):
-            prev_point = traj[i-1]
+            prev_point = traj[i - 1]
             curr_point = traj[i]
 
             # Simple Euclidean distance (in practice, use great circle distance)
             if (
-                "lat" in prev_point and "lon" in prev_point and
-                "lat" in curr_point and "lon" in curr_point
+                "lat" in prev_point
+                and "lon" in prev_point
+                and "lat" in curr_point
+                and "lon" in curr_point
             ):
                 lat_diff = curr_point["lat"] - prev_point["lat"]
                 lon_diff = curr_point["lon"] - prev_point["lon"]
@@ -240,6 +253,7 @@ def calc_path_extra(actual_traj: list[dict[str, Any]],
     original_distance = calc_trajectory_distance(original_traj)
 
     return max(0.0, actual_distance - original_distance)
+
 
 def aggregate_thesis_metrics(results_dir: str) -> dict[str, Any]:
     """Aggregate metrics from multiple test result files for thesis analysis."""
@@ -268,20 +282,17 @@ def aggregate_thesis_metrics(results_dir: str) -> dict[str, Any]:
         "total_tests": sum(m["total_tests"] for m in all_metrics),
         "total_hallucinations": sum(m["total_hallucinations"] for m in all_metrics),
         "avg_llm_time": np.mean([m["avg_llm_time"] for m in all_metrics if m["avg_llm_time"] > 0]),
-        "avg_baseline_time": np.mean([
-            m["avg_baseline_time"] for m in all_metrics
-            if m["avg_baseline_time"] > 0
-        ]),
+        "avg_baseline_time": np.mean(
+            [m["avg_baseline_time"] for m in all_metrics if m["avg_baseline_time"] > 0],
+        ),
         "avg_fp_rate": np.mean([m["avg_fp_rate"] for m in all_metrics if m["avg_fp_rate"] > 0]),
         "avg_fn_rate": np.mean([m["avg_fn_rate"] for m in all_metrics if m["avg_fn_rate"] > 0]),
-        "avg_safety_margin": np.mean([
-            m["avg_safety_margin"] for m in all_metrics
-            if m["avg_safety_margin"] > 0
-        ]),
-        "avg_efficiency_penalty": np.mean([
-            m["avg_efficiency_penalty"] for m in all_metrics
-            if m["avg_efficiency_penalty"] > 0
-        ]),
+        "avg_safety_margin": np.mean(
+            [m["avg_safety_margin"] for m in all_metrics if m["avg_safety_margin"] > 0],
+        ),
+        "avg_efficiency_penalty": np.mean(
+            [m["avg_efficiency_penalty"] for m in all_metrics if m["avg_efficiency_penalty"] > 0],
+        ),
         "files_processed": len(all_metrics),
     }
 
@@ -295,9 +306,12 @@ def aggregate_thesis_metrics(results_dir: str) -> dict[str, Any]:
 
     return aggregated
 
+
 # Visualization functions (if plotting is available)
 def plot_metrics_comparison(
-    llm_metrics: dict, baseline_metrics: dict, save_path: Optional[str] = None,
+    llm_metrics: dict,
+    baseline_metrics: dict,
+    save_path: Optional[str] = None,
 ) -> None:
     """Create comparison plots between LLM and baseline metrics."""
     if not PLOTTING_AVAILABLE:
@@ -319,8 +333,8 @@ def plot_metrics_comparison(
     x = np.arange(len(categories))
     width = 0.35
 
-    axes[0, 0].bar(x - width/2, llm_values, width, label="LLM", alpha=0.8)
-    axes[0, 0].bar(x + width/2, baseline_values, width, label="Baseline", alpha=0.8)
+    axes[0, 0].bar(x - width / 2, llm_values, width, label="LLM", alpha=0.8)
+    axes[0, 0].bar(x + width / 2, baseline_values, width, label="Baseline", alpha=0.8)
     axes[0, 0].set_ylabel("Rate")
     axes[0, 0].set_title("Error Rates")
     axes[0, 0].set_xticks(x)
@@ -347,8 +361,8 @@ def plot_metrics_comparison(
     ]
 
     x = np.arange(len(safety_metrics))
-    axes[1, 0].bar(x - width/2, llm_safety, width, label="LLM", alpha=0.8)
-    axes[1, 0].bar(x + width/2, baseline_safety, width, label="Baseline", alpha=0.8)
+    axes[1, 0].bar(x - width / 2, llm_safety, width, label="LLM", alpha=0.8)
+    axes[1, 0].bar(x + width / 2, baseline_safety, width, label="Baseline", alpha=0.8)
     axes[1, 0].set_ylabel("Distance (NM)")
     axes[1, 0].set_title("Safety and Efficiency Metrics")
     axes[1, 0].set_xticks(x)
@@ -372,6 +386,7 @@ def plot_metrics_comparison(
         logging.info("Metrics comparison plot saved to %s", save_path)
     else:
         plt.show()
+
 
 if __name__ == "__main__":
     # Example usage

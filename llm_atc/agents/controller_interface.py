@@ -45,15 +45,18 @@ class ConfidenceLevel(Enum):
     HIGH = "high"
     EXCELLENT = "excellent"
 
+
 class AlertLevel(Enum):
     INFO = "info"
     WARNING = "warning"
     CRITICAL = "critical"
     EMERGENCY = "emergency"
 
+
 @dataclass
 class ConflictDisplay:
     """Conflict information for display"""
+
     conflict_id: str
     aircraft_ids: list[str]
     time_to_conflict: float
@@ -64,14 +67,17 @@ class ConflictDisplay:
     confidence_level: ConfidenceLevel
     safety_flags: list[str]
 
+
 @dataclass
 class OverrideDecision:
     """Controller override decision"""
+
     conflict_id: str
     override_action: str
     reason: str
     timestamp: float
     controller_id: str
+
 
 class SafetyMonitor:
     """Real-time safety monitoring system"""
@@ -87,11 +93,9 @@ class SafetyMonitor:
         self.alerts = []
         self.monitoring_active = False
 
-    def monitor_llm_output(self,
-                          response: dict,
-                          response_time: float,
-                          confidence: float,
-                          uncertainty: float) -> list[str]:
+    def monitor_llm_output(
+        self, response: dict, response_time: float, confidence: float, uncertainty: float,
+    ) -> list[str]:
         """Monitor LLM output for safety concerns"""
 
         alerts = []
@@ -119,14 +123,17 @@ class SafetyMonitor:
 
         # Store alerts for history
         for alert in alerts:
-            self.alerts.append({
-                "timestamp": time.time(),
-                "alert": alert,
-                "response": response,
-            })
+            self.alerts.append(
+                {
+                    "timestamp": time.time(),
+                    "alert": alert,
+                    "response": response,
+                },
+            )
 
         return alerts
         # Removed potential F001 error line
+
     def escalate_to_human(self, conflict_id: str, reason: str) -> bool:
         """Escalate decision to human controller"""
 
@@ -144,15 +151,14 @@ class SafetyMonitor:
         """Get alerts from recent time window"""
 
         current_time = time.time()
-        [
-            alert for alert in self.alerts
+        [alert for alert in self.alerts if current_time - alert["timestamp"] <= time_window]
+
+        return [
+            alert
+            for alert in self.alert_history
             if current_time - alert["timestamp"] <= time_window
         ]
 
-        return [
-            alert for alert in self.alert_history
-            if current_time - alert["timestamp"] <= time_window
-        ]
 
 class ControllerInterface:
     """Main controller interface for human-AI oversight with embodied agent planning loop"""
@@ -274,7 +280,8 @@ class ControllerInterface:
             session_summary = self.scratchpad.complete_session(
                 success=True,
                 final_status=(
-                    "completed" if iteration_count < self.max_planning_iterations
+                    "completed"
+                    if iteration_count < self.max_planning_iterations
                     else "max_iterations_reached"
                 ),
             )
@@ -323,8 +330,9 @@ class ControllerInterface:
                 "timestamp": time.time(),
             }
 
-    def _update_conflict_display(self, assessment: ConflictAssessment,
-                                plan: ActionPlan, _execution: ExecutionResult) -> None:
+    def _update_conflict_display(
+        self, assessment: ConflictAssessment, plan: ActionPlan, _execution: ExecutionResult,
+    ) -> None:
         """Update the UI with current conflict information"""
         try:
             # Create conflict display object
@@ -378,14 +386,18 @@ class ControllerInterface:
             action_str = conflict.llm_recommendation.get("action_type", "unknown")
 
             # Insert into tree
-            item = self.conflicts_tree.insert("", "end", values=(
-                conflict.conflict_id,
-                aircraft_str,
-                time_str,
-                sep_str,
-                conf_str,
-                action_str,
-            ))
+            item = self.conflicts_tree.insert(
+                "",
+                "end",
+                values=(
+                    conflict.conflict_id,
+                    aircraft_str,
+                    time_str,
+                    sep_str,
+                    conf_str,
+                    action_str,
+                ),
+            )
 
             # Store conflict data with tree item
             self.active_conflicts[item] = conflict
@@ -438,8 +450,9 @@ Safety Flags: {', '.join(conflict.safety_flags) if conflict.safety_flags else 'N
         main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
         # Title
-        title_label = ttk.Label(main_frame, text="ATC AI Oversight System",
-                               font=("Arial", 16, "bold"))
+        title_label = ttk.Label(
+            main_frame, text="ATC AI Oversight System", font=("Arial", 16, "bold"),
+        )
         title_label.pack(pady=(0, 10))
 
         # Create notebook for tabs
@@ -470,14 +483,18 @@ Safety Flags: {', '.join(conflict.safety_flags) if conflict.safety_flags else 'N
         """Setup active conflicts display"""
 
         # Conflicts list
-        conflicts_label = ttk.Label(self.conflicts_frame, text="Active Conflicts",
-                                   font=("Arial", 12, "bold"))
+        conflicts_label = ttk.Label(
+            self.conflicts_frame, text="Active Conflicts", font=("Arial", 12, "bold"),
+        )
         conflicts_label.pack(anchor=tk.W, pady=(0, 5))
 
         # Treeview for conflicts
         columns = ("ID", "Aircraft", "Time", "Separation", "Confidence", "Action")
         self.conflicts_tree = ttk.Treeview(
-            self.conflicts_frame, columns=columns, show="headings", height=8,
+            self.conflicts_frame,
+            columns=columns,
+            show="headings",
+            height=8,
         )
 
         for col in columns:
@@ -496,7 +513,9 @@ Safety Flags: {', '.join(conflict.safety_flags) if conflict.safety_flags else 'N
         # Details display
         self.details_text = tk.Text(details_frame, height=8, wrap=tk.WORD)
         details_scrollbar = ttk.Scrollbar(
-            details_frame, orient=tk.VERTICAL, command=self.details_text.yview,
+            details_frame,
+            orient=tk.VERTICAL,
+            command=self.details_text.yview,
         )
         self.details_text.configure(yscrollcommand=details_scrollbar.set)
 
@@ -511,20 +530,23 @@ Safety Flags: {', '.join(conflict.safety_flags) if conflict.safety_flags else 'N
         self.override_entry = ttk.Entry(override_frame, width=40)
         self.override_entry.pack(side=tk.LEFT, padx=(5, 0))
 
-        self.override_button = ttk.Button(override_frame, text="Override",
-                                         command=self._override_decision)
+        self.override_button = ttk.Button(
+            override_frame, text="Override", command=self._override_decision,
+        )
         self.override_button.pack(side=tk.LEFT, padx=(10, 0))
 
-        self.accept_button = ttk.Button(override_frame, text="Accept AI",
-                                       command=self._accept_ai_decision)
+        self.accept_button = ttk.Button(
+            override_frame, text="Accept AI", command=self._accept_ai_decision,
+        )
         self.accept_button.pack(side=tk.LEFT, padx=(5, 0))
 
     def _setup_safety_tab(self) -> None:
         """Setup safety monitoring display"""
 
         # Safety alerts
-        alerts_label = ttk.Label(self.safety_frame, text="Safety Alerts",
-                                font=("Arial", 12, "bold"))
+        alerts_label = ttk.Label(
+            self.safety_frame, text="Safety Alerts", font=("Arial", 12, "bold"),
+        )
         alerts_label.pack(anchor=tk.W, pady=(0, 5))
 
         # Alerts listbox
@@ -532,8 +554,9 @@ Safety Flags: {', '.join(conflict.safety_flags) if conflict.safety_flags else 'N
         alerts_frame.pack(fill=tk.BOTH, expand=True)
 
         self.alerts_listbox = tk.Listbox(alerts_frame, height=10)
-        alerts_scrollbar = ttk.Scrollbar(alerts_frame, orient=tk.VERTICAL,
-                                        command=self.alerts_listbox.yview)
+        alerts_scrollbar = ttk.Scrollbar(
+            alerts_frame, orient=tk.VERTICAL, command=self.alerts_listbox.yview,
+        )
         self.alerts_listbox.configure(yscrollcommand=alerts_scrollbar.set)
 
         self.alerts_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -553,8 +576,9 @@ Safety Flags: {', '.join(conflict.safety_flags) if conflict.safety_flags else 'N
     def _setup_status_tab(self) -> None:
         """Setup system status display"""
 
-        status_label = ttk.Label(self.status_frame, text="System Status",
-                                font=("Arial", 12, "bold"))
+        status_label = ttk.Label(
+            self.status_frame, text="System Status", font=("Arial", 12, "bold"),
+        )
         status_label.pack(anchor=tk.W, pady=(0, 10))
 
         # System info
@@ -575,24 +599,29 @@ Safety Flags: {', '.join(conflict.safety_flags) if conflict.safety_flags else 'N
         control_frame = ttk.Frame(self.status_frame)
         control_frame.pack(fill=tk.X)
 
-        ttk.Button(control_frame, text="Export Report",
-                  command=self._export_report).pack(side=tk.LEFT, padx=(0, 5))
-        ttk.Button(control_frame, text="Reset Alerts",
-                  command=self._reset_alerts).pack(side=tk.LEFT, padx=(0, 5))
-        ttk.Button(control_frame, text="Emergency Stop",
-                  command=self._emergency_stop).pack(side=tk.RIGHT)
+        ttk.Button(control_frame, text="Export Report", command=self._export_report).pack(
+            side=tk.LEFT, padx=(0, 5),
+        )
+        ttk.Button(control_frame, text="Reset Alerts", command=self._reset_alerts).pack(
+            side=tk.LEFT, padx=(0, 5),
+        )
+        ttk.Button(control_frame, text="Emergency Stop", command=self._emergency_stop).pack(
+            side=tk.RIGHT,
+        )
 
     def _setup_history_tab(self) -> None:
         """Setup override history display"""
 
-        history_label = ttk.Label(self.history_frame, text="Override History",
-                                 font=("Arial", 12, "bold"))
+        history_label = ttk.Label(
+            self.history_frame, text="Override History", font=("Arial", 12, "bold"),
+        )
         history_label.pack(anchor=tk.W, pady=(0, 5))
 
         # History treeview
         hist_columns = ("Timestamp", "Conflict ID", "Action", "Reason")
-        self.history_tree = ttk.Treeview(self.history_frame, columns=hist_columns,
-                                        show="headings", height=15)
+        self.history_tree = ttk.Treeview(
+            self.history_frame, columns=hist_columns, show="headings", height=15,
+        )
 
         for col in hist_columns:
             self.history_tree.heading(col, text=col)
@@ -606,23 +635,31 @@ Safety Flags: {', '.join(conflict.safety_flags) if conflict.safety_flags else 'N
         self.active_conflicts[conflict.conflict_id] = conflict
 
         # Add to treeview
-        self.conflicts_tree.insert("", tk.END, iid=conflict.conflict_id, values=(
-            conflict.conflict_id,
-            ", ".join(conflict.aircraft_ids),
-            f"{conflict.time_to_conflict:.0f}s",
-            f"{conflict.current_separation:.1f}NM",
-            conflict.confidence_level.value,
-            conflict.llm_recommendation.get("action", "Unknown"),
-        ))
+        self.conflicts_tree.insert(
+            "",
+            tk.END,
+            iid=conflict.conflict_id,
+            values=(
+                conflict.conflict_id,
+                ", ".join(conflict.aircraft_ids),
+                f"{conflict.time_to_conflict:.0f}s",
+                f"{conflict.current_separation:.1f}NM",
+                conflict.confidence_level.value,
+                conflict.llm_recommendation.get("action", "Unknown"),
+            ),
+        )
 
         # Color code by confidence level
         self._color_code_conflict(conflict.conflict_id, conflict.confidence_level)
 
         # Check for escalation
-        if (conflict.confidence_level in [ConfidenceLevel.CRITICAL, ConfidenceLevel.LOW] or
-            conflict.safety_flags):
-            self.safety_monitor.escalate_to_human(conflict.conflict_id,
-                                                 "Low confidence or safety flags")
+        if (
+            conflict.confidence_level in [ConfidenceLevel.CRITICAL, ConfidenceLevel.LOW]
+            or conflict.safety_flags
+        ):
+            self.safety_monitor.escalate_to_human(
+                conflict.conflict_id, "Low confidence or safety flags",
+            )
 
     def _color_code_conflict(self, conflict_id: str, confidence: ConfidenceLevel) -> None:
         """Color code conflict based on confidence level"""
@@ -746,12 +783,16 @@ Safety Flags:
 
         timestamp_str = time.strftime("%H:%M:%S", time.localtime(override.timestamp))
 
-        self.history_tree.insert("", 0, values=(
-            timestamp_str,
-            override.conflict_id,
-            override.override_action,
-            override.reason,
-        ))
+        self.history_tree.insert(
+            "",
+            0,
+            values=(
+                timestamp_str,
+                override.conflict_id,
+                override.override_action,
+                override.reason,
+            ),
+        )
 
     def _update_metrics_plot(self) -> None:
         """Update safety metrics visualization"""
@@ -881,7 +922,8 @@ Critical Alerts: {len([
                     "action": o.override_action,
                     "reason": o.reason,
                     "timestamp": o.timestamp,
-                } for o in self.override_history
+                }
+                for o in self.override_history
             ],
             "recent_alerts": self.safety_monitor.get_recent_alerts(),
             "system_status": "operational",
@@ -906,9 +948,9 @@ Critical Alerts: {len([
     def _emergency_stop(self) -> None:
         """Emergency stop procedure"""
 
-        if messagebox.askyesno("Emergency Stop",
-                              "This will halt all AI operations. Continue?",
-                              icon="warning"):
+        if messagebox.askyesno(
+            "Emergency Stop", "This will halt all AI operations. Continue?", icon="warning",
+        ):
             self.monitoring_active = False
             logging.critical("EMERGENCY STOP activated by controller")
             messagebox.showwarning("Emergency Stop", "AI operations halted. Manual control only.")
@@ -920,6 +962,7 @@ Critical Alerts: {len([
             self.root.mainloop()
         finally:
             self.monitoring_active = False
+
 
 # Example integration function
 def create_test_interface() -> ControllerInterface:
@@ -952,6 +995,7 @@ def create_test_interface() -> ControllerInterface:
     interface.add_conflict(sample_conflict)
 
     return interface
+
 
 if __name__ == "__main__":
     # Set up logging

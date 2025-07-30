@@ -19,6 +19,7 @@ from sentence_transformers import SentenceTransformer
 @dataclass
 class RetrievedExperience:
     """Container for retrieved experience with similarity score"""
+
     experience_id: str
     experience_data: dict[str, Any]
     similarity_score: float
@@ -31,7 +32,7 @@ class VectorReplayStore:
     with local Chroma HNSW and metadata filtering
     """
 
-    def __init__(self, storage_dir: str = "memory/chroma_experience_library"):
+    def __init__(self, storage_dir: str = "memory/chroma_experience_library") -> None:
         """
         Initialize the replay store
 
@@ -81,11 +82,9 @@ class VectorReplayStore:
                 },
             )
 
-    def retrieve_experience(self,
-                          conflict_desc: str,
-                          conflict_type: str,
-                          num_ac: int,
-                          k: int = 5) -> list[dict]:
+    def retrieve_experience(
+        self, conflict_desc: str, conflict_type: str, num_ac: int, k: int = 5,
+    ) -> list[dict]:
         """
         Retrieve similar experiences using metadata filtering + vector search
 
@@ -108,10 +107,14 @@ class VectorReplayStore:
             )
 
             if not filtered_results["ids"]:
-                self.logger.info("No experiences found for conflict_type=%s, num_ac=%s", conflict_type, num_ac)
+                self.logger.info(
+                    "No experiences found for conflict_type=%s, num_ac=%s", conflict_type, num_ac,
+                )
                 return []
 
-            self.logger.info("Found %d experiences matching metadata filters", len(filtered_results["ids"]))
+            self.logger.info(
+                "Found %d experiences matching metadata filters", len(filtered_results["ids"]),
+            )
 
             # Step 2: Vector search on filtered results
             query_embedding = self.embedding_model.encode(
@@ -136,11 +139,17 @@ class VectorReplayStore:
             experiences = []
             if search_results["ids"] and search_results["ids"][0]:
                 for i, exp_id in enumerate(search_results["ids"][0]):
-                    distance = search_results["distances"][0][i] if search_results["distances"] else 1.0
+                    distance = (
+                        search_results["distances"][0][i] if search_results["distances"] else 1.0
+                    )
                     similarity = 1.0 - distance  # Convert distance to similarity
 
-                    metadata = search_results["metadatas"][0][i] if search_results["metadatas"] else {}
-                    document = search_results["documents"][0][i] if search_results["documents"] else ""
+                    metadata = (
+                        search_results["metadatas"][0][i] if search_results["metadatas"] else {}
+                    )
+                    document = (
+                        search_results["documents"][0][i] if search_results["documents"] else ""
+                    )
 
                     experience_data = {
                         "experience_id": exp_id,
@@ -161,16 +170,18 @@ class VectorReplayStore:
             self.logger.exception("Failed to retrieve experiences")
             return []
 
-    def get_all_experiences(self,
-                           conflict_type: Optional[str] = None,
-                           num_ac: Optional[int] = None,
-                           limit: Optional[int] = None) -> list[dict]:
+    def get_all_experiences(
+        self,
+        conflict_type: Optional[str] = None,
+        num_ac: Optional[int] = None,
+        limit: Optional[int] = None,
+    ) -> list[dict]:
         """
         Get all experiences, optionally filtered by metadata
 
         Args:
             conflict_type: Optional conflict type filter
-            num_ac: Optional number of aircraft filter  
+            num_ac: Optional number of aircraft filter
             limit: Optional limit on number of results
 
         Returns:

@@ -22,6 +22,7 @@ class VerificationStatus(Enum):
 @dataclass
 class VerificationResult:
     """Result of verification check"""
+
     verification_id: str
     execution_id: str
     status: VerificationStatus
@@ -40,7 +41,7 @@ class Verifier:
     Verifier agent responsible for checking execution results and validating safety
     """
 
-    def __init__(self, safety_thresholds: Optional[dict[str, float]] = None):
+    def __init__(self, safety_thresholds: Optional[dict[str, float]] = None) -> None:
         self.logger = logging.getLogger(__name__)
         self.verification_history: list[VerificationResult] = []
 
@@ -66,7 +67,9 @@ class Verifier:
             True if verification passes, False otherwise
         """
         try:
-            self.logger.info("Starting verification for execution %s", execution_result.execution_id)
+            self.logger.info(
+                "Starting verification for execution %s", execution_result.execution_id,
+            )
 
             start_time = time.time()
             verification_id = f"verify_{int(time.time() * 1000)}"
@@ -119,7 +122,9 @@ class Verifier:
             self.logger.exception("Error during verification")
             return False
 
-    def _check_execution_status(self, execution: ExecutionResult, verification: VerificationResult):
+    def _check_execution_status(
+        self, execution: ExecutionResult, verification: VerificationResult,
+    ) -> None:
         """Check if execution completed successfully"""
         check_name = "execution_status"
         verification.checks_performed.append(check_name)
@@ -131,9 +136,13 @@ class Verifier:
         elif execution.status == ExecutionStatus.CANCELLED:
             verification.failed_checks.append(f"{check_name}: Execution was cancelled")
         else:
-            verification.warnings.append(f"{check_name}: Execution status is {execution.status.value}")
+            verification.warnings.append(
+                f"{check_name}: Execution status is {execution.status.value}",
+            )
 
-    def _check_execution_timing(self, execution: ExecutionResult, verification: VerificationResult):
+    def _check_execution_timing(
+        self, execution: ExecutionResult, verification: VerificationResult,
+    ) -> None:
         """Check execution timing constraints"""
         check_name = "execution_timing"
         verification.checks_performed.append(check_name)
@@ -143,11 +152,17 @@ class Verifier:
         if execution.execution_time <= max_time:
             verification.passed_checks.append(check_name)
         elif execution.execution_time <= max_time * 1.5:  # 50% tolerance for warnings
-            verification.warnings.append(f"{check_name}: Execution took {execution.execution_time:.2f}s (limit: {max_time}s)")
+            verification.warnings.append(
+                f"{check_name}: Execution took {execution.execution_time:.2f}s (limit: {max_time}s)",
+            )
         else:
-            verification.failed_checks.append(f"{check_name}: Execution too slow ({execution.execution_time:.2f}s > {max_time}s)")
+            verification.failed_checks.append(
+                f"{check_name}: Execution too slow ({execution.execution_time:.2f}s > {max_time}s)",
+            )
 
-    def _check_command_success_rate(self, execution: ExecutionResult, verification: VerificationResult):
+    def _check_command_success_rate(
+        self, execution: ExecutionResult, verification: VerificationResult,
+    ) -> None:
         """Check command success rate"""
         check_name = "command_success_rate"
         verification.checks_performed.append(check_name)
@@ -157,11 +172,17 @@ class Verifier:
         if execution.success_rate >= min_success_rate:
             verification.passed_checks.append(check_name)
         elif execution.success_rate >= min_success_rate * 0.8:  # 80% of minimum for warnings
-            verification.warnings.append(f"{check_name}: Low success rate ({execution.success_rate:.2f} < {min_success_rate})")
+            verification.warnings.append(
+                f"{check_name}: Low success rate ({execution.success_rate:.2f} < {min_success_rate})",
+            )
         else:
-            verification.failed_checks.append(f"{check_name}: Success rate too low ({execution.success_rate:.2f} < {min_success_rate})")
+            verification.failed_checks.append(
+                f"{check_name}: Success rate too low ({execution.success_rate:.2f} < {min_success_rate})",
+            )
 
-    def _check_safety_compliance(self, execution: ExecutionResult, verification: VerificationResult):
+    def _check_safety_compliance(
+        self, execution: ExecutionResult, verification: VerificationResult,
+    ) -> None:
         """Check safety compliance of executed commands"""
         check_name = "safety_compliance"
         verification.checks_performed.append(check_name)
@@ -176,9 +197,13 @@ class Verifier:
         if not safety_violations:
             verification.passed_checks.append(check_name)
         else:
-            verification.failed_checks.append(f"{check_name}: Unsafe commands detected: {safety_violations}")
+            verification.failed_checks.append(
+                f"{check_name}: Unsafe commands detected: {safety_violations}",
+            )
 
-    def _check_response_validity(self, execution: ExecutionResult, verification: VerificationResult):
+    def _check_response_validity(
+        self, execution: ExecutionResult, verification: VerificationResult,
+    ) -> None:
         """Check validity of command responses"""
         check_name = "response_validity"
         verification.checks_performed.append(check_name)
@@ -192,9 +217,13 @@ class Verifier:
         if not invalid_responses:
             verification.passed_checks.append(check_name)
         elif len(invalid_responses) <= len(execution.responses) * 0.2:  # 20% tolerance
-            verification.warnings.append(f"{check_name}: Some invalid responses: {invalid_responses}")
+            verification.warnings.append(
+                f"{check_name}: Some invalid responses: {invalid_responses}",
+            )
         else:
-            verification.failed_checks.append(f"{check_name}: Too many invalid responses: {invalid_responses}")
+            verification.failed_checks.append(
+                f"{check_name}: Too many invalid responses: {invalid_responses}",
+            )
 
     def _is_unsafe_command(self, command: str) -> bool:
         """Check if a command is potentially unsafe"""
@@ -241,10 +270,7 @@ class Verifier:
             return False
 
         # Check for success indication or error details
-        if not response.get("success", False) and not response.get("error"):
-            return False
-
-        return True
+        return not (not response.get("success", False) and not response.get("error"))
 
     def _calculate_safety_score(self, verification: VerificationResult) -> float:
         """Calculate overall safety score based on verification results"""
@@ -300,9 +326,16 @@ class Verifier:
             }
 
         total_verifications = len(self.verification_history)
-        passed_verifications = len([v for v in self.verification_history
-                                  if v.status in [VerificationStatus.PASSED, VerificationStatus.WARNING]])
-        avg_safety_score = sum(v.safety_score for v in self.verification_history) / total_verifications
+        passed_verifications = len(
+            [
+                v
+                for v in self.verification_history
+                if v.status in [VerificationStatus.PASSED, VerificationStatus.WARNING]
+            ],
+        )
+        avg_safety_score = (
+            sum(v.safety_score for v in self.verification_history) / total_verifications
+        )
         avg_confidence = sum(v.confidence for v in self.verification_history) / total_verifications
 
         return {

@@ -28,6 +28,7 @@ class StepType(Enum):
 @dataclass
 class ReasoningStep:
     """Individual step in the reasoning process"""
+
     step_id: str
     step_type: StepType
     timestamp: float
@@ -42,6 +43,7 @@ class ReasoningStep:
 @dataclass
 class SessionSummary:
     """Summary of a complete reasoning session"""
+
     session_id: str
     start_time: float
     end_time: float
@@ -60,7 +62,7 @@ class Scratchpad:
     Scratchpad agent for logging step-by-step reasoning and maintaining session history
     """
 
-    def __init__(self, session_id: Optional[str] = None):
+    def __init__(self, session_id: Optional[str] = None) -> None:
         self.session_id = session_id or f"session_{int(time.time() * 1000)}"
         self.logger = logging.getLogger(__name__)
 
@@ -273,9 +275,13 @@ class Scratchpad:
 
     def get_recent_steps(self, count: int = 5) -> list[ReasoningStep]:
         """Get the most recent steps"""
-        return self.current_steps[-count:] if count <= len(self.current_steps) else self.current_steps
+        return (
+            self.current_steps[-count:] if count <= len(self.current_steps) else self.current_steps
+        )
 
-    def complete_session(self, success: bool = True, final_status: str = "completed") -> SessionSummary:
+    def complete_session(
+        self, success: bool = True, final_status: str = "completed",
+    ) -> SessionSummary:
         """
         Complete the current session and generate summary
 
@@ -434,8 +440,10 @@ class Scratchpad:
             "duration": time.time() - self.session_start_time,
             "total_steps": len(self.current_steps),
             "average_confidence": self._calculate_average_confidence(),
-            "step_types": {step_type.value: len(self.get_steps_by_type(step_type))
-                          for step_type in StepType},
+            "step_types": {
+                step_type.value: len(self.get_steps_by_type(step_type)) for step_type in StepType
+            },
             "error_count": len(self.get_steps_by_type(StepType.ERROR)),
-            "completion_rate": len([s for s in self.current_steps if s.confidence > 0.7]) / len(self.current_steps),
+            "completion_rate": len([s for s in self.current_steps if s.confidence > 0.7])
+            / len(self.current_steps),
         }
