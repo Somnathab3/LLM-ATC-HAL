@@ -28,16 +28,6 @@ python deficiency_check_fixed.py
 python comprehensive_hallucination_tester_v2.py
 ```
 
-## 📊 Latest Performance Results
-
-| Metric | Current Performance |
-|--------|-------------------|
-| **Error Rate** | 0.00% ✅ |
-| **Test Success Rate** | 100% (39/39 tests) |
-| **Response Time (Mean)** | 0.002s |
-| **Hallucination Detection Rate** | 0.00% false positives |
-| **ICAO Compliance Rate** | 76.92% |
-| **Critical Safety Margin Rate** | 23.08% |
 
 ## 🏗️ System Architecture
 
