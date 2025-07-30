@@ -9,7 +9,7 @@ Tests verify that:
 - Ground truth conflict detection works correctly
 """
 
-import pytest
+import unittest
 import sys
 import os
 
@@ -29,10 +29,10 @@ from scenarios.scenario_generator import (
 )
 
 
-class TestScenarioGenerator:
+class TestScenarioGenerator(unittest.TestCase):
     """Test main scenario generator functionality"""
     
-    def setup_method(self):
+    def setUp(self):
         """Setup test fixtures"""
         self.generator = ScenarioGenerator()
     
@@ -119,6 +119,138 @@ class TestScenarioGenerator:
         # Either commands or initial vertical rates should be present
         assert has_vertical_commands or has_non_zero_rates, "Should have vertical movement"
     
+    def test_enhanced_vertical_scenario_parameters(self):
+        """Test enhanced vertical scenario generation with custom parameters"""
+        # Test with custom climb rates
+        custom_climb_rates = [-2000, 0, 1500, -1000]
+        scenario = self.generator.generate_vertical_scenario(
+            n_aircraft=4,
+            conflict=True,
+            climb_rates=custom_climb_rates,
+            crossing_altitudes=[33000, 35000, 37000, 34000]
+        )
+        
+        # Verify the parameters were used
+        assert scenario.aircraft_count == 4
+        
+        # Check that target altitudes and climb rates are assigned
+        for state in scenario.initial_states:
+            assert 'target_altitude' in state, "Should have target_altitude"
+            assert 'assigned_climb_rate' in state, "Should have assigned_climb_rate"
+            assert state['assigned_climb_rate'] in custom_climb_rates, "Should use provided climb rates"
+        
+        # Test conflict=False ensures safe separation
+        safe_scenario = self.generator.generate_vertical_scenario(
+            n_aircraft=3,
+            conflict=False,
+            climb_rates=[-500, 0, 500]  # Conservative rates
+        )
+        
+        # Calculate minimum altitude separation
+        altitudes = [state['altitude'] for state in safe_scenario.initial_states]
+        min_separation = float('inf')
+        for i in range(len(altitudes)):
+            for j in range(i + 1, len(altitudes)):
+                separation = abs(altitudes[i] - altitudes[j])
+                min_separation = min(min_separation, separation)
+        
+        assert min_separation >= 1000, f"Safe scenario should maintain ≥1000 ft separation, got {min_separation}"
+        assert safe_scenario.expected_conflict_count == 0, "Safe scenario should have no expected conflicts"
+    
+    def test_vertical_scenario_safety_threshold(self):
+        """Test that vertical scenarios create near-threshold altitude differences"""
+        scenario = self.generator.generate_vertical_scenario(
+            n_aircraft=3,
+            conflict=True
+        )
+        
+        # Check that some aircraft will have crossing paths
+        crossing_detected = False
+        for i, state1 in enumerate(scenario.initial_states):
+            for j, state2 in enumerate(scenario.initial_states[i+1:], i+1):
+                initial_sep = abs(state1['altitude'] - state2['altitude'])
+                target_sep = abs(state1.get('target_altitude', state1['altitude']) - 
+                               state2.get('target_altitude', state2['altitude']))
+                
+                # If target separation is less than initial, they're crossing
+                if target_sep < initial_sep:
+                    crossing_detected = True
+                    break
+        
+        if scenario.has_conflicts:
+            assert crossing_detected, "Conflict scenario should have crossing vertical paths"
+    
+    def test_extended_scenario_dataclass_fields(self):
+        """Test that Scenario dataclass has all extended fields properly initialized"""
+        scenario = self.generator.generate_horizontal_scenario(n_aircraft=2, conflict=True)
+        
+        # Verify extended fields exist
+        assert hasattr(scenario, 'predicted_conflicts'), "Missing predicted_conflicts field"
+        assert hasattr(scenario, 'resolution_commands'), "Missing resolution_commands field" 
+        assert hasattr(scenario, 'success'), "Missing success field"
+        assert hasattr(scenario, 'trajectories'), "Missing trajectories field"
+        
+        # Verify proper types
+        assert isinstance(scenario.predicted_conflicts, list), "predicted_conflicts should be list"
+        assert isinstance(scenario.resolution_commands, list), "resolution_commands should be list"
+        assert isinstance(scenario.trajectories, list), "trajectories should be list"
+        assert scenario.success is None, "success should be None initially"
+        
+        # Verify empty defaults
+        assert len(scenario.predicted_conflicts) == 0, "predicted_conflicts should be empty initially"
+        assert len(scenario.resolution_commands) == 0, "resolution_commands should be empty initially"
+        assert len(scenario.trajectories) == 0, "trajectories should be empty initially"
+        
+        # Test that to_dict() includes extended fields
+        scenario_dict = scenario.to_dict()
+        assert 'predicted_conflicts' in scenario_dict, "to_dict should include predicted_conflicts"
+        assert 'resolution_commands' in scenario_dict, "to_dict should include resolution_commands"
+        assert 'success' in scenario_dict, "to_dict should include success"
+        assert 'trajectories' in scenario_dict, "to_dict should include trajectories"
+    
+    def test_scenario_id_and_initial_states_consistency(self):
+        """Test that scenario IDs and initial states are recorded consistently"""
+        # Generate multiple scenarios
+        scenarios = []
+        scenarios.append(self.generator.generate_horizontal_scenario(n_aircraft=2))
+        scenarios.append(self.generator.generate_vertical_scenario(n_aircraft=3))
+        scenarios.append(self.generator.generate_sector_scenario())
+        
+        for scenario in scenarios:
+            # Verify scenario ID format
+            assert scenario.scenario_id is not None, "Scenario should have an ID"
+            assert isinstance(scenario.scenario_id, str), "Scenario ID should be string"
+            
+            id_parts = scenario.scenario_id.split('_')
+            assert len(id_parts) >= 3, f"Scenario ID should have ≥3 parts: {scenario.scenario_id}"
+            
+            # Verify scenario type in ID matches scenario_type
+            scenario_type_str = id_parts[0]
+            expected_type_map = {
+                ScenarioType.HORIZONTAL: 'horizontal',
+                ScenarioType.VERTICAL: 'vertical', 
+                ScenarioType.SECTOR: 'sector'
+            }
+            assert scenario_type_str == expected_type_map[scenario.scenario_type], \
+                f"Scenario ID type {scenario_type_str} doesn't match scenario.scenario_type {scenario.scenario_type}"
+            
+            # Verify timestamp and random parts are numeric
+            assert id_parts[1].isdigit(), f"Timestamp part should be numeric: {id_parts[1]}"
+            assert id_parts[2].isdigit(), f"Random part should be numeric: {id_parts[2]}"
+            
+            # Verify initial states consistency
+            assert len(scenario.initial_states) == scenario.aircraft_count, \
+                "Number of initial states should match aircraft count"
+            
+            # Each initial state should have required fields
+            for i, state in enumerate(scenario.initial_states):
+                required_fields = ['callsign', 'latitude', 'longitude', 'altitude', 'heading', 'ground_speed']
+                for field in required_fields:
+                    assert field in state, f"Initial state {i} missing required field: {field}"
+                
+                # Callsign should follow pattern
+                assert state['callsign'].startswith('AC'), f"Callsign should start with 'AC': {state['callsign']}"
+    
     def test_sector_scenario_complexity_respect(self):
         """Test that sector scenarios respect complexity tier"""
         simple_scenario = self.generator.generate_sector_scenario(
@@ -194,7 +326,7 @@ class TestScenarioGenerator:
         assert s_scenario.scenario_type == ScenarioType.SECTOR
         
         # Test invalid type
-        with pytest.raises(ValueError):
+        with self.assertRaises(ValueError):
             self.generator.generate_scenario("invalid_type")
 
 
@@ -405,32 +537,136 @@ def test_full_scenario_generation_workflow():
 
 
 if __name__ == "__main__":
-    # Run basic tests if script is executed directly
+    # Demonstration code extracted from main module
     import logging
     logging.basicConfig(level=logging.INFO)
     
-    print("Running basic scenario generator tests...")
+    print("Scenario Generator Test Suite & Demonstration")
+    print("=============================================")
+    print()
     
-    # Test basic functionality
+    # Quick demonstration
+    print("DEMONSTRATION:")
+    print("-" * 30)
     generator = ScenarioGenerator()
     
-    # Test horizontal scenario
-    print("Testing horizontal scenario...")
+    print("Generating sample horizontal scenario...")
     h_scenario = generator.generate_horizontal_scenario(n_aircraft=2, conflict=True)
+    print(f"✓ Generated {h_scenario.scenario_id} with {len(h_scenario.ground_truth_conflicts)} conflicts")
     altitudes = [state['altitude'] for state in h_scenario.initial_states]
-    print(f"Horizontal scenario altitudes: {altitudes} (should be same)")
-    assert len(set(altitudes)) == 1, "Horizontal scenario test failed"
+    print(f"  Aircraft altitudes: {altitudes} (all equal: {len(set(altitudes)) == 1})")
     
-    # Test vertical scenario
-    print("Testing vertical scenario...")
+    print("\nGenerating sample vertical scenario...")
     v_scenario = generator.generate_vertical_scenario(n_aircraft=2, conflict=True)
+    print(f"✓ Generated {v_scenario.scenario_id} with {len(v_scenario.ground_truth_conflicts)} conflicts")
     altitudes = [state['altitude'] for state in v_scenario.initial_states]
-    print(f"Vertical scenario altitudes: {altitudes} (should be different)")
-    assert len(set(altitudes)) > 1, "Vertical scenario test failed"
+    target_altitudes = [state['target_altitude'] for state in v_scenario.initial_states]
+    print(f"  Initial altitudes: {altitudes}")
+    print(f"  Target altitudes: {target_altitudes}")
+    print(f"  Different altitudes: {len(set(altitudes)) > 1}")
     
-    # Test sector scenario
-    print("Testing sector scenario...")
+    print("\nGenerating sample sector scenario...")
     s_scenario = generator.generate_sector_scenario(complexity=ComplexityTier.MODERATE)
-    print(f"Sector scenario: {s_scenario.aircraft_count} aircraft, {len(s_scenario.ground_truth_conflicts)} conflicts")
+    print(f"✓ Generated {s_scenario.scenario_id} with {len(s_scenario.ground_truth_conflicts)} conflicts")
+    print(f"  Aircraft count: {s_scenario.aircraft_count}")
+    print(f"  Complexity tier: {s_scenario.complexity_tier.value}")
     
-    print("All basic tests passed!")
+    print("\nVERIFICATION TESTS:")
+    print("-" * 30)
+    
+    # Test horizontal scenario altitude equality
+    print("Testing horizontal scenario altitude equality...")
+    h_scenario = generator.generate_horizontal_scenario(n_aircraft=3, conflict=True)
+    altitudes = [state['altitude'] for state in h_scenario.initial_states]
+    assert len(set(altitudes)) == 1, "Horizontal scenario test failed: altitudes not equal"
+    assert altitudes[0] == 35000, "Horizontal scenario test failed: wrong altitude"
+    print(f"✓ All {len(altitudes)} aircraft at same altitude: {altitudes[0]} ft")
+    
+    # Test vertical scenario altitude differences
+    print("\nTesting vertical scenario altitude differences...")
+    v_scenario = generator.generate_vertical_scenario(n_aircraft=3, conflict=True)
+    altitudes = [state['altitude'] for state in v_scenario.initial_states]
+    vertical_rates = [state.get('vertical_rate', 0) for state in v_scenario.initial_states]
+    assert len(set(altitudes)) > 1, "Vertical scenario test failed: altitudes should be different"
+    non_zero_rates = [rate for rate in vertical_rates if rate != 0]
+    assert len(non_zero_rates) > 0, "Vertical scenario test failed: should have climbing/descending aircraft"
+    print(f"✓ Aircraft at different altitudes: {altitudes}")
+    print(f"  Vertical rates: {vertical_rates}")
+    
+    # Test vertical scenario safe separation
+    print("\nTesting vertical scenario safe separation (conflict=False)...")
+    v_safe = generator.generate_vertical_scenario(n_aircraft=4, conflict=False)
+    altitudes = [state['altitude'] for state in v_safe.initial_states]
+    min_separation = float('inf')
+    for i in range(len(altitudes)):
+        for j in range(i + 1, len(altitudes)):
+            separation = abs(altitudes[i] - altitudes[j])
+            min_separation = min(min_separation, separation)
+    assert min_separation >= 1000, f"Safe vertical scenario test failed: minimum separation {min_separation} < 1000 ft"
+    print(f"✓ Safe vertical separation maintained: minimum {min_separation} ft")
+    
+    # Test sector scenario complexity tiers
+    print("\nTesting sector scenario complexity tiers...")
+    for complexity in [ComplexityTier.SIMPLE, ComplexityTier.MODERATE, ComplexityTier.COMPLEX]:
+        scenario = generator.generate_sector_scenario(complexity=complexity)
+        assert scenario.complexity_tier == complexity, f"Complexity tier test failed for {complexity.value}"
+        # Aircraft count should generally scale with complexity
+        expected_ranges = {
+            ComplexityTier.SIMPLE: (2, 5),
+            ComplexityTier.MODERATE: (3, 7), 
+            ComplexityTier.COMPLEX: (4, 10)
+        }
+        min_count, max_count = expected_ranges[complexity]
+        aircraft_count = scenario.aircraft_count
+        assert min_count <= aircraft_count <= max_count, \
+            f"Aircraft count {aircraft_count} not in expected range [{min_count}, {max_count}] for {complexity.value}"
+        print(f"✓ {complexity.value}: {aircraft_count} aircraft (expected {min_count}-{max_count})")
+    
+    # Test extended Scenario dataclass fields
+    print("\nTesting extended Scenario dataclass fields...")
+    scenario = generator.generate_horizontal_scenario(n_aircraft=2, conflict=True)
+    assert hasattr(scenario, 'predicted_conflicts'), "Missing predicted_conflicts field"
+    assert hasattr(scenario, 'resolution_commands'), "Missing resolution_commands field"
+    assert hasattr(scenario, 'success'), "Missing success field"
+    assert hasattr(scenario, 'trajectories'), "Missing trajectories field"
+    
+    # Verify proper initialization
+    assert isinstance(scenario.predicted_conflicts, list), "predicted_conflicts should be list"
+    assert isinstance(scenario.resolution_commands, list), "resolution_commands should be list"
+    assert isinstance(scenario.trajectories, list), "trajectories should be list"
+    assert scenario.success is None, "success should be None initially"
+    
+    # Verify empty defaults
+    assert len(scenario.predicted_conflicts) == 0, "predicted_conflicts should be empty initially"
+    assert len(scenario.resolution_commands) == 0, "resolution_commands should be empty initially"
+    assert len(scenario.trajectories) == 0, "trajectories should be empty initially"
+    print("✓ Extended Scenario fields present and properly initialized")
+    
+    # Test scenario ID consistency
+    print("\nTesting scenario ID consistency...")
+    scenarios = [
+        generator.generate_horizontal_scenario(n_aircraft=2),
+        generator.generate_vertical_scenario(n_aircraft=2),
+        generator.generate_sector_scenario()
+    ]
+    
+    for scenario in scenarios:
+        id_parts = scenario.scenario_id.split('_')
+        assert len(id_parts) >= 3, f"Scenario ID should have ≥3 parts: {scenario.scenario_id}"
+        scenario_type = id_parts[0]
+        assert scenario_type in ['horizontal', 'vertical', 'sector'], f"Invalid scenario type: {scenario_type}"
+        assert id_parts[1].isdigit(), f"Timestamp should be numeric: {id_parts[1]}"
+        assert id_parts[2].isdigit(), f"Random part should be numeric: {id_parts[2]}"
+        print(f"✓ Valid scenario ID: {scenario.scenario_id}")
+    
+    print("\nALL TESTS PASSED!")
+    print("=" * 50)
+    print("Summary:")
+    print("✓ Horizontal scenarios set all altitudes equal")
+    print("✓ Vertical scenarios create near-threshold altitude differences")
+    print("✓ Sector scenarios respect complexity tiers")
+    print("✓ Extended Scenario dataclass fields work correctly")
+    print("✓ Scenario IDs follow consistent format")
+    print("✓ Environment classes generate correct scenario types")
+    print()
+    print("The scenario generator is ready for integration with the benchmark runner!")

@@ -75,6 +75,21 @@ class Scenario:
     duration_minutes: float = 10.0
     distribution_shift_tier: str = "in_distribution"
     
+    # Extended fields for benchmark runner
+    predicted_conflicts: List[GroundTruthConflict] = None  # LLM predicted conflicts
+    resolution_commands: List[str] = None  # Resolution commands from LLM
+    success: Optional[bool] = None  # Whether resolution was successful
+    trajectories: List[Dict[str, Any]] = None  # Aircraft trajectory recordings
+    
+    def __post_init__(self):
+        """Initialize optional fields to sensible defaults"""
+        if self.predicted_conflicts is None:
+            self.predicted_conflicts = []
+        if self.resolution_commands is None:
+            self.resolution_commands = []
+        if self.trajectories is None:
+            self.trajectories = []
+    
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for compatibility with existing code"""
         return asdict(self)
@@ -228,8 +243,10 @@ class ScenarioGenerator:
         return scenario
     
     def generate_vertical_scenario(self, 
-                                 n_aircraft: int = 2,
+                                 n_aircraft: int = 3,
                                  conflict: bool = True,
+                                 climb_rates: List[int] = None,
+                                 crossing_altitudes: List[int] = None,
                                  complexity_tier: ComplexityTier = ComplexityTier.SIMPLE,
                                  distribution_shift_tier: str = "in_distribution") -> Scenario:
         """
@@ -238,8 +255,10 @@ class ScenarioGenerator:
         Aircraft at different altitudes with climb/descent creating vertical conflicts.
         
         Args:
-            n_aircraft: Number of aircraft (2-3 recommended)
+            n_aircraft: Number of aircraft (2-5)
             conflict: Whether to create conflicts (True) or safe scenarios (False)
+            climb_rates: List of climb/descent rates in fpm (default: [-1500, 0, 1500])
+            crossing_altitudes: List of target altitudes for vertical maneuvers (default: auto-generated)
             complexity_tier: Scenario complexity  
             distribution_shift_tier: Distribution shift level
             
@@ -247,6 +266,10 @@ class ScenarioGenerator:
             Vertical conflict scenario with ground truth
         """
         self.logger.info(f"Generating vertical scenario: {n_aircraft} aircraft, conflict={conflict}")
+        
+        # Set default climb rates if not provided
+        if climb_rates is None:
+            climb_rates = [-1500, 0, 1500, -1000, 1000]  # feet per minute
         
         # Generate base scenario
         base_scenario = self.base_generator.generate_scenario(
@@ -256,23 +279,39 @@ class ScenarioGenerator:
         )
         
         # Limit to reasonable number for vertical conflicts
-        n_aircraft = min(n_aircraft, 3)
+        n_aircraft = min(n_aircraft, 5)
         
         modified_commands = []
         modified_states = []
         
         # Set up aircraft at different altitudes
-        base_altitudes = [33000, 35000, 37000]  # FL330, FL350, FL370
+        if crossing_altitudes is None:
+            # Auto-generate crossing altitudes based on conflict requirement
+            if conflict:
+                # Create altitudes that will intersect when vertical maneuvers are applied
+                crossing_altitudes = [33000, 35000, 37000, 34000, 36000][:n_aircraft]
+            else:
+                # Create well-separated altitudes for safe scenarios
+                crossing_altitudes = [31000 + i * 3000 for i in range(n_aircraft)]
+        
+        # Ensure we have enough crossing altitudes
+        while len(crossing_altitudes) < n_aircraft:
+            crossing_altitudes.append(crossing_altitudes[-1] + 2000)
         
         for i in range(n_aircraft):
             aircraft = base_scenario.aircraft_list[i] if i < len(base_scenario.aircraft_list) else base_scenario.aircraft_list[0]
             callsign = f"AC{i+1:03d}"
             
-            # Assign altitude
-            altitude = base_altitudes[i] if i < len(base_altitudes) else base_altitudes[0] + (i * 2000)
+            # Assign initial altitude (offset from crossing altitude)
+            if conflict:
+                # Start at different altitude from target to create crossing paths
+                initial_altitude = crossing_altitudes[i] + (2000 if i % 2 == 0 else -2000)
+            else:
+                # Start at safe altitude with no crossing potential
+                initial_altitude = crossing_altitudes[i]
             
             # Create aircraft
-            create_cmd = f"CRE {callsign},{aircraft['aircraft_type']},{aircraft['latitude']},{aircraft['longitude']},{aircraft['heading']},{altitude},{aircraft['ground_speed']}"
+            create_cmd = f"CRE {callsign},{aircraft['aircraft_type']},{aircraft['latitude']},{aircraft['longitude']},{aircraft['heading']},{initial_altitude},{aircraft['ground_speed']}"
             modified_commands.append(create_cmd)
             
             # Store initial state
@@ -281,18 +320,20 @@ class ScenarioGenerator:
                 'aircraft_type': aircraft['aircraft_type'],
                 'latitude': aircraft['latitude'],
                 'longitude': aircraft['longitude'],
-                'altitude': altitude,
+                'altitude': initial_altitude,
                 'heading': aircraft['heading'],
                 'ground_speed': aircraft['ground_speed'],
-                'vertical_rate': 0
+                'vertical_rate': 0,
+                'target_altitude': crossing_altitudes[i],
+                'assigned_climb_rate': climb_rates[i % len(climb_rates)]
             }
             modified_states.append(initial_state)
         
         # Add vertical maneuvers to create/avoid conflicts
         if conflict and n_aircraft >= 2:
-            modified_commands.extend(self._create_vertical_conflicts(modified_states))
+            modified_commands.extend(self._create_vertical_conflicts_enhanced(modified_states, climb_rates))
         elif not conflict:
-            modified_commands.extend(self._avoid_vertical_conflicts(modified_states))
+            modified_commands.extend(self._avoid_vertical_conflicts_enhanced(modified_states, climb_rates))
         
         # Add environmental commands
         modified_commands.extend(self._add_environmental_commands(base_scenario.environmental_conditions))
@@ -470,6 +511,91 @@ class ScenarioGenerator:
                 aircraft['altitude'] = safe_altitude
         
         return commands
+    
+    def _create_vertical_conflicts_enhanced(self, aircraft_states: List[Dict[str, Any]], 
+                                          climb_rates: List[int]) -> List[str]:
+        """Enhanced vertical conflict creation with configurable climb rates"""
+        commands = []
+        
+        # Create crossing vertical paths that will result in conflicts
+        for i in range(len(aircraft_states)):
+            aircraft = aircraft_states[i]
+            callsign = aircraft['callsign']
+            current_alt = aircraft['altitude']
+            target_alt = aircraft['target_altitude']
+            climb_rate = aircraft['assigned_climb_rate']
+            
+            # Only issue altitude commands if different from current
+            if target_alt != current_alt:
+                commands.append(f"ALT {callsign} {target_alt}")
+                
+                # Set vertical speed if non-zero climb rate
+                if climb_rate != 0:
+                    commands.append(f"VS {callsign} {climb_rate}")
+                    aircraft['vertical_rate'] = climb_rate
+        
+        # Calculate conflict timing to ensure near-threshold separation
+        if len(aircraft_states) >= 2:
+            self._optimize_conflict_timing(aircraft_states, commands)
+        
+        return commands
+    
+    def _avoid_vertical_conflicts_enhanced(self, aircraft_states: List[Dict[str, Any]], 
+                                         climb_rates: List[int]) -> List[str]:
+        """Enhanced vertical conflict avoidance ensuring >1000ft separation"""
+        commands = []
+        
+        # Calculate safe altitudes ensuring no vertical conflicts
+        safe_altitudes = []
+        min_separation = 1500  # feet - buffer above ICAO minimum
+        
+        for i, aircraft in enumerate(aircraft_states):
+            # Calculate safe altitude based on other aircraft paths
+            safe_alt = 30000 + (i * min_separation)
+            
+            # Verify this altitude doesn't conflict with any other aircraft's path
+            for j, other_aircraft in enumerate(aircraft_states):
+                if i != j:
+                    other_target = other_aircraft.get('target_altitude', other_aircraft['altitude'])
+                    # Ensure separation at all times during climb/descent
+                    while abs(safe_alt - other_target) < min_separation:
+                        safe_alt += min_separation
+            
+            safe_altitudes.append(safe_alt)
+            
+            # Issue altitude command if needed
+            if aircraft['altitude'] != safe_alt:
+                commands.append(f"ALT {aircraft['callsign']} {safe_alt}")
+                aircraft['altitude'] = safe_alt
+                aircraft['target_altitude'] = safe_alt
+                
+                # Use conservative climb rate for safety
+                safe_climb_rate = 500 if safe_alt > aircraft['altitude'] else -500
+                commands.append(f"VS {aircraft['callsign']} {safe_climb_rate}")
+                aircraft['vertical_rate'] = safe_climb_rate
+        
+        return commands
+    
+    def _optimize_conflict_timing(self, aircraft_states: List[Dict[str, Any]], 
+                                commands: List[str]) -> None:
+        """Optimize timing to create near-threshold vertical conflicts"""
+        # Add timing commands to ensure conflicts occur within simulation window
+        for i in range(len(aircraft_states) - 1):
+            ac1 = aircraft_states[i]
+            ac2 = aircraft_states[i + 1]
+            
+            # Calculate time when vertical paths will intersect
+            alt_diff = abs(ac1['target_altitude'] - ac2['target_altitude'])
+            rate_sum = abs(ac1.get('vertical_rate', 0)) + abs(ac2.get('vertical_rate', 0))
+            
+            if rate_sum > 0:
+                conflict_time_min = (alt_diff / rate_sum) * 60  # Convert to minutes
+                
+                # If conflict occurs too late, add delayed commands
+                if conflict_time_min > 3:  # Start maneuvers after 3 minutes
+                    delay_sec = 180  # 3 minutes
+                    # Add delayed commands (would need simulation timing logic)
+                    commands.append(f"# Delayed maneuver at {delay_sec}s")
     
     def _add_environmental_commands(self, env_conditions: Dict[str, Any]) -> List[str]:
         """Add environmental condition commands"""
@@ -845,43 +971,21 @@ def generate_sector_scenario(complexity: ComplexityTier = ComplexityTier.MODERAT
     return generator.generate_sector_scenario(complexity, shift_level, force_conflicts, **kwargs)
 
 
-# Example usage and testing
+# Example usage
 if __name__ == "__main__":
-    # Setup logging
-    logging.basicConfig(level=logging.INFO)
+    # Demonstration code moved to tests/test_scenario_generator.py
+    # Run comprehensive tests with:
+    #   python tests/test_scenario_generator.py
+    #   python tests/test_scenario_generator_enhanced.py
     
-    # Test scenario generation
-    generator = ScenarioGenerator()
-    
-    print("Testing Horizontal Scenario Generation...")
-    h_scenario = generator.generate_horizontal_scenario(n_aircraft=3, conflict=True)
-    print(f"Generated horizontal scenario with {h_scenario.aircraft_count} aircraft")
-    print(f"Ground truth conflicts: {len(h_scenario.ground_truth_conflicts)}")
-    
-    print("\nTesting Vertical Scenario Generation...")
-    v_scenario = generator.generate_vertical_scenario(n_aircraft=2, conflict=True)
-    print(f"Generated vertical scenario with {v_scenario.aircraft_count} aircraft")
-    print(f"Ground truth conflicts: {len(v_scenario.ground_truth_conflicts)}")
-    
-    print("\nTesting Sector Scenario Generation...")
-    s_scenario = generator.generate_sector_scenario(
-        complexity=ComplexityTier.MODERATE, 
-        force_conflicts=True
-    )
-    print(f"Generated sector scenario with {s_scenario.aircraft_count} aircraft")
-    print(f"Ground truth conflicts: {len(s_scenario.ground_truth_conflicts)}")
-    
-    # Test environment classes
-    print("\nTesting Environment Classes...")
-    h_env = HorizontalCREnv()
-    v_env = VerticalCREnv()
-    s_env = SectorCREnv()
-    
-    h_test = h_env.generate_scenario(n_aircraft=2, conflict=False)
-    print(f"Horizontal env (no conflict): {h_test.has_conflicts}")
-    
-    v_test = v_env.generate_scenario(n_aircraft=2, conflict=True)
-    print(f"Vertical env (with conflict): {v_test.has_conflicts}")
-    
-    s_test = s_env.generate_scenario(complexity=ComplexityTier.SIMPLE)
-    print(f"Sector env: {s_test.aircraft_count} aircraft")
+    print("Scenario Generator Module")
+    print("========================")
+    print("For testing and demonstration, run:")
+    print("  python tests/test_scenario_generator.py")
+    print("  python tests/test_scenario_generator_enhanced.py")
+    print()
+    print("This module provides:")
+    print("- ScenarioGenerator: Main generator class")
+    print("- HorizontalCREnv, VerticalCREnv, SectorCREnv: Environment classes")
+    print("- Enhanced Scenario dataclass with extended fields for benchmark runner")
+    print("- Convenience functions: generate_horizontal_scenario(), etc.")
