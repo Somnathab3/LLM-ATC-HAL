@@ -1597,9 +1597,21 @@ class MonteCarloBenchmark:
         with open(self.output_dir / "summaries" / "benchmark_summary.json", "w") as f:
             json.dump(summary, f, indent=2, default=str)
 
-        # 4. Save configuration
+        # 4. Save configuration with enum serialization
         with open(self.output_dir / "summaries" / "configuration.json", "w") as f:
-            json.dump(asdict(self.config), f, indent=2)
+            config_dict = asdict(self.config)
+            # Convert enum objects to their string values for JSON serialization
+            if 'scenario_types' in config_dict:
+                config_dict['scenario_types'] = [
+                    st.value if hasattr(st, 'value') else str(st) 
+                    for st in config_dict['scenario_types']
+                ]
+            if 'complexity_tiers' in config_dict:
+                config_dict['complexity_tiers'] = [
+                    ct.value if hasattr(ct, 'value') else str(ct) 
+                    for ct in config_dict['complexity_tiers']
+                ]
+            json.dump(config_dict, f, indent=2)
 
         self.logger.info(f"Results saved to {self.output_dir}")
 
