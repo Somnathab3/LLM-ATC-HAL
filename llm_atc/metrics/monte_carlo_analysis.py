@@ -217,6 +217,64 @@ class MonteCarloResultsAnalyzer:
         
         return success_rates
     
+    def compute_success_rates_by_group(self, results_df: pd.DataFrame, group_cols: List[str]) -> pd.DataFrame:
+        """
+        Compute success rates grouped by specified columns.
+        
+        Args:
+            results_df: DataFrame with columns including 'success' and the grouping columns
+            group_cols: List of column names to group by (e.g. ['scenario_type', 'complexity_tier', 'distribution_shift'])
+            
+        Returns:
+            Multi-index DataFrame of success rates grouped by specified columns
+        """
+        if results_df.empty:
+            return pd.DataFrame()
+        
+        # Ensure required columns exist
+        missing_cols = [col for col in group_cols if col not in results_df.columns]
+        if missing_cols:
+            self.logger.warning(f"Missing grouping columns: {missing_cols}")
+            return pd.DataFrame()
+        
+        if 'success' not in results_df.columns:
+            self.logger.warning("'success' column not found - using alternative success criteria")
+            # Try to determine success from other columns
+            if 'errors' in results_df.columns:
+                results_df = results_df.copy()
+                results_df['success'] = results_df['errors'].apply(lambda x: len(x) == 0 if isinstance(x, list) else True)
+            elif 'resolution_success' in results_df.columns:
+                results_df = results_df.copy()
+                results_df['success'] = results_df['resolution_success']
+            else:
+                self.logger.error("Cannot determine success criteria")
+                return pd.DataFrame()
+        
+        # Group by specified columns and calculate success metrics
+        grouped = results_df.groupby(group_cols).agg({
+            'success': ['count', 'sum', 'mean'],
+            'detection_accuracy': 'mean',
+            'precision': 'mean',
+            'recall': 'mean',
+            'min_separation_nm': 'mean',
+            'separation_violations': 'sum'
+        }).round(4)
+        
+        # Flatten column names
+        grouped.columns = ['_'.join(col).strip() for col in grouped.columns.values]
+        
+        # Rename for clarity
+        grouped = grouped.rename(columns={
+            'success_count': 'total_scenarios',
+            'success_sum': 'successful_scenarios', 
+            'success_mean': 'success_rate'
+        })
+        
+        # Add failure scenarios
+        grouped['failed_scenarios'] = grouped['total_scenarios'] - grouped['successful_scenarios']
+        
+        return grouped
+    
     def compute_average_separation_margins(self, results_df: pd.DataFrame) -> Dict[str, float]:
         """
         Compute average separation margins from results.

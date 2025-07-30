@@ -27,6 +27,7 @@ import logging
 import time
 import uuid
 import traceback
+import math
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional, Tuple, Union
 from dataclasses import dataclass, asdict
@@ -51,17 +52,26 @@ from llm_atc.tools.llm_prompt_engine import LLMPromptEngine, ConflictPromptData,
 from llm_atc.tools import bluesky_tools
 from llm_atc.tools.bluesky_tools import AircraftInfo, ConflictInfo, BlueSkyToolsError
 
+# Import monte carlo analysis helpers
+try:
+    from llm_atc.metrics.monte_carlo_analysis import MonteCarloResultsAnalyzer
+    MONTE_CARLO_ANALYSIS_AVAILABLE = True
+except ImportError:
+    MONTE_CARLO_ANALYSIS_AVAILABLE = False
+    logging.warning("Monte Carlo analysis module not available - limited summary functionality")
+
 
 @dataclass 
 class BenchmarkConfiguration:
     """Configuration for Monte Carlo benchmark runs"""
-    # Scenario parameters
-    num_scenarios_per_type: int = 50
+    # Scenario parameters - NEW: per-type scenario counts
+    num_scenarios_per_type: int = 50  # Kept for backward compatibility
+    scenario_counts: Optional[Dict[str, int]] = None  # New: per-type counts
     scenario_types: List[ScenarioType] = None
     complexity_tiers: List[ComplexityTier] = None
     distribution_shift_levels: List[str] = None
     
-    # Simulation parameters
+    # Simulation parameters - NEW: exposed configuration fields
     time_horizon_minutes: float = 10.0
     max_interventions_per_scenario: int = 5
     step_size_seconds: float = 10.0
@@ -88,6 +98,13 @@ class BenchmarkConfiguration:
             self.complexity_tiers = [ComplexityTier.SIMPLE, ComplexityTier.MODERATE, ComplexityTier.COMPLEX]
         if self.distribution_shift_levels is None:
             self.distribution_shift_levels = ["in_distribution", "moderate_shift", "extreme_shift"]
+        
+        # Initialize scenario_counts if not provided
+        if self.scenario_counts is None:
+            self.scenario_counts = {
+                scenario_type.value: self.num_scenarios_per_type 
+                for scenario_type in self.scenario_types
+            }
 
 
 @dataclass
@@ -136,7 +153,8 @@ class ScenarioResult:
     precision: float
     recall: float
     
-    # Execution metadata
+    # Execution metadata - NEW: success flag
+    success: bool = False  # Overall scenario execution success
     execution_time_seconds: float
     errors: List[str]
     warnings: List[str]
@@ -266,12 +284,15 @@ class MonteCarloBenchmark:
     
     def _calculate_total_scenarios(self) -> int:
         """Calculate total number of scenarios to be executed"""
-        return (
-            len(self.config.scenario_types) * 
-            len(self.config.complexity_tiers) * 
-            len(self.config.distribution_shift_levels) * 
-            self.config.num_scenarios_per_type
-        )
+        total = 0
+        for scenario_type in self.config.scenario_types:
+            scenario_count = self.config.scenario_counts.get(scenario_type.value, 0)
+            total += (
+                scenario_count * 
+                len(self.config.complexity_tiers) * 
+                len(self.config.distribution_shift_levels)
+            )
+        return total
     
     def _run_scenario_batch(self, scenario_type: ScenarioType, 
                            complexity_tier: ComplexityTier, 
@@ -292,7 +313,10 @@ class MonteCarloBenchmark:
         
         successful_scenarios = 0
         
-        for i in range(self.config.num_scenarios_per_type):
+        # Get scenario count for this type
+        num_scenarios = self.config.scenario_counts.get(scenario_type.value, 0)
+        
+        for i in range(num_scenarios):
             scenario_id = f"{batch_id}_{i+1:03d}"
             
             try:
@@ -301,15 +325,16 @@ class MonteCarloBenchmark:
                     scenario_type, complexity_tier, shift_level, scenario_id
                 )
                 
-                # Execute three-stage pipeline
-                result = self._execute_scenario_pipeline(scenario, scenario_id)
+                # Execute single scenario with success tracking
+                result = self._run_single_scenario(scenario, scenario_id)
                 
                 # Store result
                 self.results.append(result)
-                successful_scenarios += 1
+                if result.success:
+                    successful_scenarios += 1
                 
                 if (i + 1) % 10 == 0:
-                    self.logger.info(f"Batch {batch_id}: completed {i+1}/{self.config.num_scenarios_per_type}")
+                    self.logger.info(f"Batch {batch_id}: completed {i+1}/{num_scenarios}")
                 
             except Exception as e:
                 self.logger.error(f"Failed to execute scenario {scenario_id}: {e}")
@@ -319,7 +344,7 @@ class MonteCarloBenchmark:
                                                        complexity_tier, shift_level, str(e))
                 self.results.append(error_result)
         
-        self.logger.info(f"Batch {batch_id} completed: {successful_scenarios}/{self.config.num_scenarios_per_type} successful")
+        self.logger.info(f"Batch {batch_id} completed: {successful_scenarios}/{num_scenarios} successful")
         return successful_scenarios
     
     def _generate_scenario(self, scenario_type: ScenarioType, 
@@ -359,6 +384,75 @@ class MonteCarloBenchmark:
             ComplexityTier.EXTREME: 8
         }
         return counts.get(complexity_tier, 3)
+    
+    def _run_single_scenario(self, scenario: Any, scenario_id: str) -> ScenarioResult:
+        """
+        Execute a single scenario with comprehensive error handling and success tracking.
+        
+        Args:
+            scenario: Generated scenario object
+            scenario_id: Unique scenario identifier
+            
+        Returns:
+            ScenarioResult with success flag properly set
+        """
+        # Initialize result with success=False
+        success = False
+        errors = []
+        warnings = []
+        
+        try:
+            # Execute the three-stage pipeline
+            result = self._execute_scenario_pipeline(scenario, scenario_id)
+            
+            # Determine success criteria:
+            # 1. No unresolved conflicts (either none detected or successfully resolved)
+            # 2. No parse errors in LLM responses
+            # 3. No critical execution errors
+            
+            has_unresolved_conflicts = (
+                len(result.predicted_conflicts) > 0 and 
+                not result.resolution_success and
+                result.separation_violations > 0
+            )
+            
+            has_parse_errors = any("parse" in error.lower() for error in result.errors)
+            has_critical_errors = len(result.errors) > 0
+            
+            # Success if no unresolved conflicts and no critical errors
+            success = not (has_unresolved_conflicts or has_parse_errors or has_critical_errors)
+            
+            # Update the result with success flag
+            result.success = success
+            
+            if success:
+                self.logger.debug(f"Scenario {scenario_id} completed successfully")
+            else:
+                reasons = []
+                if has_unresolved_conflicts:
+                    reasons.append("unresolved conflicts")
+                if has_parse_errors:
+                    reasons.append("parse errors")
+                if has_critical_errors:
+                    reasons.append("execution errors")
+                self.logger.warning(f"Scenario {scenario_id} failed: {', '.join(reasons)}")
+            
+            return result
+            
+        except Exception as e:
+            # Catch exceptions at this level and create error result
+            error_message = f"Exception in scenario execution: {str(e)}"
+            self.logger.error(f"Scenario {scenario_id} failed with exception: {e}")
+            self.logger.debug(traceback.format_exc())
+            
+            # Extract basic scenario information for error result
+            scenario_type = getattr(scenario, 'scenario_type', ScenarioType.HORIZONTAL)
+            complexity_tier = getattr(scenario, 'complexity_tier', ComplexityTier.MODERATE) 
+            shift_level = getattr(scenario, 'distribution_shift_tier', 'in_distribution')
+            
+            return self._create_error_result(
+                scenario_id, scenario_type, complexity_tier, shift_level, error_message
+            )
     
     def _execute_scenario_pipeline(self, scenario: Any, scenario_id: str) -> ScenarioResult:
         """
@@ -436,7 +530,8 @@ class MonteCarloBenchmark:
                 # Performance metrics
                 **metrics,
                 
-                # Execution metadata
+                # Execution metadata - Initialize success as False, will be updated in _run_single_scenario
+                success=False,  # Will be determined by _run_single_scenario
                 execution_time_seconds=time.time() - pipeline_start,
                 errors=errors,
                 warnings=warnings,
@@ -626,7 +721,7 @@ class MonteCarloBenchmark:
             return {}
     
     def _verify_resolutions(self, scenario: Any, resolutions: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Verify resolution effectiveness by stepping simulation"""
+        """Verify resolution effectiveness by stepping simulation with adaptive time stepping"""
         verification_results = {
             'resolution_success': False,
             'min_separation_nm': 999.0,
@@ -638,14 +733,27 @@ class MonteCarloBenchmark:
         }
         
         try:
-            # Step simulation forward
-            total_steps = int((self.config.time_horizon_minutes * 60) / self.config.step_size_seconds)
+            # Calculate adaptive time stepping
+            time_horizon_seconds = self.config.time_horizon_minutes * 60
+            
+            # Adaptive step size based on scenario duration
+            if time_horizon_seconds < 300:  # Less than 5 minutes - use smaller steps
+                adaptive_step_size = min(self.config.step_size_seconds, 5.0)
+            elif time_horizon_seconds > 1200:  # More than 20 minutes - use larger steps
+                adaptive_step_size = max(self.config.step_size_seconds, 15.0)
+            else:
+                adaptive_step_size = self.config.step_size_seconds
+            
+            # Calculate number of steps needed
+            num_steps = math.ceil(time_horizon_seconds / adaptive_step_size)
+            
+            self.logger.debug(f"Using adaptive step size: {adaptive_step_size}s for {num_steps} steps")
             
             min_separation_recorded = []
             
-            for step in range(total_steps):
-                # Step simulation
-                bluesky_tools.step_simulation(self.config.step_size_seconds)
+            for step in range(num_steps):
+                # Step simulation with adaptive step size
+                bluesky_tools.step_simulation(adaptive_step_size)
                 
                 # Check separations
                 aircraft_info = bluesky_tools.get_all_aircraft_info()
@@ -656,7 +764,7 @@ class MonteCarloBenchmark:
                     min_vt = min(sep['vertical_ft'] for sep in separations)
                     
                     min_separation_recorded.append({
-                        'time': step * self.config.step_size_seconds,
+                        'time': step * adaptive_step_size,
                         'horizontal_nm': min_hz,
                         'vertical_ft': min_vt
                     })
@@ -780,6 +888,7 @@ class MonteCarloBenchmark:
             extra_distance_nm=0.0, total_delay_seconds=0.0, fuel_penalty_percent=0.0,
             false_positives=0, false_negatives=0, true_positives=0, true_negatives=0,
             detection_accuracy=0.0, precision=0.0, recall=0.0,
+            success=False,  # Error results are never successful
             execution_time_seconds=0.0,
             errors=[error], warnings=[],
             timestamp=datetime.now().isoformat(),
@@ -787,76 +896,193 @@ class MonteCarloBenchmark:
         )
     
     def _generate_summary(self) -> Dict[str, Any]:
-        """Generate summary statistics from all results"""
+        """Generate comprehensive summary statistics from all results"""
         if not self.results:
             return {'error': 'No results to summarize'}
         
         # Convert to DataFrame for easier analysis
         df = pd.DataFrame([asdict(result) for result in self.results])
         
-        # Overall statistics
+        # Basic statistics
         total_scenarios = len(df)
-        successful_scenarios = len(df[df['errors'].apply(len) == 0])
+        successful_scenarios = len(df[df['success'] == True])  # Use new success field
+        failed_scenarios = total_scenarios - successful_scenarios
         
-        # Detection performance
+        # Print basic counts to user
+        print(f"\n=== Monte Carlo Benchmark Results ===")
+        print(f"Total scenarios executed: {total_scenarios}")
+        print(f"Successful scenarios: {successful_scenarios}")
+        print(f"Failed scenarios: {failed_scenarios}")
+        print(f"Overall success rate: {successful_scenarios/total_scenarios:.1%}")
+        
+        # Use MonteCarloResultsAnalyzer if available for detailed analysis
+        detailed_analysis = {}
+        if MONTE_CARLO_ANALYSIS_AVAILABLE:
+            try:
+                analyzer = MonteCarloResultsAnalyzer()
+                detailed_analysis = analyzer.aggregate_monte_carlo_metrics(df)
+                
+                # Print comprehensive analysis results
+                self._print_detailed_analysis(detailed_analysis)
+                
+            except Exception as e:
+                self.logger.warning(f"Failed to run detailed analysis: {e}")
+                detailed_analysis = {'error': f'Analysis failed: {str(e)}'}
+        
+        # Generate summary by scenario type, complexity, and shift
+        type_summary = self._generate_summary_by_group(df, 'scenario_type')
+        complexity_summary = self._generate_summary_by_group(df, 'complexity_tier')
+        shift_summary = self._generate_summary_by_group(df, 'distribution_shift_tier')
+        
+        # Combined summary across all dimensions using MonteCarloResultsAnalyzer if available
+        combined_summary = self._generate_combined_summary(df)
+        multi_group_summary = {}
+        if MONTE_CARLO_ANALYSIS_AVAILABLE:
+            try:
+                analyzer = MonteCarloResultsAnalyzer()
+                multi_group_summary = analyzer.compute_success_rates_by_group(
+                    df, ['scenario_type', 'complexity_tier', 'distribution_shift_tier']
+                )
+                # Convert to dict for JSON serialization
+                if not multi_group_summary.empty:
+                    multi_group_summary = multi_group_summary.to_dict('index')
+            except Exception as e:
+                self.logger.warning(f"Failed to compute multi-group success rates: {e}")
+                multi_group_summary = {}
+        
+        # Detection performance (basic)
         avg_accuracy = df['detection_accuracy'].mean()
         avg_precision = df['precision'].mean()
         avg_recall = df['recall'].mean()
         
-        # Safety metrics
+        # Safety metrics (basic)
         avg_min_separation = df['min_separation_nm'].mean()
         total_violations = df['separation_violations'].sum()
         
-        # Efficiency metrics
-        avg_extra_distance = df['extra_distance_nm'].mean()
-        avg_delay = df['total_delay_seconds'].mean()
-        
-        # By scenario type
-        type_stats = df.groupby('scenario_type').agg({
-            'detection_accuracy': 'mean',
-            'resolution_success': lambda x: x.sum() / len(x),
-            'min_separation_nm': 'mean'
-        }).to_dict()
-        
-        # By complexity
-        complexity_stats = df.groupby('complexity_tier').agg({
-            'detection_accuracy': 'mean',
-            'execution_time_seconds': 'mean',
-            'num_interventions': 'mean'
-        }).to_dict()
-        
-        # By distribution shift
-        shift_stats = df.groupby('distribution_shift_tier').agg({
-            'detection_accuracy': 'mean',
-            'false_positives': 'sum',
-            'false_negatives': 'sum'
-        }).to_dict()
-        
+        # Create comprehensive summary
         summary = {
             'benchmark_id': self.benchmark_id,
             'execution_time': str(datetime.now() - self.benchmark_start_time),
-            'total_scenarios': total_scenarios,
-            'successful_scenarios': successful_scenarios,
-            'success_rate': successful_scenarios / total_scenarios,
+            'timestamp': datetime.now().isoformat(),
             
+            # Basic counts with success/failure tracking
+            'scenario_counts': {
+                'total_scenarios': total_scenarios,
+                'successful_scenarios': successful_scenarios,
+                'failed_scenarios': failed_scenarios,
+                'success_rate': successful_scenarios / total_scenarios
+            },
+            
+            # Overall performance (backward compatibility)
             'overall_performance': {
                 'detection_accuracy': avg_accuracy,
                 'precision': avg_precision,
                 'recall': avg_recall,
                 'avg_min_separation_nm': avg_min_separation,
                 'total_violations': int(total_violations),
-                'avg_extra_distance_nm': avg_extra_distance,
-                'avg_delay_seconds': avg_delay
             },
             
-            'by_scenario_type': type_stats,
-            'by_complexity': complexity_stats,
-            'by_distribution_shift': shift_stats,
+            # Grouped summaries
+            'by_scenario_type': type_summary,
+            'by_complexity_tier': complexity_summary,
+            'by_distribution_shift': shift_summary,
+            'combined_analysis': combined_summary,
+            'multi_dimensional_analysis': multi_group_summary,
+            
+            # Detailed analysis from MonteCarloResultsAnalyzer
+            'detailed_analysis': detailed_analysis,
             
             'configuration': asdict(self.config)
         }
         
         return summary
+    
+    def _generate_summary_by_group(self, df: pd.DataFrame, group_column: str) -> Dict[str, Dict[str, Any]]:
+        """Generate success rate and metrics summary by a specific grouping column"""
+        summary = {}
+        
+        for group_value in df[group_column].unique():
+            group_data = df[df[group_column] == group_value]
+            
+            total_in_group = len(group_data)
+            successful_in_group = len(group_data[group_data['success'] == True])
+            
+            summary[group_value] = {
+                'total_scenarios': total_in_group,
+                'successful_scenarios': successful_in_group,
+                'failed_scenarios': total_in_group - successful_in_group,
+                'success_rate': successful_in_group / total_in_group if total_in_group > 0 else 0.0,
+                'avg_detection_accuracy': group_data['detection_accuracy'].mean(),
+                'avg_precision': group_data['precision'].mean(),
+                'avg_recall': group_data['recall'].mean(),
+                'avg_min_separation_nm': group_data['min_separation_nm'].mean(),
+                'total_violations': int(group_data['separation_violations'].sum())
+            }
+        
+        return summary
+    
+    def _generate_combined_summary(self, df: pd.DataFrame) -> Dict[str, Any]:
+        """Generate summary across all combinations of scenario type, complexity, and shift"""
+        combined_analysis = {}
+        
+        # Group by all three dimensions
+        for scenario_type in df['scenario_type'].unique():
+            combined_analysis[scenario_type] = {}
+            
+            type_data = df[df['scenario_type'] == scenario_type]
+            
+            for complexity in type_data['complexity_tier'].unique():
+                combined_analysis[scenario_type][complexity] = {}
+                
+                complexity_data = type_data[type_data['complexity_tier'] == complexity]
+                
+                for shift in complexity_data['distribution_shift_tier'].unique():
+                    shift_data = complexity_data[complexity_data['distribution_shift_tier'] == shift]
+                    
+                    total = len(shift_data)
+                    successful = len(shift_data[shift_data['success'] == True])
+                    
+                    combined_analysis[scenario_type][complexity][shift] = {
+                        'total_scenarios': total,
+                        'successful_scenarios': successful,
+                        'success_rate': successful / total if total > 0 else 0.0,
+                        'avg_detection_accuracy': shift_data['detection_accuracy'].mean(),
+                        'avg_separation_violations': shift_data['separation_violations'].mean()
+                    }
+        
+        return combined_analysis
+    
+    def _print_detailed_analysis(self, analysis: Dict[str, Any]):
+        """Print detailed analysis results to console"""
+        print(f"\n=== Detailed Performance Analysis ===")
+        
+        # Detection performance
+        detection_perf = analysis.get('detection_performance', {})
+        fp_rate = detection_perf.get('false_positive_rate', 0)
+        fn_rate = detection_perf.get('false_negative_rate', 0)
+        print(f"False Positive Rate: {fp_rate:.3f}")
+        print(f"False Negative Rate: {fn_rate:.3f}")
+        
+        # Success rates by scenario type
+        success_rates = analysis.get('success_rates_by_scenario', {})
+        if success_rates:
+            print(f"\n=== Success Rates by Scenario Type ===")
+            for scenario_type, metrics in success_rates.items():
+                success_rate = metrics.get('success_rate', 0)
+                total = metrics.get('total_scenarios', 0)
+                print(f"{scenario_type}: {success_rate:.1%} ({total} scenarios)")
+        
+        # Distribution shift analysis
+        shift_analysis = analysis.get('distribution_shift_analysis', {})
+        if shift_analysis:
+            print(f"\n=== Distribution Shift Impact ===")
+            for shift_level, metrics in shift_analysis.items():
+                success_rate = metrics.get('avg_success_rate', 0)
+                fp_rate = metrics.get('false_positive_rate', 0)
+                fn_rate = metrics.get('false_negative_rate', 0)
+                print(f"{shift_level}: Success={success_rate:.1%}, FP={fp_rate:.3f}, FN={fn_rate:.3f}")
+        
+        print("=" * 50)
     
     def _generate_visualizations(self):
         """Generate comprehensive visualizations of results"""
@@ -1194,6 +1420,14 @@ def main():
     parser.add_argument('--verbose', '-v', action='store_true',
                        help='Enable verbose logging')
     
+    # NEW: Expose simulation parameters
+    parser.add_argument('--max-interventions', type=int, default=5,
+                       help='Maximum interventions per scenario (default: 5)')
+    parser.add_argument('--step-size', type=float, default=10.0,
+                       help='Simulation step size in seconds (default: 10.0)')
+    parser.add_argument('--time-horizon', type=float, default=10.0,
+                       help='Time horizon in minutes (default: 10.0)')
+    
     args = parser.parse_args()
     
     # Setup logging
@@ -1209,7 +1443,10 @@ def main():
     else:
         config = BenchmarkConfiguration(
             num_scenarios_per_type=args.scenarios,
-            output_directory=args.output
+            output_directory=args.output,
+            max_interventions_per_scenario=args.max_interventions,
+            step_size_seconds=args.step_size,
+            time_horizon_minutes=args.time_horizon
         )
         benchmark = MonteCarloBenchmark(config)
         summary = benchmark.run()

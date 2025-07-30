@@ -52,16 +52,22 @@ class LLMPromptEngine:
     for ATC conflict resolution tasks.
     """
 
-    def __init__(self, model: str = 'llama3.1:8b', enable_function_calls: bool = True):
+    def __init__(self, model: str = 'llama3.1:8b', enable_function_calls: bool = True,
+                 aircraft_id_regex: str = r'^[A-Z0-9-]+$'):
         """
         Initialize the LLM prompt engine.
         
         Args:
             model: LLM model to use for queries
             enable_function_calls: Whether to enable function calling capabilities
+            aircraft_id_regex: Regular expression pattern for validating aircraft callsigns.
+                              Default pattern accepts alphanumeric characters and hyphens.
+                              Examples: r'^[A-Z]{2,4}\\d{2,4}[A-Z]?$' for traditional ICAO format,
+                                       r'^[A-Z0-9-]+$' for flexible alphanumeric with hyphens.
         """
         self.llm_client = LLMClient(model=model)
         self.enable_function_calls = enable_function_calls
+        self.aircraft_id_regex = aircraft_id_regex
         self.logger = logging.getLogger(__name__)
         
         # Standard separation requirements
@@ -110,19 +116,13 @@ REQUIREMENTS:
 - Ensure ICAO compliance
 - Prioritize safety over efficiency
 
-CRITICAL: Respond with EXACTLY ONE BlueSky command in this exact format:
-HDG [AIRCRAFT_ID] [HEADING_DEGREES]
-or
-ALT [AIRCRAFT_ID] [ALTITUDE_FEET]
-or
-SPD [AIRCRAFT_ID] [SPEED_KNOTS]
+INSTRUCTIONS:
+If function calling is available, use the SendCommand function to issue a resolution command.
+Otherwise, respond with EXACTLY ONE BlueSky command in the format:
+[COMMAND] [AIRCRAFT_ID] [VALUE]
 
-Example valid responses:
-HDG {aircraft_1_id} 270
-ALT {aircraft_2_id} 36000
-SPD {aircraft_1_id} 420
-
-Choose ONE aircraft to modify and provide the command immediately:
+Where COMMAND is one of: HDG, ALT, SPD, VS
+Choose ONE aircraft to modify and provide the command immediately.
 """
 
         self.conflict_detection_template = """
@@ -137,14 +137,17 @@ ANALYSIS REQUIREMENTS:
 - Look ahead {time_horizon} minutes
 - Account for pilot response time (~15-30 seconds)
 
-RESPONSE FORMAT:
-Conflict Detected: [YES/NO]
-Aircraft Pairs at Risk: [List callsigns if conflicts found]
-Time to Loss of Separation: [Seconds for each pair]
-Confidence: [0.0-1.0 confidence in assessment]
-Priority: [low/medium/high/critical for most urgent conflict]
+RESPONSE FORMAT (JSON):
+{{
+  "conflict_detected": true/false,
+  "aircraft_pairs": ["AC001-AC002", "AC003-AC004"],
+  "time_to_conflict": [120.5, 180.0],
+  "confidence": 0.85,
+  "priority": "high",
+  "analysis": "Brief explanation of findings"
+}}
 
-Analysis:
+Provide your analysis as valid JSON only.
 """
 
         self.safety_assessment_template = """
@@ -341,24 +344,80 @@ Aircraft {aircraft.get('id', f'AC{i+1:03d}')}:
 
     def parse_detector_response(self, response_text: str) -> Dict[str, Any]:
         """
-        Interpret conflict detection response from LLM.
+        Interpret conflict detection response from LLM (JSON format).
         
         Args:
-            response_text: Raw LLM response text
+            response_text: Raw LLM response text (expected to be JSON)
             
         Returns:
             Dictionary with detection results
         """
+        # Default response structure
+        result = {
+            'conflict_detected': False,
+            'aircraft_pairs': [],
+            'time_to_conflict': [],
+            'confidence': 0.5,
+            'priority': 'low',
+            'analysis': 'No analysis provided'
+        }
+        
         try:
-            # Default response structure
-            result = {
-                'conflict_detected': False,
-                'aircraft_pairs': [],
-                'time_to_conflict': [],
-                'confidence': 0.5,
-                'priority': 'low'
-            }
+            # First, try to parse as JSON
+            # Clean the response text to extract JSON
+            json_text = response_text.strip()
             
+            # Look for JSON block in case there's extra text
+            json_match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', json_text, re.DOTALL)
+            if json_match:
+                json_text = json_match.group(0)
+            
+            json_data = json.loads(json_text)
+            
+            # Extract fields with defaults
+            result['conflict_detected'] = json_data.get('conflict_detected', False)
+            result['aircraft_pairs'] = json_data.get('aircraft_pairs', [])
+            result['time_to_conflict'] = json_data.get('time_to_conflict', [])
+            result['confidence'] = float(json_data.get('confidence', 0.5))
+            result['priority'] = json_data.get('priority', 'low').lower()
+            result['analysis'] = json_data.get('analysis', 'No analysis provided')
+            
+            # Convert aircraft pairs to tuples if they're strings
+            if result['aircraft_pairs']:
+                pairs = []
+                for pair in result['aircraft_pairs']:
+                    if isinstance(pair, str) and '-' in pair:
+                        pairs.append(tuple(pair.split('-', 1)))
+                    elif isinstance(pair, list) and len(pair) >= 2:
+                        pairs.append(tuple(pair[:2]))
+                    else:
+                        pairs.append(pair)
+                result['aircraft_pairs'] = pairs
+            
+            return result
+            
+        except json.JSONDecodeError:
+            # Fallback to legacy text parsing
+            self.logger.warning("JSON parsing failed, falling back to text parsing")
+            return self._parse_detector_response_legacy(response_text)
+            
+        except Exception as e:
+            self.logger.error(f"Error parsing detector response: {e}")
+            result['error'] = str(e)
+            return result
+
+    def _parse_detector_response_legacy(self, response_text: str) -> Dict[str, Any]:
+        """Legacy text-based parsing for detector responses"""
+        result = {
+            'conflict_detected': False,
+            'aircraft_pairs': [],
+            'time_to_conflict': [],
+            'confidence': 0.5,
+            'priority': 'low',
+            'analysis': 'Legacy parsing used'
+        }
+        
+        try:
             # Parse conflict detection
             conflict_match = re.search(r'Conflict Detected:\s*(YES|NO)', response_text, re.IGNORECASE)
             if conflict_match:
@@ -389,8 +448,9 @@ Aircraft {aircraft.get('id', f'AC{i+1:03d}')}:
             return result
             
         except Exception as e:
-            self.logger.error(f"Error parsing detector response: {e}")
-            return {'conflict_detected': False, 'error': str(e)}
+            self.logger.error(f"Error in legacy detector response parsing: {e}")
+            result['error'] = str(e)
+            return result
 
     def get_conflict_resolution(self, conflict_info: Dict[str, Any], 
                                use_function_calls: bool = None) -> Optional[str]:
@@ -528,31 +588,89 @@ Command:
             return None
 
     def _extract_bluesky_command(self, text: str) -> Optional[str]:
-        """Extract BlueSky command patterns from text"""
-        # Common BlueSky command patterns - more flexible
-        patterns = [
-            r'\b(HDG|ALT|SPD|VS)\s+([A-Z]{2,4}\d{2,4}[A-Z]?)\s+(\d+)\b',  # HDG AC001 270, HDG KLM492 270
-            r'\b([A-Z]{2,4}\d{2,4}[A-Z]?)\s+(HDG|ALT|SPD|VS)\s+(\d+)\b',   # AC001 HDG 270
-            r'(HDG|ALT|SPD|VS)\s+([A-Z]{2,4}\d{2,4}[A-Z]?)\s+(\d+)',      # More lenient matching
-            r'Command:\s*(HDG|ALT|SPD|VS)\s+([A-Z]{2,4}\d{2,4}[A-Z]?)\s+(\d+)',  # Command: HDG ...
+        """
+        Extract BlueSky command using simplified two-pass approach.
+        
+        First pass: Look for explicit BlueSky commands (HDG/ALT/SPD/VS)
+        Second pass: Look for natural language patterns
+        Third pass: Check for function call format
+        """
+        if not text:
+            return None
+        
+        # First pass: Explicit BlueSky command patterns
+        explicit_patterns = [
+            r'\b(HDG|ALT|SPD|VS)\s+([A-Z0-9-]+)\s+(\d+)\b',  # HDG AC001 270
+            r'\b([A-Z0-9-]+)\s+(HDG|ALT|SPD|VS)\s+(\d+)\b',   # AC001 HDG 270
+            r'Command:\s*(HDG|ALT|SPD|VS)\s+([A-Z0-9-]+)\s+(\d+)',  # Command: HDG AC001 270
         ]
         
-        for pattern in patterns:
+        for pattern in explicit_patterns:
             match = re.search(pattern, text, re.IGNORECASE)
-            if match:
-                # Extract the command components
-                if len(match.groups()) >= 3:
-                    if match.group(1).upper() in ['HDG', 'ALT', 'SPD', 'VS']:
-                        # Pattern: CMD AIRCRAFT VALUE
-                        return f"{match.group(1).upper()} {match.group(2).upper()} {match.group(3)}"
-                    else:
-                        # Pattern: AIRCRAFT CMD VALUE
-                        return f"{match.group(2).upper()} {match.group(1).upper()} {match.group(3)}"
+            if match and len(match.groups()) >= 3:
+                # Validate aircraft ID with configured pattern
+                aircraft_candidate = None
+                cmd_candidate = None
+                value_candidate = None
+                
+                if match.group(1).upper() in ['HDG', 'ALT', 'SPD', 'VS']:
+                    cmd_candidate = match.group(1).upper()
+                    aircraft_candidate = match.group(2).upper()
+                    value_candidate = match.group(3)
+                elif match.group(2).upper() in ['HDG', 'ALT', 'SPD', 'VS']:
+                    aircraft_candidate = match.group(1).upper()
+                    cmd_candidate = match.group(2).upper()
+                    value_candidate = match.group(3)
+                
+                if (aircraft_candidate and cmd_candidate and value_candidate and
+                    re.match(self.aircraft_id_regex, aircraft_candidate) and
+                    value_candidate.isdigit()):
+                    return f"{cmd_candidate} {aircraft_candidate} {value_candidate}"
+        
+        # Second pass: Natural language patterns
+        natural_patterns = [
+            r'turn\s+([A-Z0-9-]+)\s+to\s+heading\s+(\d+)',
+            r'([A-Z0-9-]+)\s+turn\s+(?:to\s+)?(?:heading\s+)?(\d+)',
+            r'climb\s+([A-Z0-9-]+)\s+to\s+(?:altitude\s+)?(\d+)',
+            r'descend\s+([A-Z0-9-]+)\s+to\s+(?:altitude\s+)?(\d+)',
+            r'([A-Z0-9-]+)\s+climb\s+to\s+(\d+)',
+            r'([A-Z0-9-]+)\s+descend\s+to\s+(\d+)',
+            r'speed\s+([A-Z0-9-]+)\s+to\s+(\d+)',
+            r'([A-Z0-9-]+)\s+speed\s+(\d+)',
+        ]
+        
+        for pattern in natural_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match and len(match.groups()) >= 2:
+                aircraft = match.group(1).upper()
+                value = match.group(2)
+                
+                if re.match(self.aircraft_id_regex, aircraft) and value.isdigit():
+                    # Determine command type based on pattern
+                    pattern_lower = pattern.lower()
+                    if 'heading' in pattern_lower or 'turn' in pattern_lower:
+                        return f"HDG {aircraft} {value}"
+                    elif 'climb' in pattern_lower or 'descend' in pattern_lower or 'altitude' in pattern_lower:
+                        return f"ALT {aircraft} {value}"
+                    elif 'speed' in pattern_lower:
+                        return f"SPD {aircraft} {value}"
+        
+        # Third pass: Check for multiple commands or extraneous text
+        command_count = len(re.findall(r'\b(HDG|ALT|SPD|VS)\s+[A-Z0-9-]+\s+\d+', text, re.IGNORECASE))
+        if command_count > 1:
+            self.logger.warning(f"Multiple commands detected in response: {text[:100]}...")
+            # Return the first valid command found
+            first_match = re.search(r'\b(HDG|ALT|SPD|VS)\s+([A-Z0-9-]+)\s+(\d+)', text, re.IGNORECASE)
+            if first_match:
+                cmd, aircraft, value = first_match.groups()
+                aircraft = aircraft.upper()
+                if re.match(self.aircraft_id_regex, aircraft):
+                    return f"{cmd.upper()} {aircraft} {value}"
         
         return None
 
     def _normalize_bluesky_command(self, command: str) -> Optional[str]:
-        """Normalize and validate BlueSky command format"""
+        """Normalize and validate BlueSky command format using configurable aircraft ID pattern"""
         if not command:
             return None
         
@@ -582,8 +700,8 @@ Command:
             else:
                 return None
         
-        # Validate aircraft ID pattern (more flexible)
-        if not re.match(r'^[A-Z]{2,4}\d{2,4}[A-Z]?$', aircraft):
+        # Validate aircraft ID pattern using configurable regex
+        if not re.match(self.aircraft_id_regex, aircraft):
             return None
         
         # Validate value is numeric
@@ -593,17 +711,20 @@ Command:
         return f"{cmd} {aircraft} {value}"
 
     def _extract_aircraft_id(self, command: str) -> str:
-        """Extract aircraft ID from BlueSky command"""
+        """Extract aircraft ID from BlueSky command using configurable pattern"""
         if not command:
             return ""
         
         parts = command.split()
+        command_keywords = {'HDG', 'ALT', 'SPD', 'VS'}
+        
         for part in parts:
-            # More flexible aircraft ID pattern
-            if re.match(r'^[A-Z]{2,4}\d{2,4}[A-Z]?$', part):
+            # Skip command keywords and use configurable aircraft ID pattern
+            if part.upper() not in command_keywords and re.match(self.aircraft_id_regex, part):
                 return part
         
-        return parts[1] if len(parts) > 1 else ""
+        # Fallback: return second part if it exists (traditional CMD AIRCRAFT VALUE format)
+        return parts[1] if len(parts) > 1 and parts[1].upper() not in command_keywords else ""
 
     def _determine_maneuver_type(self, command: str) -> str:
         """Determine maneuver type from BlueSky command"""
@@ -623,17 +744,29 @@ Command:
         return "unknown"
 
     def _parse_aircraft_pairs(self, pairs_text: str) -> List[Tuple[str, str]]:
-        """Parse aircraft pairs from text"""
+        """Parse aircraft pairs from text using configurable aircraft ID pattern"""
         pairs = []
+        
+        # Create dynamic patterns based on the configurable aircraft ID regex
+        # Remove ^ and $ anchors to use in the middle of patterns
+        id_pattern = self.aircraft_id_regex.replace('^', '').replace('$', '')
+        
         # Look for patterns like "AC001-AC002" or "AC001 and AC002"
         pair_patterns = [
-            r'([A-Z]{2,3}\d{3,4})-([A-Z]{2,3}\d{3,4})',
-            r'([A-Z]{2,3}\d{3,4})\s+and\s+([A-Z]{2,3}\d{3,4})',
+            rf'({id_pattern})-({id_pattern})',
+            rf'({id_pattern})\s+and\s+({id_pattern})',
+            rf'({id_pattern}),\s*({id_pattern})',
+            rf'({id_pattern})\s+vs\s+({id_pattern})',
         ]
         
         for pattern in pair_patterns:
-            matches = re.findall(pattern, pairs_text)
-            pairs.extend(matches)
+            matches = re.findall(pattern, pairs_text, re.IGNORECASE)
+            for match in matches:
+                # Validate both aircraft IDs match the full pattern
+                ac1, ac2 = match[0].upper(), match[1].upper()
+                if (re.match(self.aircraft_id_regex, ac1) and 
+                    re.match(self.aircraft_id_regex, ac2)):
+                    pairs.append((ac1, ac2))
         
         return pairs
 
@@ -650,7 +783,7 @@ Command:
         return times
 
     def _parse_safety_response(self, response_text: str) -> Dict[str, Any]:
-        """Parse safety assessment response"""
+        """Parse safety assessment response with robust fallbacks for missing fields"""
         result = {
             'safety_rating': 'UNKNOWN',
             'separation_achieved': 'Unknown',
@@ -659,33 +792,55 @@ Command:
             'recommendation': 'UNKNOWN'
         }
         
+        missing_fields = []
+        
         try:
             # Parse safety rating
             rating_match = re.search(r'Safety Rating:\s*(SAFE|MARGINAL|UNSAFE)', response_text, re.IGNORECASE)
             if rating_match:
                 result['safety_rating'] = rating_match.group(1).upper()
+            else:
+                missing_fields.append('Safety Rating')
             
             # Parse separation
             sep_match = re.search(r'Separation Achieved:\s*([^\n]+)', response_text, re.IGNORECASE)
             if sep_match:
                 result['separation_achieved'] = sep_match.group(1).strip()
+            else:
+                missing_fields.append('Separation Achieved')
             
             # Parse compliance
             compliance_match = re.search(r'ICAO compliant:\s*(YES|NO)', response_text, re.IGNORECASE)
             if compliance_match:
                 result['icao_compliant'] = compliance_match.group(1).upper() == 'YES'
+            else:
+                missing_fields.append('ICAO Compliance')
             
             # Parse risk assessment
             risk_match = re.search(r'Risk Assessment:\s*([^\n]+)', response_text, re.IGNORECASE)
             if risk_match:
                 result['risk_assessment'] = risk_match.group(1).strip()
+            else:
+                missing_fields.append('Risk Assessment')
             
             # Parse recommendation
             rec_match = re.search(r'Recommendation:\s*(APPROVE|MODIFY|REJECT)', response_text, re.IGNORECASE)
             if rec_match:
                 result['recommendation'] = rec_match.group(1).upper()
+            else:
+                missing_fields.append('Recommendation')
             
+            # Log warnings for missing fields
+            if missing_fields:
+                self.logger.warning(f"Missing safety assessment fields: {', '.join(missing_fields)}")
+                result['missing_fields'] = missing_fields
+                result['parsing_issues'] = True
+            else:
+                result['parsing_issues'] = False
+                
         except Exception as e:
             self.logger.error(f"Error parsing safety response: {e}")
+            result['error'] = str(e)
+            result['parsing_issues'] = True
         
         return result
