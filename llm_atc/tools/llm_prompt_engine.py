@@ -117,12 +117,28 @@ REQUIREMENTS:
 - Prioritize safety over efficiency
 
 INSTRUCTIONS:
-If function calling is available, use the SendCommand function to issue a resolution command.
-Otherwise, respond with EXACTLY ONE BlueSky command in the format:
-[COMMAND] [AIRCRAFT_ID] [VALUE]
+You MUST respond with EXACTLY this format. Do not include any other text:
 
-Where COMMAND is one of: HDG, ALT, SPD, VS
-Choose ONE aircraft to modify and provide the command immediately.
+COMMAND: [HDG/ALT/SPD/VS] [AIRCRAFT_ID] [VALUE]
+AIRCRAFT: [AIRCRAFT_ID]
+MANEUVER: [heading_change/altitude_change/speed_change/vertical_speed_change]
+RATIONALE: [Brief explanation]
+CONFIDENCE: [0.0-1.0]
+
+EXAMPLES:
+COMMAND: HDG UAL890 045
+AIRCRAFT: UAL890
+MANEUVER: heading_change
+RATIONALE: Turn right 25 degrees to avoid conflict
+CONFIDENCE: 0.92
+
+COMMAND: ALT AAL123 37000
+AIRCRAFT: AAL123
+MANEUVER: altitude_change
+RATIONALE: Climb 2000 feet for vertical separation
+CONFIDENCE: 0.88
+
+Choose ONE aircraft and provide the resolution in EXACTLY the above format.
 """
 
         self.conflict_detection_template = """
@@ -165,12 +181,20 @@ SAFETY CRITERIA:
 4. Are there any secondary conflict risks?
 5. Is pilot workload reasonable?
 
-RESPONSE:
-Safety Rating: [SAFE/MARGINAL/UNSAFE]
-Separation Achieved: [Distance in NM or ft]
-Compliance: [ICAO compliant: YES/NO]
-Risk Assessment: [Brief risk analysis]
-Recommendation: [APPROVE/MODIFY/REJECT]
+You MUST respond with EXACTLY this format:
+
+SAFETY_RATING: [SAFE/MARGINAL/UNSAFE]
+SEPARATION_ACHIEVED: [Distance in NM or ft with units]
+ICAO_COMPLIANT: [YES/NO]
+RISK_ASSESSMENT: [Brief risk analysis in one sentence]
+RECOMMENDATION: [APPROVE/MODIFY/REJECT]
+
+EXAMPLE:
+SAFETY_RATING: SAFE
+SEPARATION_ACHIEVED: 6.2 NM horizontal
+ICAO_COMPLIANT: YES
+RISK_ASSESSMENT: Maneuver provides adequate separation with minimal disruption
+RECOMMENDATION: APPROVE
 """
 
     def format_conflict_prompt(self, conflict_info: Dict[str, Any]) -> str:
@@ -275,61 +299,63 @@ Aircraft {aircraft.get('id', f'AC{i+1:03d}')}:
             if isinstance(response_text, dict) and response_text.get('type') == 'function_call':
                 return self._parse_function_call_response(response_text)
             
-            # Parse structured text response
-            command_match = re.search(r'Command:\s*([^\n]+)', response_text, re.IGNORECASE)
-            aircraft_match = re.search(r'Aircraft:\s*([^\n]+)', response_text, re.IGNORECASE)
-            maneuver_match = re.search(r'Maneuver:\s*([^\n]+)', response_text, re.IGNORECASE)
-            rationale_match = re.search(r'Rationale:\s*([^\n]+)', response_text, re.IGNORECASE)
-            confidence_match = re.search(r'Confidence:\s*([\d.]+)', response_text, re.IGNORECASE)
+            # Parse structured text response using the new format
+            command_match = re.search(r'COMMAND:\s*([^\n]+)', response_text, re.IGNORECASE)
+            aircraft_match = re.search(r'AIRCRAFT:\s*([^\n]+)', response_text, re.IGNORECASE)
+            maneuver_match = re.search(r'MANEUVER:\s*([^\n]+)', response_text, re.IGNORECASE)
+            rationale_match = re.search(r'RATIONALE:\s*([^\n]+)', response_text, re.IGNORECASE)
+            confidence_match = re.search(r'CONFIDENCE:\s*([\d.]+)', response_text, re.IGNORECASE)
             
             command = None
             if command_match:
                 command = command_match.group(1).strip()
+                # Validate and normalize the command
+                normalized_command = self._normalize_bluesky_command(command)
+                if normalized_command:
+                    command = normalized_command
+                else:
+                    self.logger.warning(f"Could not normalize structured command: {command}")
+                    return None
             else:
-                # Try to extract BlueSky command patterns directly
+                # Fallback to legacy parsing if structured format not found
+                self.logger.warning("Structured format not found, trying legacy parsing")
                 command = self._extract_bluesky_command(response_text)
-            
-            if not command:
-                # Try even more flexible patterns for commands like "Turn TEST002 to heading 180"
-                flexible_patterns = [
-                    r'turn\s+([A-Z]{2,4}\d{2,4}[A-Z]?)\s+to\s+heading\s+(\d+)',
-                    r'([A-Z]{2,4}\d{2,4}[A-Z]?)\s+turn\s+(?:to\s+)?(?:heading\s+)?(\d+)',
-                    r'heading\s+(\d+)\s+for\s+([A-Z]{2,4}\d{2,4}[A-Z]?)',
-                    r'altitude\s+(\d+)\s+for\s+([A-Z]{2,4}\d{2,4}[A-Z]?)',
-                ]
                 
-                for pattern in flexible_patterns:
-                    match = re.search(pattern, response_text, re.IGNORECASE)
-                    if match:
-                        if 'heading' in pattern or 'turn' in pattern:
-                            if len(match.groups()) >= 2:
-                                if match.group(1).isdigit():
-                                    command = f"HDG {match.group(2).upper()} {match.group(1)}"
-                                else:
-                                    command = f"HDG {match.group(1).upper()} {match.group(2)}"
+                if not command:
+                    # Try even more flexible patterns for commands like "Turn TEST002 to heading 180"
+                    flexible_patterns = [
+                        r'turn\s+([A-Z]{2,4}\d{2,4}[A-Z]?)\s+to\s+heading\s+(\d+)',
+                        r'([A-Z]{2,4}\d{2,4}[A-Z]?)\s+turn\s+(?:to\s+)?(?:heading\s+)?(\d+)',
+                        r'heading\s+(\d+)\s+for\s+([A-Z]{2,4}\d{2,4}[A-Z]?)',
+                        r'altitude\s+(\d+)\s+for\s+([A-Z]{2,4}\d{2,4}[A-Z]?)',
+                    ]
+                    
+                    for pattern in flexible_patterns:
+                        match = re.search(pattern, response_text, re.IGNORECASE)
+                        if match:
+                            if 'heading' in pattern or 'turn' in pattern:
+                                if len(match.groups()) >= 2:
+                                    if match.group(1).isdigit():
+                                        command = f"HDG {match.group(2).upper()} {match.group(1)}"
+                                    else:
+                                        command = f"HDG {match.group(1).upper()} {match.group(2)}"
+                                    break
+                            elif 'altitude' in pattern:
+                                command = f"ALT {match.group(2).upper()} {match.group(1)}"
                                 break
-                        elif 'altitude' in pattern:
-                            command = f"ALT {match.group(2).upper()} {match.group(1)}"
-                            break
             
             if not command:
                 self.logger.warning(f"Could not extract command from response: {response_text[:200]}...")
                 return None
             
-            # Validate and normalize command
-            normalized_command = self._normalize_bluesky_command(command)
-            if not normalized_command:
-                self.logger.warning(f"Could not normalize command: {command}")
-                return None
-            
             # Extract aircraft ID from command
-            aircraft_id = self._extract_aircraft_id(normalized_command)
+            aircraft_id = self._extract_aircraft_id(command)
             
             # Determine maneuver type
-            maneuver_type = self._determine_maneuver_type(normalized_command)
+            maneuver_type = self._determine_maneuver_type(command)
             
             return ResolutionResponse(
-                command=normalized_command,
+                command=command,
                 aircraft_id=aircraft_id,
                 maneuver_type=maneuver_type,
                 rationale=rationale_match.group(1).strip() if rationale_match else "No rationale provided",
@@ -598,15 +624,37 @@ Command:
         if not text:
             return None
         
+        # Clean text: remove degree symbols and other formatting
+        cleaned_text = text.replace('°', '').replace('degrees', '').replace('deg', '')
+        cleaned_text = re.sub(r'[^\w\s:]+', ' ', cleaned_text)  # Remove special chars except colons
+        
+        # Check for SendCommand format: **SendCommand("CLB 1000ft", "UAL890")**
+        sendcommand_match = re.search(r'SendCommand\s*\(\s*["\']([^"\']+)["\']\s*,\s*["\']([^"\']+)["\']\s*\)', text, re.IGNORECASE)
+        if sendcommand_match:
+            command_part = sendcommand_match.group(1).strip()
+            aircraft_part = sendcommand_match.group(2).strip()
+            
+            # Parse command part like "CLB 1000ft" or "HDG 040"
+            cmd_match = re.search(r'(CLB|HDG|ALT|SPD|VS)\s*(\d+)', command_part, re.IGNORECASE)
+            if cmd_match:
+                cmd_type = cmd_match.group(1).upper()
+                if cmd_type == 'CLB':
+                    cmd_type = 'ALT'  # Convert CLB to ALT
+                value = cmd_match.group(2)
+                
+                if re.match(self.aircraft_id_regex, aircraft_part.upper()):
+                    return f"{cmd_type} {aircraft_part.upper()} {value}"
+        
         # First pass: Explicit BlueSky command patterns
         explicit_patterns = [
             r'\b(HDG|ALT|SPD|VS)\s+([A-Z0-9-]+)\s+(\d+)\b',  # HDG AC001 270
             r'\b([A-Z0-9-]+)\s+(HDG|ALT|SPD|VS)\s+(\d+)\b',   # AC001 HDG 270
             r'Command:\s*(HDG|ALT|SPD|VS)\s+([A-Z0-9-]+)\s+(\d+)',  # Command: HDG AC001 270
+            r'(HDG|ALT|SPD|VS)\s+([A-Z0-9-]+)\s+(\d+)',  # More flexible version
         ]
         
         for pattern in explicit_patterns:
-            match = re.search(pattern, text, re.IGNORECASE)
+            match = re.search(pattern, cleaned_text, re.IGNORECASE)
             if match and len(match.groups()) >= 3:
                 # Validate aircraft ID with configured pattern
                 aircraft_candidate = None
@@ -627,10 +675,13 @@ Command:
                     value_candidate.isdigit()):
                     return f"{cmd_candidate} {aircraft_candidate} {value_candidate}"
         
-        # Second pass: Natural language patterns
+        # Second pass: Natural language patterns (with more flexible matching)
         natural_patterns = [
-            r'turn\s+([A-Z0-9-]+)\s+to\s+heading\s+(\d+)',
+            r'turn\s+(?:aircraft\s+)?([A-Z0-9-]+)\s+to\s+heading\s+(\d+)',  # Fixed: turn aircraft UAL890 to heading 040
             r'([A-Z0-9-]+)\s+turn\s+(?:to\s+)?(?:heading\s+)?(\d+)',
+            r'([A-Z0-9-]+)\s+heading\s+(\d+)',  # New: AC001 heading 045
+            r'heading\s+(\d+)\s+([A-Z0-9-]+)',  # New: heading 045 AC001
+            r'([A-Z0-9-]+)\s+(\d+)',  # Very flexible: AC001 045
             r'climb\s+([A-Z0-9-]+)\s+to\s+(?:altitude\s+)?(\d+)',
             r'descend\s+([A-Z0-9-]+)\s+to\s+(?:altitude\s+)?(\d+)',
             r'([A-Z0-9-]+)\s+climb\s+to\s+(\d+)',
@@ -640,27 +691,42 @@ Command:
         ]
         
         for pattern in natural_patterns:
-            match = re.search(pattern, text, re.IGNORECASE)
+            match = re.search(pattern, cleaned_text, re.IGNORECASE)
             if match and len(match.groups()) >= 2:
                 aircraft = match.group(1).upper()
                 value = match.group(2)
                 
-                if re.match(self.aircraft_id_regex, aircraft) and value.isdigit():
+                # For the flexible pattern, we need to determine context
+                if pattern == r'([A-Z0-9-]+)\s+(\d+)':
+                    # Check if this appears to be a heading (0-359) vs altitude (>1000)
+                    val_int = int(value)
+                    if val_int <= 359 and 'heading' in text.lower():
+                        cmd_type = 'HDG'
+                    elif val_int > 1000:
+                        cmd_type = 'ALT'
+                    else:
+                        cmd_type = 'HDG'  # Default to heading for ambiguous cases
+                else:
                     # Determine command type based on pattern
                     pattern_lower = pattern.lower()
                     if 'heading' in pattern_lower or 'turn' in pattern_lower:
-                        return f"HDG {aircraft} {value}"
+                        cmd_type = 'HDG'
                     elif 'climb' in pattern_lower or 'descend' in pattern_lower or 'altitude' in pattern_lower:
-                        return f"ALT {aircraft} {value}"
+                        cmd_type = 'ALT'
                     elif 'speed' in pattern_lower:
-                        return f"SPD {aircraft} {value}"
+                        cmd_type = 'SPD'
+                    else:
+                        cmd_type = 'HDG'  # Default
+                
+                if re.match(self.aircraft_id_regex, aircraft) and value.isdigit():
+                    return f"{cmd_type} {aircraft} {value}"
         
         # Third pass: Check for multiple commands or extraneous text
-        command_count = len(re.findall(r'\b(HDG|ALT|SPD|VS)\s+[A-Z0-9-]+\s+\d+', text, re.IGNORECASE))
+        command_count = len(re.findall(r'\b(HDG|ALT|SPD|VS)\s+[A-Z0-9-]+\s+\d+', cleaned_text, re.IGNORECASE))
         if command_count > 1:
             self.logger.warning(f"Multiple commands detected in response: {text[:100]}...")
             # Return the first valid command found
-            first_match = re.search(r'\b(HDG|ALT|SPD|VS)\s+([A-Z0-9-]+)\s+(\d+)', text, re.IGNORECASE)
+            first_match = re.search(r'\b(HDG|ALT|SPD|VS)\s+([A-Z0-9-]+)\s+(\d+)', cleaned_text, re.IGNORECASE)
             if first_match:
                 cmd, aircraft, value = first_match.groups()
                 aircraft = aircraft.upper()
@@ -674,11 +740,15 @@ Command:
         if not command:
             return None
         
+        # Clean command: remove degree symbols and other formatting
+        cleaned_command = command.replace('°', '').replace('degrees', '').replace('deg', '')
+        cleaned_command = re.sub(r'[^\w\s-]', ' ', cleaned_command)  # Remove special chars except hyphens
+        
         # Remove extra whitespace and convert to uppercase
-        command = ' '.join(command.upper().split())
+        cleaned_command = ' '.join(cleaned_command.upper().split())
         
         # Validate basic command structure
-        parts = command.split()
+        parts = cleaned_command.split()
         if len(parts) < 3:
             return None
         
@@ -704,8 +774,9 @@ Command:
         if not re.match(self.aircraft_id_regex, aircraft):
             return None
         
-        # Validate value is numeric
-        if not value.isdigit():
+        # Validate and clean value 
+        value = re.sub(r'[^\d]', '', value)  # Remove any non-digit characters
+        if not value or not value.isdigit():
             return None
             
         return f"{cmd} {aircraft} {value}"
@@ -795,36 +866,56 @@ Command:
         missing_fields = []
         
         try:
-            # Parse safety rating
-            rating_match = re.search(r'Safety Rating:\s*(SAFE|MARGINAL|UNSAFE)', response_text, re.IGNORECASE)
+            # Parse safety rating (new format with underscores)
+            rating_match = re.search(r'SAFETY_RATING:\s*(SAFE|MARGINAL|UNSAFE)', response_text, re.IGNORECASE)
+            if not rating_match:
+                # Fallback to old format
+                rating_match = re.search(r'Safety Rating:\s*(SAFE|MARGINAL|UNSAFE)', response_text, re.IGNORECASE)
+            
             if rating_match:
                 result['safety_rating'] = rating_match.group(1).upper()
             else:
                 missing_fields.append('Safety Rating')
             
-            # Parse separation
-            sep_match = re.search(r'Separation Achieved:\s*([^\n]+)', response_text, re.IGNORECASE)
+            # Parse separation (new format)
+            sep_match = re.search(r'SEPARATION_ACHIEVED:\s*([^\n]+)', response_text, re.IGNORECASE)
+            if not sep_match:
+                # Fallback to old format
+                sep_match = re.search(r'Separation Achieved:\s*([^\n]+)', response_text, re.IGNORECASE)
+            
             if sep_match:
                 result['separation_achieved'] = sep_match.group(1).strip()
             else:
                 missing_fields.append('Separation Achieved')
             
-            # Parse compliance
-            compliance_match = re.search(r'ICAO compliant:\s*(YES|NO)', response_text, re.IGNORECASE)
+            # Parse compliance (new format)
+            compliance_match = re.search(r'ICAO_COMPLIANT:\s*(YES|NO)', response_text, re.IGNORECASE)
+            if not compliance_match:
+                # Fallback to old format
+                compliance_match = re.search(r'ICAO compliant:\s*(YES|NO)', response_text, re.IGNORECASE)
+            
             if compliance_match:
                 result['icao_compliant'] = compliance_match.group(1).upper() == 'YES'
             else:
                 missing_fields.append('ICAO Compliance')
             
-            # Parse risk assessment
-            risk_match = re.search(r'Risk Assessment:\s*([^\n]+)', response_text, re.IGNORECASE)
+            # Parse risk assessment (new format)
+            risk_match = re.search(r'RISK_ASSESSMENT:\s*([^\n]+)', response_text, re.IGNORECASE)
+            if not risk_match:
+                # Fallback to old format
+                risk_match = re.search(r'Risk Assessment:\s*([^\n]+)', response_text, re.IGNORECASE)
+            
             if risk_match:
                 result['risk_assessment'] = risk_match.group(1).strip()
             else:
                 missing_fields.append('Risk Assessment')
             
-            # Parse recommendation
-            rec_match = re.search(r'Recommendation:\s*(APPROVE|MODIFY|REJECT)', response_text, re.IGNORECASE)
+            # Parse recommendation (new format)
+            rec_match = re.search(r'RECOMMENDATION:\s*(APPROVE|MODIFY|REJECT)', response_text, re.IGNORECASE)
+            if not rec_match:
+                # Fallback to old format
+                rec_match = re.search(r'Recommendation:\s*(APPROVE|MODIFY|REJECT)', response_text, re.IGNORECASE)
+            
             if rec_match:
                 result['recommendation'] = rec_match.group(1).upper()
             else:

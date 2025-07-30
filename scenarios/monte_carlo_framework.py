@@ -494,9 +494,10 @@ class BlueSkyScenarioGenerator:
         """Generate BlueSky commands for scenario setup (shift-aware)"""
         commands = []
         
-        # Reset simulation
-        commands.append("RESET")
-        commands.append("DTMULT 1")  # Real-time simulation
+        # Proper BlueSky initialization sequence
+        commands.append("RESET")         # Clear all aircraft and state
+        commands.append("IC")            # Initialize simulation 
+        commands.append("DTMULT 1")      # Real-time simulation
         
         # Set area (use first aircraft position as reference)
         ref_pos = positions[0]
@@ -517,6 +518,9 @@ class BlueSkyScenarioGenerator:
         if environmental_conditions.get('turbulence_intensity', 0) > 0.5:
             turb_cmd = f"TURB {environmental_conditions['turbulence_intensity']:.2f}"
             commands.append(turb_cmd)
+        
+        # Start simulation before creating aircraft
+        commands.append("OP")            # Start/run simulation
         
         # Create aircraft using CRE commands
         for i in range(aircraft_count):

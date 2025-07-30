@@ -28,6 +28,11 @@ try:
 except ImportError as e:
     BLUESKY_AVAILABLE = False
     logging.warning(f"BlueSky not available - using mock simulation: {e}")
+    # Create dummy references
+    bs = None
+    stack = None
+    sim = None
+    traf = None
 
 
 # Configuration management
@@ -156,11 +161,12 @@ _config = BlueSkyConfig()
 class BlueSkyInterface:
     """Interface for interacting with BlueSky simulator"""
     
-    def __init__(self):
+    def __init__(self, strict_mode: bool = False):
         self.bluesky_available = BLUESKY_AVAILABLE
         self.connection_type = _config.get('bluesky.connection_type', 'local')
         self.network_config = _config.get('bluesky.network', {})
         self.simulation_initialized = False
+        self.strict_mode = strict_mode  # If True, fail instead of using mock data
         
         # Initialize connection if BlueSky is available
         if self.bluesky_available:
@@ -172,10 +178,20 @@ class BlueSkyInterface:
             if self.connection_type == 'local':
                 # Initialize BlueSky for local use
                 if hasattr(bs, 'init'):
+                    logging.info("Initializing BlueSky with bs.init()...")
                     bs.init()
-                elif hasattr(bs, 'settings'):
-                    # Alternative initialization method
-                    pass
+                    logging.info("BlueSky core initialization completed")
+                    
+                    # Verify that simulation modules are now available
+                    from bluesky import sim, traf
+                    if not hasattr(sim, 'simt'):
+                        raise Exception("Simulation module not properly initialized")
+                    if not hasattr(traf, 'id'):
+                        raise Exception("Traffic module not properly initialized")
+                    
+                    logging.info("BlueSky simulation and traffic modules verified")
+                else:
+                    raise Exception("BlueSky init method not available")
                     
                 # Set up simulation parameters
                 self._setup_simulation()
@@ -195,16 +211,37 @@ class BlueSkyInterface:
     def _setup_simulation(self):
         """Setup simulation parameters"""
         try:
-            # Set conflict detection method
-            cd_method = _config.get('bluesky.simulation.conflict_detection_method', 'SWARM')
+            # Initialize BlueSky simulation properly
             if hasattr(bs, 'stack'):
+                # 1. Initial condition - resets and initializes simulation
+                logging.info("Setting up BlueSky simulation with IC command...")
+                bs.stack.stack("IC")
+                
+                # 2. Set simulation area (default to Amsterdam area)
+                area_cmd = "AREA EHAM"  # Amsterdam area
+                logging.info(f"Setting simulation area: {area_cmd}")
+                bs.stack.stack(area_cmd)
+                
+                # 3. Set conflict detection method
+                cd_method = _config.get('bluesky.simulation.conflict_detection_method', 'SWARM')
+                logging.info(f"Setting conflict detection method: {cd_method}")
                 bs.stack.stack(f"CDMETHOD {cd_method}")
                 
-            # Set separation standards
-            h_sep = _config.get('bluesky.simulation.separation_standards.horizontal_nm', 5.0)
-            v_sep = _config.get('bluesky.simulation.separation_standards.vertical_ft', 1000.0)
-            if hasattr(bs, 'stack'):
+                # 4. Set separation standards
+                h_sep = _config.get('bluesky.simulation.separation_standards.horizontal_nm', 5.0)
+                v_sep = _config.get('bluesky.simulation.separation_standards.vertical_ft', 1000.0)
+                logging.info(f"Setting separation standards: {h_sep}nm horizontal, {v_sep}ft vertical")
                 bs.stack.stack(f"CDSEP {h_sep} {v_sep}")
+                
+                # 5. Start simulation
+                logging.info("Starting BlueSky simulation with OP command...")
+                bs.stack.stack("OP")
+                
+                # 6. Step simulation once to ensure proper initialization
+                bs.sim.step()
+                logging.info("BlueSky simulation stepped for initialization")
+                
+                logging.info("BlueSky simulation setup completed successfully")
                 
         except Exception as e:
             logging.warning(f"Failed to setup simulation parameters: {e}")
@@ -234,30 +271,44 @@ class BlueSkyInterface:
     def get_aircraft_data(self) -> Dict[str, Any]:
         """Get real aircraft data from BlueSky"""
         if not self.is_available():
+            if self.strict_mode:
+                raise BlueSkyToolsError("BlueSky not available and strict mode is enabled - cannot use mock data")
             return self._get_mock_aircraft_data()
             
         try:
             aircraft_dict = {}
             
-            # Get aircraft data from BlueSky traffic module
-            if hasattr(traf, 'id') and hasattr(traf, 'lat'):
-                for i, acid in enumerate(traf.id):
-                    if i < len(traf.lat) and i < len(traf.lon):
-                        aircraft_dict[acid] = {
-                            "id": acid,
-                            "lat": float(traf.lat[i]),
-                            "lon": float(traf.lon[i]), 
-                            "alt": float(traf.alt[i]) if i < len(traf.alt) else 35000.0,
-                            "hdg": float(traf.hdg[i]) if i < len(traf.hdg) else 0.0,
-                            "spd": float(traf.tas[i]) if i < len(traf.tas) else 250.0,
-                            "vs": float(traf.vs[i]) if i < len(traf.vs) else 0.0,
-                            "type": traf.type[i] if i < len(traf.type) else "B738",
-                            "callsign": acid,
-                        }
+            # Use bs.traf (the actual simulation traffic) instead of the imported traf module
+            if hasattr(bs, 'traf') and bs.traf is not None:
+                traffic = bs.traf
+                logging.debug(f"Checking bs.traf - has id: {hasattr(traffic, 'id')}")
+                if hasattr(traffic, 'id'):
+                    logging.debug(f"bs.traf.id length: {len(traffic.id)}")
+                    logging.debug(f"bs.traf.id contents: {list(traffic.id) if len(traffic.id) > 0 else 'empty'}")
+                
+                # Get aircraft data from BlueSky traffic module
+                if hasattr(traffic, 'id') and hasattr(traffic, 'lat'):
+                    for i, acid in enumerate(traffic.id):
+                        if i < len(traffic.lat) and i < len(traffic.lon):
+                            aircraft_dict[acid] = {
+                                "id": acid,
+                                "lat": float(traffic.lat[i]),
+                                "lon": float(traffic.lon[i]), 
+                                "alt": float(traffic.alt[i]) if i < len(traffic.alt) else 35000.0,
+                                "hdg": float(traffic.hdg[i]) if i < len(traffic.hdg) else 0.0,
+                                "spd": float(traffic.tas[i]) if i < len(traffic.tas) else 250.0,
+                                "vs": float(traffic.vs[i]) if i < len(traffic.vs) else 0.0,
+                                "type": traffic.type[i] if i < len(traffic.type) else "B738",
+                                "callsign": acid,
+                            }
             
-            # If no aircraft in BlueSky, add some default ones for testing
+            logging.debug(f"Found {len(aircraft_dict)} aircraft in BlueSky")
+            
+            # If no aircraft in BlueSky
             if len(aircraft_dict) == 0:
-                logging.info("No aircraft in BlueSky simulation, using mock data for compatibility")
+                if self.strict_mode:
+                    raise BlueSkyToolsError("No aircraft in BlueSky simulation and strict mode is enabled")
+                logging.info("No aircraft in BlueSky simulation traffic module")
                 return self._get_mock_aircraft_data()
                         
             return {
@@ -268,8 +319,12 @@ class BlueSkyInterface:
                 "source": "bluesky_real"
             }
             
+        except BlueSkyToolsError:
+            raise  # Re-raise strict mode errors
         except Exception as e:
             logging.error(f"Error getting real aircraft data: {e}")
+            if self.strict_mode:
+                raise BlueSkyToolsError(f"Failed to get real aircraft data: {e}")
             return self._get_mock_aircraft_data()
             
     def get_conflict_data(self) -> Dict[str, Any]:
@@ -363,6 +418,14 @@ class BlueSkyInterface:
             else:
                 raise Exception("BlueSky stack not available")
                 
+            # If this was a CRE (create aircraft) command, step simulation to make aircraft visible
+            if command.strip().upper().startswith('CRE'):
+                try:
+                    bs.sim.step()
+                    logging.debug(f"Stepped simulation after CRE command: {command}")
+                except Exception as e:
+                    logging.warning(f"Failed to step simulation after CRE command: {e}")
+                
             return {
                 "command": command,
                 "status": "executed",
@@ -391,16 +454,19 @@ class BlueSkyInterface:
         try:
             # Set time multiplier if different
             if dtmult != 1.0:
+                logging.info(f"Setting time multiplier to {dtmult}")
                 self.send_bluesky_command(f"DTMULT {dtmult}")
                 
-            # Step simulation forward
-            dt_seconds = minutes * 60
-            cmd_result = self.send_bluesky_command(f"DT {dt_seconds:.0f}")
+            # Step simulation forward using FF (fast-forward) instead of DT
+            # FF advances simulation by given amount of time
+            ff_minutes = minutes * dtmult
+            logging.info(f"Advancing simulation by {ff_minutes} minutes")
+            cmd_result = self.send_bluesky_command(f"FF {ff_minutes:.2f}")
             
             return {
                 "action": "step_simulation",
                 "minutes_advanced": minutes,
-                "seconds_advanced": dt_seconds,
+                "seconds_advanced": minutes * 60,
                 "dtmult": dtmult,
                 "simulation_time": getattr(sim, 'simt', time.time()) if hasattr(sim, 'simt') else time.time(),
                 "command_result": cmd_result,
@@ -426,24 +492,26 @@ class BlueSkyInterface:
             return self._simulate_reset()
             
         try:
-            # Send reset command
+            # Send reset command first
+            logging.info("Resetting BlueSky simulation...")
             reset_result = self.send_bluesky_command("RESET")
             
-            # Re-setup simulation parameters
+            # Re-setup simulation parameters with proper sequence
             self._setup_simulation()
             
-            # Get current aircraft count
+            # Get current aircraft count after reset
             aircraft_count = len(traf.id) if hasattr(traf, 'id') else 0
             
             return {
                 "action": "reset_simulation",
                 "reset_command": reset_result,
-                "simulation_state": "initialized",
+                "simulation_state": "initialized_and_running",
                 "aircraft_count": aircraft_count,
                 "timestamp": time.time(),
                 "success": reset_result.get("success", False),
                 "status": "completed" if reset_result.get("success") else "failed",
-                "source": "bluesky_real"
+                "source": "bluesky_real",
+                "setup_commands": ["IC", "AREA EHAM", "CDMETHOD SWARM", "CDSEP 5.0 1000", "OP"]
             }
             
         except Exception as e:
@@ -586,6 +654,12 @@ class BlueSkyInterface:
 
 # Global BlueSky interface instance
 _bluesky_interface = BlueSkyInterface()
+
+def set_strict_mode(enabled: bool = True):
+    """Enable or disable strict mode for BlueSky operations"""
+    global _bluesky_interface
+    _bluesky_interface.strict_mode = enabled
+    logging.info(f"BlueSky strict mode {'enabled' if enabled else 'disabled'}")
 
 
 @dataclass
@@ -751,7 +825,7 @@ def send_command(command: str) -> dict[str, Any]:
         valid_commands = [
             "ALT", "HDG", "SPD", "CRE", "DEL", "DEST", "DIRECT", "LNAV",
             "DT", "DTMULT", "VS", "GO", "RESET", "AREA", "CDMETHOD", "CDSEP",
-            "WIND", "TURB", "PAUSE", "UNPAUSE", "FF", "IC"
+            "WIND", "TURB", "PAUSE", "UNPAUSE", "FF", "IC", "OP"
         ]
 
         if command_type not in valid_commands:
@@ -1116,7 +1190,7 @@ def reset_simulation() -> dict[str, Any]:
         
         # Add backward compatibility fields
         if result.get("success"):
-            result["setup_commands"] = ["DTMULT 1", "CDMETHOD SWARM", "CDSEP 5.0 1000"]
+            result["setup_commands"] = ["IC", "DTMULT 1", "AREA EHAM", "CDMETHOD SWARM", "CDSEP 5.0 1000", "OP"]
             
         logging.info("Simulation reset completed (source: %s)", 
                     result.get("source", "unknown"))
