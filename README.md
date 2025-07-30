@@ -369,7 +369,7 @@ safety_result = quantifier.calculate_safety_margins(conflict_geometry, resolutio
 # horizontal/vertical margins, overall safety score
 ```
 
-#### **BlueSky Tools** (`llm_atc/tools/`)
+### 7. **BlueSky Integration** (`scenarios/`)
 
 ##### `bluesky_tools.py`
 ```python
@@ -432,7 +432,209 @@ analysis = analyzer.analyze_test_results(results_list)
 analyzer.generate_visualizations(analysis, output_dir="test_results/")
 ```
 
-### 6. **BlueSky Integration** (`scenarios/`)
+### 6. Monte Carlo Analysis & Benchmarking
+
+#### **Monte Carlo Results Analysis** (`llm_atc/metrics/monte_carlo_analysis.py`)
+
+Complete framework for analyzing Monte Carlo simulation results with aggregation and visualization capabilities.
+
+##### `MonteCarloResultsAnalyzer`
+```python
+from llm_atc.metrics.monte_carlo_analysis import MonteCarloResultsAnalyzer
+
+analyzer = MonteCarloResultsAnalyzer()
+
+# Read results from file
+results_df = analyzer.read_results_file("monte_carlo_results.json")
+
+# Compute comprehensive metrics
+aggregated_metrics = analyzer.aggregate_monte_carlo_metrics(results_df)
+
+# Individual metric calculations
+fp_fn_rates = analyzer.compute_false_positive_negative_rates(results_df)
+success_rates = analyzer.compute_success_rates_by_scenario(results_df)
+separation_margins = analyzer.compute_average_separation_margins(results_df)
+efficiency_penalties = analyzer.compute_efficiency_penalties(results_df)
+```
+
+##### `MonteCarloVisualizer`
+```python
+from llm_atc.metrics.monte_carlo_analysis import MonteCarloVisualizer
+
+visualizer = MonteCarloVisualizer()
+
+# Create performance summary charts
+summary_plots = visualizer.create_performance_summary_charts(
+    aggregated_metrics, 
+    output_dir="monte_carlo_plots"
+)
+
+# Create distribution shift analysis plots
+shift_plots = visualizer.create_distribution_shift_plots(
+    aggregated_metrics,
+    output_dir="monte_carlo_plots"
+)
+```
+
+##### Complete Analysis Pipeline
+```python
+from llm_atc.metrics.monte_carlo_analysis import analyze_monte_carlo_results
+
+# Run complete analysis from results file
+analysis_results = analyze_monte_carlo_results(
+    results_file="monte_carlo_results.json",
+    output_dir="analysis_output"
+)
+
+# Returns: metrics, plots, and file paths
+print(f"Metrics saved to: {analysis_results['metrics_file']}")
+print(f"Summary plots: {analysis_results['summary_plots']}")
+print(f"Distribution shift plots: {analysis_results['distribution_shift_plots']}")
+```
+
+#### **Monte Carlo Benchmark CLI**
+
+Run comprehensive Monte Carlo benchmarks via command line:
+
+```bash
+# Basic Monte Carlo benchmark
+python -m llm_atc.cli monte-carlo-benchmark
+
+# Custom scenario distribution
+python -m llm_atc.cli monte-carlo-benchmark \
+    --num-horizontal 50 \
+    --num-vertical 30 \
+    --num-sector 20 \
+    --complexities simple,moderate,complex \
+    --shift-levels in_distribution,moderate_shift,extreme_shift
+
+# Advanced configuration
+python -m llm_atc.cli monte-carlo-benchmark \
+    --output results/monte_carlo_2024 \
+    --models llama3.1:8b,mistral:7b,codellama:7b \
+    --timeout 300 \
+    --parallel-workers 4
+```
+
+#### **Scenario Types and Configurations**
+
+**Horizontal Scenarios**:
+- 2-10 aircraft at the same altitude (FL100-FL410)
+- Converging flight paths with potential conflicts
+- Horizontal separation margin analysis
+
+**Vertical Scenarios**:
+- Aircraft with near-threshold altitude differences (±1000ft)
+- Climb/descent conflict situations
+- Vertical separation margin analysis
+
+**Sector Scenarios**:
+- 5-10 aircraft with random positions in sector
+- Multiple simultaneous conflicts
+- Complex airspace management
+
+#### **Metrics Computed**
+
+**Detection Performance**:
+- False Positive Rate: Incorrectly predicted conflicts
+- False Negative Rate: Missed actual conflicts
+- Precision/Recall for conflict detection
+
+**Success Rates by Scenario Type**:
+- Resolution success percentage per scenario category
+- Failure analysis and categorization
+- Performance degradation under stress
+
+**Safety Margins**:
+- Average horizontal separation margins (nautical miles)
+- Average vertical separation margins (feet)
+- Margin-to-uncertainty ratios
+- Safety level classifications (critical, marginal, adequate, excellent)
+
+**Efficiency Penalties**:
+- Extra distance traveled due to resolution maneuvers
+- Fuel consumption implications
+- Time delays introduced
+
+**Distribution Shift Analysis**:
+- Performance across in-distribution vs out-of-distribution scenarios
+- Robustness metrics under operational stress
+- Model degradation patterns
+
+#### **Example Results Structure**
+
+```json
+{
+  "summary": {
+    "total_scenarios": 100,
+    "scenario_types": ["horizontal", "vertical", "sector"],
+    "analysis_timestamp": "2024-01-15T10:30:00"
+  },
+  "detection_performance": {
+    "false_positive_rate": 0.125,
+    "false_negative_rate": 0.087,
+    "total_false_positives": 12,
+    "total_false_negatives": 8
+  },
+  "success_rates_by_scenario": {
+    "horizontal": {
+      "success_rate": 0.85,
+      "successful_scenarios": 34,
+      "total_scenarios": 40
+    },
+    "vertical": {
+      "success_rate": 0.72,
+      "successful_scenarios": 21,
+      "total_scenarios": 30
+    },
+    "sector": {
+      "success_rate": 0.63,
+      "successful_scenarios": 19,
+      "total_scenarios": 30
+    }
+  },
+  "separation_margins": {
+    "avg_horizontal_margin": 3.7,
+    "avg_vertical_margin": 850.0,
+    "std_horizontal_margin": 2.1,
+    "std_vertical_margin": 420.0
+  },
+  "efficiency_metrics": {
+    "avg_efficiency_penalty": 4.2,
+    "std_efficiency_penalty": 2.8,
+    "max_efficiency_penalty": 12.5
+  },
+  "distribution_shift_analysis": {
+    "in_distribution": {
+      "scenario_count": 40,
+      "false_positive_rate": 0.08,
+      "avg_success_rate": 0.82
+    },
+    "moderate_shift": {
+      "scenario_count": 35,
+      "false_positive_rate": 0.15,
+      "avg_success_rate": 0.71
+    },
+    "extreme_shift": {
+      "scenario_count": 25,
+      "false_positive_rate": 0.24,
+      "avg_success_rate": 0.58
+    }
+  }
+}
+```
+
+#### **Visualization Outputs**
+
+The Monte Carlo analysis generates comprehensive visualizations:
+
+1. **Success Rates by Scenario Type**: Bar chart showing resolution success percentages
+2. **Detection Performance**: FP/FN rate comparison charts
+3. **Safety Margins**: Horizontal vs vertical separation margin analysis
+4. **Distribution Shift Performance**: Scatter plots showing performance degradation
+5. **Efficiency Analysis**: Penalty distribution and trend analysis
+
+All plots are saved as high-resolution PNG files with detailed annotations and statistical information.
 
 #### `monte_carlo_framework.py`
 ```python
