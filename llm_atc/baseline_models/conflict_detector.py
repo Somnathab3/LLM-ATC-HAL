@@ -51,7 +51,7 @@ class BaselineConflictDetector:
     Serves as baseline comparison for LLM-based detection.
     """
 
-    def __init__(self, model_type: str = "random_forest"):
+    def __init__(self, model_type: str = "random_forest") -> None:
         """
         Initialize baseline conflict detector.
 
@@ -67,9 +67,11 @@ class BaselineConflictDetector:
 
         # Check dependencies
         if model_type == "random_forest" and not SKLEARN_AVAILABLE:
-            raise ImportError("scikit-learn required for RandomForest model")
+            msg = "scikit-learn required for RandomForest model"
+            raise ImportError(msg)
         if model_type == "xgboost" and not XGBOOST_AVAILABLE:
-            raise ImportError("xgboost required for XGBoost model")
+            msg = "xgboost required for XGBoost model"
+            raise ImportError(msg)
 
         # Initialize model
         if model_type == "random_forest":
@@ -92,7 +94,8 @@ class BaselineConflictDetector:
                 n_jobs=-1,
             )
         else:
-            raise ValueError(f"Unknown model type: {model_type}")
+            msg = f"Unknown model type: {model_type}"
+            raise ValueError(msg)
 
     def extract_features(self, scenario: dict[str, Any]) -> np.ndarray:
         """
@@ -177,7 +180,8 @@ class BaselineConflictDetector:
             Training metrics
         """
         if not SKLEARN_AVAILABLE:
-            raise RuntimeError("scikit-learn not available for training")
+            msg = "scikit-learn not available for training"
+            raise RuntimeError(msg)
 
         # Extract features
         X = np.array([self.extract_features(scenario) for scenario in training_data])
@@ -233,7 +237,8 @@ class BaselineConflictDetector:
             ConflictPrediction object
         """
         if not self.is_trained:
-            raise RuntimeError("Model must be trained before prediction")
+            msg = "Model must be trained before prediction"
+            raise RuntimeError(msg)
 
         # Extract features
         features = self.extract_features(scenario).reshape(1, -1)
@@ -264,10 +269,11 @@ class BaselineConflictDetector:
             risk_factors=risk_factors,
         )
 
-    def save_model(self, filepath: str):
+    def save_model(self, filepath: str) -> None:
         """Save trained model to file"""
         if not self.is_trained:
-            raise RuntimeError("No trained model to save")
+            msg = "No trained model to save"
+            raise RuntimeError(msg)
 
         model_data = {
             "model": self.model,
@@ -282,7 +288,7 @@ class BaselineConflictDetector:
 
         self.logger.info("Model saved to %s", filepath)
 
-    def load_model(self, filepath: str):
+    def load_model(self, filepath: str) -> None:
         """Load trained model from file"""
         with open(filepath, "rb") as f:
             model_data = pickle.load(f)
@@ -389,13 +395,9 @@ if __name__ == "__main__":
     if SKLEARN_AVAILABLE:
         detector = BaselineConflictDetector("random_forest")
         metrics = detector.train(training_scenarios, labels)
-        print("Training metrics:", metrics)
 
         # Test prediction
         test_scenario = training_scenarios[0]
         prediction = detector.predict(test_scenario)
-        print(f"Conflict prediction: {prediction.has_conflict}")
-        print(f"Confidence: {prediction.confidence:.3f}")
-        print(f"Time to conflict: {prediction.time_to_conflict:.1f}s")
     else:
-        print("scikit-learn not available - skipping test")
+        pass

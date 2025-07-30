@@ -60,7 +60,7 @@ class Scratchpad:
     Scratchpad agent for logging step-by-step reasoning and maintaining session history
     """
 
-    def __init__(self, session_id: Optional[str] = None):
+    def __init__(self, session_id: Optional[str] = None) -> None:
         self.session_id = session_id or f"session_{int(time.time() * 1000)}"
         self.logger = logging.getLogger(__name__)
 

@@ -31,7 +31,7 @@ class VectorReplayStore:
     with local Chroma HNSW and metadata filtering
     """
 
-    def __init__(self, storage_dir: str = "memory/chroma_experience_library"):
+    def __init__(self, storage_dir: str = "memory/chroma_experience_library") -> None:
         """
         Initialize the replay store
 
@@ -170,7 +170,7 @@ class VectorReplayStore:
 
         Args:
             conflict_type: Optional conflict type filter
-            num_ac: Optional number of aircraft filter  
+            num_ac: Optional number of aircraft filter
             limit: Optional limit on number of results
 
         Returns:

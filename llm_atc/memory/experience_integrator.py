@@ -4,7 +4,6 @@ Experience Replay Integration for LLM-ATC-HAL System
 Connects vector memory store with real-time conflict resolution
 """
 
-import json
 import logging
 import time
 from typing import Any, Optional
@@ -17,7 +16,7 @@ from llm_atc.metrics.safety_margin_quantifier import SafetyMarginQuantifier
 class ExperienceIntegrator:
     """Integrates experience replay with real-time conflict resolution"""
 
-    def __init__(self, replay_store: VectorReplayStore):
+    def __init__(self, replay_store: VectorReplayStore) -> None:
         self.replay_store = replay_store
         self.hallucination_detector = EnhancedHallucinationDetector()
         self.safety_quantifier = SafetyMarginQuantifier()
@@ -487,11 +486,8 @@ if __name__ == "__main__":
         llm_decision, baseline_decision,
     )
 
-    print("Enhanced Decision:")
-    print(json.dumps(enhanced_decision, indent=2))
-    print("\nLessons Learned:")
-    for lesson in lessons:
-        print(f"- {lesson}")
+    for _lesson in lessons:
+        pass
 
     # Record outcome
     actual_outcome = {
@@ -517,9 +513,6 @@ if __name__ == "__main__":
         hallucination_result, lessons_learned="Heading changes effective for parallel conflicts",
     )
 
-    print(f"\nRecorded experience: {exp_id}")
 
     # Get summary
     summary = integrator.get_experience_summary()
-    print("\nExperience Summary:")
-    print(json.dumps(summary, indent=2))

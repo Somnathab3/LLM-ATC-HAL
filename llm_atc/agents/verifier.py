@@ -40,7 +40,7 @@ class Verifier:
     Verifier agent responsible for checking execution results and validating safety
     """
 
-    def __init__(self, safety_thresholds: Optional[dict[str, float]] = None):
+    def __init__(self, safety_thresholds: Optional[dict[str, float]] = None) -> None:
         self.logger = logging.getLogger(__name__)
         self.verification_history: list[VerificationResult] = []
 
@@ -119,7 +119,7 @@ class Verifier:
             self.logger.exception("Error during verification")
             return False
 
-    def _check_execution_status(self, execution: ExecutionResult, verification: VerificationResult):
+    def _check_execution_status(self, execution: ExecutionResult, verification: VerificationResult) -> None:
         """Check if execution completed successfully"""
         check_name = "execution_status"
         verification.checks_performed.append(check_name)
@@ -133,7 +133,7 @@ class Verifier:
         else:
             verification.warnings.append(f"{check_name}: Execution status is {execution.status.value}")
 
-    def _check_execution_timing(self, execution: ExecutionResult, verification: VerificationResult):
+    def _check_execution_timing(self, execution: ExecutionResult, verification: VerificationResult) -> None:
         """Check execution timing constraints"""
         check_name = "execution_timing"
         verification.checks_performed.append(check_name)
@@ -147,7 +147,7 @@ class Verifier:
         else:
             verification.failed_checks.append(f"{check_name}: Execution too slow ({execution.execution_time:.2f}s > {max_time}s)")
 
-    def _check_command_success_rate(self, execution: ExecutionResult, verification: VerificationResult):
+    def _check_command_success_rate(self, execution: ExecutionResult, verification: VerificationResult) -> None:
         """Check command success rate"""
         check_name = "command_success_rate"
         verification.checks_performed.append(check_name)
@@ -161,7 +161,7 @@ class Verifier:
         else:
             verification.failed_checks.append(f"{check_name}: Success rate too low ({execution.success_rate:.2f} < {min_success_rate})")
 
-    def _check_safety_compliance(self, execution: ExecutionResult, verification: VerificationResult):
+    def _check_safety_compliance(self, execution: ExecutionResult, verification: VerificationResult) -> None:
         """Check safety compliance of executed commands"""
         check_name = "safety_compliance"
         verification.checks_performed.append(check_name)
@@ -178,7 +178,7 @@ class Verifier:
         else:
             verification.failed_checks.append(f"{check_name}: Unsafe commands detected: {safety_violations}")
 
-    def _check_response_validity(self, execution: ExecutionResult, verification: VerificationResult):
+    def _check_response_validity(self, execution: ExecutionResult, verification: VerificationResult) -> None:
         """Check validity of command responses"""
         check_name = "response_validity"
         verification.checks_performed.append(check_name)
@@ -241,10 +241,7 @@ class Verifier:
             return False
 
         # Check for success indication or error details
-        if not response.get("success", False) and not response.get("error"):
-            return False
-
-        return True
+        return not (not response.get("success", False) and not response.get("error"))
 
     def _calculate_safety_score(self, verification: VerificationResult) -> float:
         """Calculate overall safety score based on verification results"""

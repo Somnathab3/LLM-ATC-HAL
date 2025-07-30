@@ -128,7 +128,7 @@ class DistributionShiftRunner:
     def __init__(self,
                  config_file: str = "experiments/shift_experiment_config.yaml",
                  output_dir: str = "experiments/results",
-                 run_baseline: bool = False):
+                 run_baseline: bool = False) -> None:
         """
         Initialize experiment runner.
 
@@ -204,7 +204,7 @@ class DistributionShiftRunner:
             },
         }
 
-    def _initialize_components(self):
+    def _initialize_components(self) -> None:
         """Initialize LLM-ATC-HAL components"""
         self.logger.info("Initializing LLM-ATC-HAL components...")
 
@@ -318,7 +318,8 @@ class DistributionShiftRunner:
             Path to baseline results parquet file
         """
         if not self.run_baseline:
-            raise ValueError("Baseline experiment requested but run_baseline=False")
+            msg = "Baseline experiment requested but run_baseline=False"
+            raise ValueError(msg)
 
         experiment_start = time.time()
         self.logger.info("Starting baseline model experiment")
@@ -650,7 +651,7 @@ class DistributionShiftRunner:
         """Generate baseline response for hallucination detection"""
         # Simple baseline: maintain current headings/altitudes
         baseline_actions = []
-        for i, aircraft in enumerate(scenario.aircraft_list):
+        for _i, aircraft in enumerate(scenario.aircraft_list):
             baseline_actions.append({
                 "aircraft_id": aircraft["id"],
                 "action": "maintain",
@@ -690,7 +691,7 @@ class DistributionShiftRunner:
     def _extract_original_trajectories(self, scenario) -> list[dict[str, Any]]:
         """Extract original aircraft trajectories"""
         trajectories = []
-        for i, aircraft in enumerate(scenario.aircraft_list):
+        for _i, aircraft in enumerate(scenario.aircraft_list):
             # Simple straight-line projection
             trajectories.append({
                 "aircraft_id": aircraft["id"],
@@ -730,7 +731,7 @@ class DistributionShiftRunner:
 
         return interventions
 
-    def _save_intermediate_results(self, completed_sims: int):
+    def _save_intermediate_results(self, completed_sims: int) -> None:
         """Save intermediate results"""
         if not self.results:
             return
@@ -824,7 +825,7 @@ class DistributionShiftRunner:
 
         return summary
 
-    def _generate_experiment_visualizations(self, results_file: str):
+    def _generate_experiment_visualizations(self, results_file: str) -> None:
         """Generate visualizations from experiment results"""
         if not self.results:
             self.logger.warning("No results available for visualization")
@@ -901,7 +902,7 @@ def run_distribution_shift_experiment(config_file: Optional[str] = None,
 
 
 # Command-line interface
-def main():
+def main() -> Optional[int]:
     """Main CLI entry point"""
 
     parser = argparse.ArgumentParser(
@@ -1008,38 +1009,24 @@ Examples:
         # If baseline flag is set, also run baseline experiment
         baseline_results_file = None
         if args.baseline:
-            print("\n🔄 Running baseline models...")
             baseline_results_file = runner.run_baseline_experiment()
-            print(f"✅ Baseline results: {baseline_results_file}")
 
-        print("\n✅ Experiment completed successfully!")
-        print(f"LLM Results file: {results_file}")
         if baseline_results_file:
-            print(f"Baseline Results file: {baseline_results_file}")
+            pass
 
         # Load and display basic statistics
         df = pd.read_parquet(results_file)
-        print("\nLLM Model Statistics:")
-        print(f"Total simulations: {len(df)}")
 
         if baseline_results_file:
-            baseline_df = pd.read_parquet(baseline_results_file)
-            print("\nBaseline Model Statistics:")
-            print(f"Total simulations: {len(baseline_df)}")
+            pd.read_parquet(baseline_results_file)
 
         if len(df) > 0:
-            print(f"Tiers tested: {df['tier'].unique().tolist()}")
-            print(f"Average hallucination rate: {df['hallucination_detected'].mean():.3f}")
-            print(f"Average safety score: {df['safety_score'].mean():.3f}")
-            print(f"ICAO compliance rate: {df['icao_compliant'].mean():.3f}")
+            pass
         else:
-            print("No successful simulations completed")
+            pass
 
         # Print CSV summary if requested
         if args.summary and len(df) > 0:
-            print("\n" + "="*60)
-            print("CSV SUMMARY - THESIS RESULTS")
-            print("="*60)
 
             # Aggregate metrics
             from analysis.metrics import aggregate_thesis_metrics
@@ -1086,9 +1073,7 @@ Examples:
             writer.writeheader()
             writer.writerows(summary_data)
 
-            print(output.getvalue())
 
-            print("="*60)
 
         return 0
 
@@ -1105,4 +1090,4 @@ Examples:
 # Example usage
 if __name__ == "__main__":
     exit_code = main()
-    exit(exit_code)
+    sys.exit(exit_code)

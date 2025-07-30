@@ -38,7 +38,7 @@ class BaselineConflictResolver:
     Follows traditional ATC procedures as baseline for comparison.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
         # Standard separation requirements (ICAO)
@@ -361,7 +361,7 @@ class BaselineConflictResolver:
 
         # Priority based on type
         base_priority = 3  # Default priority
-        if aircraft_type == "emergency" or aircraft_type == "military":
+        if aircraft_type in {"emergency", "military"}:
             base_priority = 1
         elif aircraft_type == "commercial":
             base_priority = 2
@@ -530,12 +530,5 @@ if __name__ == "__main__":
     resolver = BaselineConflictResolver()
     maneuvers = resolver.resolve_conflicts(conflict_scenario)
 
-    print(f"Generated {len(maneuvers)} resolution maneuvers:")
-    for maneuver in maneuvers:
-        print(f"  Aircraft: {maneuver.aircraft_id}")
-        print(f"  Maneuver: {maneuver.maneuver_type.value}")
-        print(f"  Parameters: {maneuver.parameters}")
-        print(f"  Safety Score: {maneuver.safety_score:.3f}")
-        print(f"  Priority: {maneuver.priority}")
-        print(f"  Estimated Delay: {maneuver.estimated_delay:.1f}s")
-        print("---")
+    for _maneuver in maneuvers:
+        pass

@@ -42,7 +42,7 @@ class ExperienceDocument:
 class ExperienceDocumentGenerator:
     """Generates structured experience documents from raw conflict data"""
 
-    def __init__(self, persist_directory: str = "memory/chroma_experience_library"):
+    def __init__(self, persist_directory: str = "memory/chroma_experience_library") -> None:
         """
         Initialize the experience document generator with E5-large-v2 embeddings
 

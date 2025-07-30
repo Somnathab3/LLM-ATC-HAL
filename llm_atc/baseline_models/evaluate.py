@@ -29,7 +29,7 @@ class BaselineEvaluator:
     Enables direct comparison between traditional and LLM-based approaches.
     """
 
-    def __init__(self, model_dir: Optional[str] = None):
+    def __init__(self, model_dir: Optional[str] = None) -> None:
         """
         Initialize baseline evaluator.
 
@@ -268,7 +268,7 @@ class BaselineEvaluator:
 
         return metrics
 
-    def _load_trained_models(self):
+    def _load_trained_models(self) -> None:
         """Load pre-trained models if available"""
         detector_path = self.model_dir / "conflict_detector.pkl"
 
@@ -396,16 +396,9 @@ if __name__ == "__main__":
         evaluator = BaselineEvaluator()
         results = evaluator.evaluate_batch(test_scenarios, ground_truths)
 
-        print("Baseline Evaluation Results:")
-        for result in results:
-            print(f"Scenario: {result['scenario_id']}")
-            print(f"Conflicts detected: {result['detection_result']['has_conflict']}")
-            print(f"Confidence: {result['detection_result']['confidence']:.3f}")
-            print(f"Resolution maneuvers: {len(result['resolution_maneuvers'])}")
-            print(f"Metrics: {result['metrics']}")
-            print("---")
+        for _result in results:
+            pass
 
-    except Exception as e:
-        print(f"Test failed: {e}")
+    except Exception:
         import traceback
         traceback.print_exc()
