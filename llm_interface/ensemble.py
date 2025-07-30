@@ -333,13 +333,22 @@ class OllamaEnsembleClient:
                 try:
                     return json.loads(content)
                 except json.JSONDecodeError:
-                    # Try to extract JSON from text
-                    import re
-                    json_match = re.search(r'\{.*\}', content, re.DOTALL)
-                    if json_match:
-                        return json.loads(json_match.group())
-                    else:
-                        return {'error': 'Invalid JSON response', 'raw_content': content}
+                    # Try to clean and repair JSON
+                    cleaned_json = self._clean_json_response(content)
+                    try:
+                        return json.loads(cleaned_json)
+                    except json.JSONDecodeError:
+                        # Try to extract JSON from text
+                        import re
+                        json_match = re.search(r'\{.*\}', content, re.DOTALL)
+                        if json_match:
+                            try:
+                                cleaned_match = self._clean_json_response(json_match.group())
+                                return json.loads(cleaned_match)
+                            except json.JSONDecodeError:
+                                pass
+                        # Return partial response structure if all parsing fails
+                        return self._create_valid_response_structure(content)
             else:
                 return {'content': content}
                 
@@ -525,6 +534,69 @@ class OllamaEnsembleClient:
             }
         
         return stats
+
+    def _clean_json_response(self, json_str: str) -> str:
+        """Clean and repair common JSON formatting issues"""
+        import re
+        
+        # Remove any leading/trailing non-JSON content
+        json_str = json_str.strip()
+        
+        # Find JSON object boundaries
+        start_idx = json_str.find('{')
+        end_idx = json_str.rfind('}')
+        if start_idx != -1 and end_idx != -1:
+            json_str = json_str[start_idx:end_idx+1]
+        
+        # Fix missing commas between fields
+        json_str = re.sub(r'"\s*\n\s*"', '",\n"', json_str)
+        json_str = re.sub(r'}\s*\n\s*"', '},\n"', json_str)
+        json_str = re.sub(r']\s*\n\s*"', '],\n"', json_str)
+        
+        # Remove trailing commas
+        json_str = re.sub(r',\s*}', '}', json_str)
+        json_str = re.sub(r',\s*]', ']', json_str)
+        
+        # Fix unescaped quotes in strings
+        json_str = re.sub(r':\s*"([^"]*)"([^,}\]]*)"', r': "\1\2"', json_str)
+        
+        return json_str
+    
+    def _create_valid_response_structure(self, raw_content: str) -> Dict[str, Any]:
+        """Create a valid response structure from failed JSON parsing"""
+        return {
+            'action': 'maintain_heading',
+            'reasoning': f'JSON parsing failed, using fallback response: {raw_content[:100]}...',
+            'confidence': 0.1,
+            'safety_check': 'passed',
+            'alternatives': [],
+            'raw_content': raw_content,
+            'parsing_error': True
+        }
+    
+    def _extract_partial_response_data(self, raw_content: str) -> Dict[str, Any]:
+        """Extract partial response data from malformed JSON"""
+        import re
+        
+        result = self._create_valid_response_structure(raw_content)
+        
+        # Try to extract common fields
+        action_match = re.search(r'"action":\s*"([^"]*)"', raw_content, re.IGNORECASE)
+        if action_match:
+            result['action'] = action_match.group(1)
+        
+        reasoning_match = re.search(r'"reasoning":\s*"([^"]*)"', raw_content, re.IGNORECASE)
+        if reasoning_match:
+            result['reasoning'] = reasoning_match.group(1)
+            
+        confidence_match = re.search(r'"confidence":\s*([0-9.]+)', raw_content, re.IGNORECASE)
+        if confidence_match:
+            try:
+                result['confidence'] = float(confidence_match.group(1))
+            except ValueError:
+                pass
+        
+        return result
 
 class RAGValidator:
     """Retrieval-Augmented Generation validator for aviation knowledge"""

@@ -1,0 +1,12 @@
+altitude:
+  vertical_rate_fpm:
+  - 500
+  - 1500
+speed:
+  cruise_speed_variation:
+  - 0.85
+  - 1.15
+traffic:
+  density_multiplier:
+  - 0.5
+  - 1.5

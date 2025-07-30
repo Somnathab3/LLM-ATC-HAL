@@ -112,7 +112,8 @@ class BlueSkyScenarioGenerator:
     """
     
     def __init__(self, ranges_file: str = "scenario_ranges.yaml", 
-                 distribution_shift_file: str = "distribution_shift_levels.yaml"):
+                 distribution_shift_file: str = "distribution_shift_levels.yaml",
+                 ranges_dict: Optional[Dict[str, Any]] = None):
         """Initialize generator with range configuration"""
         self.ranges_file = ranges_file
         self.distribution_shift_file = distribution_shift_file
@@ -123,7 +124,13 @@ class BlueSkyScenarioGenerator:
         if not BLUESKY_AVAILABLE:
             self.logger.warning("BlueSky not available - generator will use mock commands")
             
-        self.ranges = self._load_ranges()
+        # Use provided ranges_dict or load from file
+        if ranges_dict is not None:
+            self.ranges = ranges_dict
+            self.logger.info("Using provided ranges dictionary")
+        else:
+            self.ranges = self._load_ranges()
+        
         self.shift_config = self._load_distribution_shift_config()
     
     def _load_ranges(self) -> Dict[str, Any]:
