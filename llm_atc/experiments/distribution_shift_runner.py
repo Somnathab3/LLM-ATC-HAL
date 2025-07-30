@@ -18,7 +18,6 @@ Stores results in parquet format for statistical analysis.
 import argparse
 import json
 import logging
-import os
 
 # LLM-ATC-HAL imports
 import sys

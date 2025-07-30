@@ -6,7 +6,6 @@ Validates BlueSky, Ollama, and all critical components before simulation
 
 import json
 import logging
-import os
 import sys
 import time
 from dataclasses import dataclass

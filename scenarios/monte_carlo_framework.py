@@ -25,7 +25,6 @@ import yaml
 # BlueSky imports
 try:
     from bluesky import sim, stack, traf
-    from bluesky.stack import stack as bs_stack
 
     BLUESKY_AVAILABLE = True
 except ImportError:

@@ -21,7 +21,6 @@ from typing import Any, Optional
 try:
     import bluesky as bs
     from bluesky import sim, stack, traf
-    from bluesky.stack import stack as bs_stack
 
     BLUESKY_AVAILABLE = True
     logging.info("BlueSky simulator successfully imported")

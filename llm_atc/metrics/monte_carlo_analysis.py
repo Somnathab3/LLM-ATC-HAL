@@ -23,7 +23,6 @@ import pandas as pd
 # Plotting imports
 try:
     import matplotlib.pyplot as plt
-    import seaborn as sns
 
     PLOTTING_AVAILABLE = True
 except ImportError:
