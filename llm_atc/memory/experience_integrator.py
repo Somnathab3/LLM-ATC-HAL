@@ -218,7 +218,8 @@ class ExperienceIntegrator:
                 current_sep = 10  # Default if not available
                 for result in similar_experiences:
                     current_sep = result.experience.conflict_geometry.get(
-                        "closest_approach_distance", 10,
+                        "closest_approach_distance",
+                        10,
                     )
                     break
 
@@ -274,7 +275,8 @@ class ExperienceIntegrator:
                 if similar_successful_actions:
                     confidence_boost = min(0.2, len(similar_successful_actions) * 0.05)
                     enhanced_decision["confidence"] = min(
-                        1.0, original_confidence + confidence_boost,
+                        1.0,
+                        original_confidence + confidence_boost,
                     )
                     enhanced_decision["experience_support"] = "positive"
 
@@ -289,7 +291,8 @@ class ExperienceIntegrator:
                 if similar_failed_actions:
                     confidence_penalty = min(0.3, len(similar_failed_actions) * 0.1)
                     enhanced_decision["confidence"] = max(
-                        0.1, original_confidence - confidence_penalty,
+                        0.1,
+                        original_confidence - confidence_penalty,
                     )
                     enhanced_decision["experience_support"] = "negative"
 
@@ -309,9 +312,9 @@ class ExperienceIntegrator:
             alternative_actions = []
             for result in similar_experiences:
                 if result.experience.actual_outcome.get(
-                    "resolution_success", False,
+                    "resolution_success",
+                    False,
                 ) and result.experience.llm_decision.get("type") != llm_decision.get("type"):
-
                     alternative = {
                         "action": result.experience.llm_decision.get("action", ""),
                         "type": result.experience.llm_decision.get("type", ""),
@@ -395,7 +398,9 @@ class ExperienceIntegrator:
             return {"error": str(e)}
 
     def _generate_learning_insights(
-        self, stats: dict[str, Any], patterns: dict[str, Any],
+        self,
+        stats: dict[str, Any],
+        patterns: dict[str, Any],
     ) -> list[str]:
         """Generate insights from experience data"""
 
@@ -461,10 +466,12 @@ class ExperienceIntegrator:
                 actual_outcome=experience_data.get("outcome", {}),
                 safety_metrics=experience_data.get("outcome", {}),
                 hallucination_detected=experience_data.get("outcome", {}).get(
-                    "hallucination_detected", False,
+                    "hallucination_detected",
+                    False,
                 ),
                 hallucination_types=experience_data.get("outcome", {}).get(
-                    "hallucination_types", [],
+                    "hallucination_types",
+                    [],
                 ),
                 controller_override=experience_data.get("controller_override"),
                 lessons_learned=experience_data.get("lessons_learned", ""),

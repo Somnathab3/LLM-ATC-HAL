@@ -370,7 +370,7 @@ class BlueSkyInterface:
 
                         conflicts.append(
                             {
-                                "conflict_id": f"CONF_{i+1:03d}",
+                                "conflict_id": f"CONF_{i + 1:03d}",
                                 "aircraft_1": ac1_id,
                                 "aircraft_2": ac2_id,
                                 "horizontal_separation": h_sep,
@@ -408,7 +408,6 @@ class BlueSkyInterface:
                 and ac1_idx < len(traf.lon)
                 and ac2_idx < len(traf.lon)
             ):
-
                 return haversine_distance(
                     traf.lat[ac1_idx],
                     traf.lon[ac1_idx],
@@ -596,7 +595,7 @@ class BlueSkyInterface:
 
         # Add additional aircraft based on configuration
         for i in range(max(0, aircraft_count - len(default_aircraft))):
-            acid = f"AC{i+1:03d}"
+            acid = f"AC{i + 1:03d}"
             aircraft_dict[acid] = {
                 "id": acid,
                 "lat": bounds.get("lat_min", 51.0)
@@ -1230,7 +1229,8 @@ def step_simulation(minutes: float, dtmult: float = 1.0) -> dict[str, Any]:
             result["command_sent"] = f"DT {minutes * 60:.0f}"
 
         logging.info(
-            "Simulation stepped forward successfully (source: %s)", result.get("source", "unknown"),
+            "Simulation stepped forward successfully (source: %s)",
+            result.get("source", "unknown"),
         )
         return result
 

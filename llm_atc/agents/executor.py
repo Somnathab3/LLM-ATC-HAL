@@ -100,8 +100,7 @@ class Executor:
                         self.logger.info("Command executed successfully: %s", command)
                     else:
                         error_msg = (
-                            f"Command failed: {command} - "
-                            f"{response.get('error', 'Unknown error')}"
+                            f"Command failed: {command} - {response.get('error', 'Unknown error')}"
                         )
                         result.error_messages.append(error_msg)
                         self.logger.error(error_msg)

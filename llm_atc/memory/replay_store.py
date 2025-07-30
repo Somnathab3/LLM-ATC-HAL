@@ -225,7 +225,11 @@ class VectorReplayStore:
             return ""
 
     def retrieve_experience(
-        self, conflict_desc: str, conflict_type: str, num_ac: int, k: int = 5,
+        self,
+        conflict_desc: str,
+        conflict_type: str,
+        num_ac: int,
+        k: int = 5,
     ) -> list[dict]:
         """
         Retrieve similar experiences using metadata filtering + vector search
@@ -264,12 +268,15 @@ class VectorReplayStore:
 
             if not filtered_results["ids"]:
                 self.logger.info(
-                    "No experiences found for conflict_type=%s, num_ac=%s", conflict_type, num_ac,
+                    "No experiences found for conflict_type=%s, num_ac=%s",
+                    conflict_type,
+                    num_ac,
                 )
                 return []
 
             self.logger.info(
-                "Found %d experiences matching metadata filters", len(filtered_results["ids"]),
+                "Found %d experiences matching metadata filters",
+                len(filtered_results["ids"]),
             )
 
             # Step 2: Vector search on filtered results

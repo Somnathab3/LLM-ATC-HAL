@@ -60,10 +60,11 @@ class SafetyMarginQuantifier:
     """
 
     def __init__(self) -> None:
+        # ICAO separation standards - consistent across all modules
         self.separation_standards = {
-            "horizontal": SeparationStandard.HORIZONTAL_MIN.value,
-            "vertical": SeparationStandard.VERTICAL_MIN.value,
-            "temporal": SeparationStandard.TIME_MIN.value,
+            "horizontal": 5.0,  # ICAO standard - Both detection and ground truth  
+            "vertical": 1000.0,  # ICAO standard - Both detection and ground truth
+            "temporal": 60.0,  # ICAO standard - minimum time for corrective action
         }
 
         # Uncertainty factors for different conditions
@@ -142,7 +143,9 @@ class SafetyMarginQuantifier:
             return self._create_default_safety_margin()
 
     def _apply_resolution_maneuver(
-        self, geometry: ConflictGeometry, maneuver: dict,
+        self,
+        geometry: ConflictGeometry,
+        maneuver: dict,
     ) -> ConflictGeometry:
         """Apply resolution maneuver and predict future conflict geometry"""
         try:
@@ -570,7 +573,8 @@ def calc_separation_margin(trajectories: list[dict[str, Any]]) -> dict[str, floa
 
 
 def calc_efficiency_penalty(
-    planned_path: list[dict[str, Any]], executed_path: list[dict[str, Any]],
+    planned_path: list[dict[str, Any]],
+    executed_path: list[dict[str, Any]],
 ) -> float:
     """
     Calculate efficiency penalty as extra distance traveled due to conflict resolution.

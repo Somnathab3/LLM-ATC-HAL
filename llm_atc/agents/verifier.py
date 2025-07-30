@@ -68,7 +68,8 @@ class Verifier:
         """
         try:
             self.logger.info(
-                "Starting verification for execution %s", execution_result.execution_id,
+                "Starting verification for execution %s",
+                execution_result.execution_id,
             )
 
             start_time = time.time()
@@ -123,7 +124,9 @@ class Verifier:
             return False
 
     def _check_execution_status(
-        self, execution: ExecutionResult, verification: VerificationResult,
+        self,
+        execution: ExecutionResult,
+        verification: VerificationResult,
     ) -> None:
         """Check if execution completed successfully"""
         check_name = "execution_status"
@@ -141,7 +144,9 @@ class Verifier:
             )
 
     def _check_execution_timing(
-        self, execution: ExecutionResult, verification: VerificationResult,
+        self,
+        execution: ExecutionResult,
+        verification: VerificationResult,
     ) -> None:
         """Check execution timing constraints"""
         check_name = "execution_timing"
@@ -161,7 +166,9 @@ class Verifier:
             )
 
     def _check_command_success_rate(
-        self, execution: ExecutionResult, verification: VerificationResult,
+        self,
+        execution: ExecutionResult,
+        verification: VerificationResult,
     ) -> None:
         """Check command success rate"""
         check_name = "command_success_rate"
@@ -181,7 +188,9 @@ class Verifier:
             )
 
     def _check_safety_compliance(
-        self, execution: ExecutionResult, verification: VerificationResult,
+        self,
+        execution: ExecutionResult,
+        verification: VerificationResult,
     ) -> None:
         """Check safety compliance of executed commands"""
         check_name = "safety_compliance"
@@ -202,7 +211,9 @@ class Verifier:
             )
 
     def _check_response_validity(
-        self, execution: ExecutionResult, verification: VerificationResult,
+        self,
+        execution: ExecutionResult,
+        verification: VerificationResult,
     ) -> None:
         """Check validity of command responses"""
         check_name = "response_validity"

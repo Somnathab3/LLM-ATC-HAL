@@ -188,7 +188,8 @@ def print_metrics_summary(metrics: dict[str, Any]) -> None:
 
 
 def calc_fp_fn(
-    pred_conflicts: list[dict[str, Any]], gt_conflicts: list[dict[str, Any]],
+    pred_conflicts: list[dict[str, Any]],
+    gt_conflicts: list[dict[str, Any]],
 ) -> tuple[float, float]:
     """Calculate false positive and false negative rates."""
     if not pred_conflicts and not gt_conflicts:
@@ -221,7 +222,8 @@ def calc_fp_fn(
 
 
 def calc_path_extra(
-    actual_traj: list[dict[str, Any]], original_traj: list[dict[str, Any]],
+    actual_traj: list[dict[str, Any]],
+    original_traj: list[dict[str, Any]],
 ) -> float:
     """Calculate extra distance traveled due to resolution maneuvers."""
     if not actual_traj or not original_traj:

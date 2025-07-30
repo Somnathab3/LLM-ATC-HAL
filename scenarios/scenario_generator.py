@@ -121,11 +121,19 @@ class ScenarioGenerator:
         )
         self.logger = logging.getLogger(__name__)
 
-        # Standard separation minimums (ICAO)
-        self.MIN_HORIZONTAL_SEP_NM = 5.0  # nautical miles
-        self.MIN_VERTICAL_SEP_FT = 1000.0  # feet
-        self.CRITICAL_HORIZONTAL_SEP_NM = 3.0  # critical threshold
-        self.CRITICAL_VERTICAL_SEP_FT = 500.0  # critical threshold
+        # Standard separation minimums (ICAO) - Unified thresholds
+        # Both detection and ground truth use the same ICAO standards
+        self.CONFLICT_THRESHOLD_NM = 5.0  # nautical miles (ICAO standard) - Both detection and ground truth
+        self.CONFLICT_THRESHOLD_FT = 1000.0  # feet (ICAO standard) - Both detection and ground truth
+        self.LOOKAHEAD_TIME_SEC = 300.0  # 5 minutes lookahead for conflict detection - Check if conflict will happen within 300s
+        
+        # Minimum separation thresholds (aliases for clarity)
+        self.MIN_HORIZONTAL_SEP_NM = self.CONFLICT_THRESHOLD_NM  # ICAO horizontal minimum
+        self.MIN_VERTICAL_SEP_FT = self.CONFLICT_THRESHOLD_FT    # ICAO vertical minimum
+        
+        # Critical separation thresholds (for severity assessment)
+        self.CRITICAL_HORIZONTAL_SEP_NM = self.CONFLICT_THRESHOLD_NM * 0.6  # 3.0 nm
+        self.CRITICAL_VERTICAL_SEP_FT = self.CONFLICT_THRESHOLD_FT * 0.6     # 600 ft
 
     def generate_scenario(self, scenario_type: ScenarioType, **kwargs) -> Scenario:
         """
@@ -657,7 +665,7 @@ class ScenarioGenerator:
     def _calculate_horizontal_ground_truth(
         self, aircraft_states: list[dict[str, Any]], expect_conflicts: bool,
     ) -> list[GroundTruthConflict]:
-        """Calculate ground truth conflicts for horizontal scenarios"""
+        """Calculate ground truth conflicts for horizontal scenarios with time-based analysis"""
         conflicts = []
 
         # For horizontal scenarios, check all pairs for convergent trajectories
@@ -666,45 +674,158 @@ class ScenarioGenerator:
                 ac1 = aircraft_states[i]
                 ac2 = aircraft_states[j]
 
-                # Calculate horizontal distance
-                distance_nm = self._calculate_distance_nm(
-                    ac1["latitude"],
-                    ac1["longitude"],
-                    ac2["latitude"],
-                    ac2["longitude"],
-                )
-
-                # Check if headings are convergent
-                is_convergent = self._are_headings_convergent(
-                    ac1["latitude"],
-                    ac1["longitude"],
-                    ac1["heading"],
-                    ac2["latitude"],
-                    ac2["longitude"],
-                    ac2["heading"],
-                )
-
-                if expect_conflicts and is_convergent:
-                    # Estimate time to conflict (simplified)
-                    avg_speed = (ac1["ground_speed"] + ac2["ground_speed"]) / 2
-                    time_to_conflict = (distance_nm / avg_speed) * 3600  # Convert to seconds
-
+                # Perform detailed conflict analysis
+                conflict_analysis = self._analyze_aircraft_pair_trajectory(ac1, ac2)
+                
+                if expect_conflicts and conflict_analysis["has_conflict"]:
                     conflict = GroundTruthConflict(
                         aircraft_pair=(ac1["callsign"], ac2["callsign"]),
                         conflict_type="horizontal",
-                        time_to_conflict=time_to_conflict,
+                        time_to_conflict=conflict_analysis["time_to_cpa"],
                         min_separation={
-                            "horizontal_nm": min(distance_nm, self.CRITICAL_HORIZONTAL_SEP_NM),
-                            "vertical_ft": 0,  # Same altitude
+                            "horizontal_nm": conflict_analysis["min_horizontal_nm"],
+                            "vertical_ft": abs(ac1["altitude"] - ac2["altitude"]),
                         },
-                        severity=(
-                            "high" if distance_nm < self.CRITICAL_HORIZONTAL_SEP_NM else "medium"
-                        ),
-                        is_actual_conflict=distance_nm < self.MIN_HORIZONTAL_SEP_NM,
+                        severity=conflict_analysis["severity"],
+                        is_actual_conflict=conflict_analysis["violates_separation"],
                     )
                     conflicts.append(conflict)
 
         return conflicts
+
+    def _analyze_aircraft_pair_trajectory(self, ac1: dict, ac2: dict) -> dict:
+        """
+        Analyze aircraft pair for potential conflicts using proper trajectory projection.
+        
+        Returns:
+            dict: Analysis results including conflict status, CPA time, minimum separation
+        """
+        # Current positions and velocities
+        lat1, lon1 = ac1["latitude"], ac1["longitude"]
+        lat2, lon2 = ac2["latitude"], ac2["longitude"]
+        alt1, alt2 = ac1["altitude"], ac2["altitude"]
+        hdg1, hdg2 = ac1["heading"], ac2["heading"]
+        spd1, spd2 = ac1["ground_speed"], ac2["ground_speed"]
+        vs1 = ac1.get("vertical_speed", 0)
+        vs2 = ac2.get("vertical_speed", 0)
+        
+        # Current separation
+        current_horizontal_nm = self._calculate_distance_nm(lat1, lon1, lat2, lon2)
+        current_vertical_ft = abs(alt1 - alt2)
+        
+        # Convert speeds from knots to NM/second
+        spd1_nm_per_sec = spd1 / 3600
+        spd2_nm_per_sec = spd2 / 3600
+        
+        # Convert headings to velocity components (East-West, North-South)
+        import math
+        vel1_east = spd1_nm_per_sec * math.sin(math.radians(hdg1))
+        vel1_north = spd1_nm_per_sec * math.cos(math.radians(hdg1))
+        vel2_east = spd2_nm_per_sec * math.sin(math.radians(hdg2))
+        vel2_north = spd2_nm_per_sec * math.cos(math.radians(hdg2))
+        
+        # Relative velocity
+        rel_vel_east = vel2_east - vel1_east
+        rel_vel_north = vel2_north - vel1_north
+        rel_speed = math.sqrt(rel_vel_east**2 + rel_vel_north**2)
+        
+        # Convert lat/lon to relative Cartesian coordinates (simplified)
+        # Using small angle approximation for local area
+        pos1_east = lon1 * 60 * math.cos(math.radians(lat1))  # NM
+        pos1_north = lat1 * 60  # NM
+        pos2_east = lon2 * 60 * math.cos(math.radians(lat2))  # NM
+        pos2_north = lat2 * 60  # NM
+        
+        # Relative position
+        rel_pos_east = pos2_east - pos1_east
+        rel_pos_north = pos2_north - pos1_north
+        
+        # Find time to closest point of approach (CPA)
+        if rel_speed < 1e-6:  # Aircraft moving in parallel
+            time_to_cpa = 0
+            min_horizontal_nm = current_horizontal_nm
+        else:
+            # Dot product of relative position and relative velocity
+            dot_product = rel_pos_east * rel_vel_east + rel_pos_north * rel_vel_north
+            time_to_cpa = -dot_product / (rel_speed**2)
+            
+            # Calculate minimum horizontal separation at CPA
+            if time_to_cpa < 0:
+                # CPA is in the past, aircraft are diverging
+                time_to_cpa = 0
+                min_horizontal_nm = current_horizontal_nm
+            else:
+                # Project positions to CPA time
+                future_pos1_east = pos1_east + vel1_east * time_to_cpa
+                future_pos1_north = pos1_north + vel1_north * time_to_cpa
+                future_pos2_east = pos2_east + vel2_east * time_to_cpa
+                future_pos2_north = pos2_north + vel2_north * time_to_cpa
+                
+                min_horizontal_nm = math.sqrt(
+                    (future_pos2_east - future_pos1_east)**2 + 
+                    (future_pos2_north - future_pos1_north)**2
+                )
+        
+        # Calculate vertical separation at CPA
+        if time_to_cpa > 0:
+            future_alt1 = alt1 + vs1 * (time_to_cpa / 60)  # vs in fpm
+            future_alt2 = alt2 + vs2 * (time_to_cpa / 60)
+            min_vertical_ft = abs(future_alt2 - future_alt1)
+        else:
+            min_vertical_ft = current_vertical_ft
+        
+        # Determine if this constitutes a conflict within lookahead time
+        # Key improvement: Check if conflict happens within 300s considering speed and distance
+        has_conflict = (
+            time_to_cpa <= self.LOOKAHEAD_TIME_SEC and  # Within 5 minutes (300s)
+            time_to_cpa > 0 and  # CPA is in the future
+            (min_horizontal_nm < self.CONFLICT_THRESHOLD_NM or  # Horizontal violation OR
+             min_vertical_ft < self.CONFLICT_THRESHOLD_FT)      # Vertical violation
+        )
+        
+        # Additional check: Even if initial separation at 300s is 10nm but CPA is 2nm at 250s,
+        # this is still a collision because aircraft will reach CPA before 300s
+        if not has_conflict and time_to_cpa > 0:
+            # Check if aircraft will be within conflict zone before 300s
+            separation_at_300s_horizontal = min_horizontal_nm if time_to_cpa <= 300 else current_horizontal_nm
+            separation_at_300s_vertical = min_vertical_ft if time_to_cpa <= 300 else current_vertical_ft
+            
+            # If they will be in conflict zone before 300s, mark as conflict
+            if (time_to_cpa <= 300 and 
+                (separation_at_300s_horizontal < self.CONFLICT_THRESHOLD_NM or
+                 separation_at_300s_vertical < self.CONFLICT_THRESHOLD_FT)):
+                has_conflict = True
+        
+        # Determine if separation will actually be violated (for severity assessment)
+        violates_separation = (
+            min_horizontal_nm < self.CONFLICT_THRESHOLD_NM and
+            min_vertical_ft < self.CONFLICT_THRESHOLD_FT
+        )
+        
+        # Assess severity based on ICAO standards and time to conflict
+        if violates_separation:
+            if time_to_cpa <= 60:  # Critical: conflict within 1 minute
+                severity = "critical"
+            elif time_to_cpa <= 120:  # High: conflict within 2 minutes  
+                severity = "high"
+            else:
+                severity = "medium"
+        elif min_horizontal_nm < self.CRITICAL_HORIZONTAL_SEP_NM or min_vertical_ft < self.CRITICAL_VERTICAL_SEP_FT:
+            severity = "medium"  # Near-miss scenario
+        else:
+            severity = "low"
+        
+        return {
+            "has_conflict": has_conflict,
+            "violates_separation": violates_separation,
+            "time_to_cpa": time_to_cpa,
+            "min_horizontal_nm": min_horizontal_nm,
+            "min_vertical_ft": min_vertical_ft,
+            "current_horizontal_nm": current_horizontal_nm,
+            "current_vertical_ft": current_vertical_ft,
+            "severity": severity,
+            "within_lookahead": time_to_cpa <= self.LOOKAHEAD_TIME_SEC
+        }
 
     def _calculate_vertical_ground_truth(
         self, aircraft_states: list[dict[str, Any]], expect_conflicts: bool,

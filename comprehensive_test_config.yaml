@@ -24,10 +24,18 @@ complexity_distribution:
 parallel_workers: 6  # Adjust based on system capabilities
 timeout_per_test: 30.0
 
-# Performance Thresholds (as specified in README)
+# Performance Thresholds (as specified in README with ICAO compliance)
 target_accuracy: 0.85      # AUROC > 0.85 for hallucination detection
 target_response_time: 2.0  # < 2s mean response time
 target_safety_compliance: 0.95  # 95% ICAO compliance
+
+# ICAO Standards Configuration (consistent across all modules)
+icao_standards:
+  horizontal_separation_nm: 5.0    # Both detection and ground truth
+  vertical_separation_ft: 1000.0   # Both detection and ground truth  
+  time_horizon_sec: 300.0          # Check conflicts within 300s
+  conflict_detection_methods: ["SWARM", "STATEBASED", "ENHANCED"]
+  cpa_analysis_enabled: true       # Include CPA in analysis and prompts
 
 # Hardware Configuration
 use_gpu_acceleration: true

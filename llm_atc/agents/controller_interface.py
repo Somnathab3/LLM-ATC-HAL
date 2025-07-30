@@ -94,7 +94,11 @@ class SafetyMonitor:
         self.monitoring_active = False
 
     def monitor_llm_output(
-        self, response: dict, response_time: float, confidence: float, uncertainty: float,
+        self,
+        response: dict,
+        response_time: float,
+        confidence: float,
+        uncertainty: float,
     ) -> list[str]:
         """Monitor LLM output for safety concerns"""
 
@@ -331,7 +335,10 @@ class ControllerInterface:
             }
 
     def _update_conflict_display(
-        self, assessment: ConflictAssessment, plan: ActionPlan, _execution: ExecutionResult,
+        self,
+        assessment: ConflictAssessment,
+        plan: ActionPlan,
+        _execution: ExecutionResult,
     ) -> None:
         """Update the UI with current conflict information"""
         try:
@@ -409,18 +416,18 @@ class ControllerInterface:
         """Update the conflict details text area"""
         try:
             details = f"""Conflict ID: {conflict.conflict_id}
-Aircraft: {', '.join(conflict.aircraft_ids)}
+Aircraft: {", ".join(conflict.aircraft_ids)}
 Severity: {conflict.severity}
 Time to Conflict: {conflict.time_to_conflict:.0f} seconds
 Current Separation: {conflict.current_separation:.1f} nautical miles
 Confidence Level: {conflict.confidence_level.value}
 
 AI Recommendation:
-Action Type: {conflict.llm_recommendation.get('action_type', 'N/A')}
-Commands: {', '.join(conflict.llm_recommendation.get('commands', []))}
-Reasoning: {conflict.llm_recommendation.get('reasoning', 'N/A')}
+Action Type: {conflict.llm_recommendation.get("action_type", "N/A")}
+Commands: {", ".join(conflict.llm_recommendation.get("commands", []))}
+Reasoning: {conflict.llm_recommendation.get("reasoning", "N/A")}
 
-Safety Flags: {', '.join(conflict.safety_flags) if conflict.safety_flags else 'None'}
+Safety Flags: {", ".join(conflict.safety_flags) if conflict.safety_flags else "None"}
 """
 
             self.details_text.delete(1.0, tk.END)
@@ -451,7 +458,9 @@ Safety Flags: {', '.join(conflict.safety_flags) if conflict.safety_flags else 'N
 
         # Title
         title_label = ttk.Label(
-            main_frame, text="ATC AI Oversight System", font=("Arial", 16, "bold"),
+            main_frame,
+            text="ATC AI Oversight System",
+            font=("Arial", 16, "bold"),
         )
         title_label.pack(pady=(0, 10))
 
@@ -484,7 +493,9 @@ Safety Flags: {', '.join(conflict.safety_flags) if conflict.safety_flags else 'N
 
         # Conflicts list
         conflicts_label = ttk.Label(
-            self.conflicts_frame, text="Active Conflicts", font=("Arial", 12, "bold"),
+            self.conflicts_frame,
+            text="Active Conflicts",
+            font=("Arial", 12, "bold"),
         )
         conflicts_label.pack(anchor=tk.W, pady=(0, 5))
 
@@ -531,12 +542,16 @@ Safety Flags: {', '.join(conflict.safety_flags) if conflict.safety_flags else 'N
         self.override_entry.pack(side=tk.LEFT, padx=(5, 0))
 
         self.override_button = ttk.Button(
-            override_frame, text="Override", command=self._override_decision,
+            override_frame,
+            text="Override",
+            command=self._override_decision,
         )
         self.override_button.pack(side=tk.LEFT, padx=(10, 0))
 
         self.accept_button = ttk.Button(
-            override_frame, text="Accept AI", command=self._accept_ai_decision,
+            override_frame,
+            text="Accept AI",
+            command=self._accept_ai_decision,
         )
         self.accept_button.pack(side=tk.LEFT, padx=(5, 0))
 
@@ -545,7 +560,9 @@ Safety Flags: {', '.join(conflict.safety_flags) if conflict.safety_flags else 'N
 
         # Safety alerts
         alerts_label = ttk.Label(
-            self.safety_frame, text="Safety Alerts", font=("Arial", 12, "bold"),
+            self.safety_frame,
+            text="Safety Alerts",
+            font=("Arial", 12, "bold"),
         )
         alerts_label.pack(anchor=tk.W, pady=(0, 5))
 
@@ -555,7 +572,9 @@ Safety Flags: {', '.join(conflict.safety_flags) if conflict.safety_flags else 'N
 
         self.alerts_listbox = tk.Listbox(alerts_frame, height=10)
         alerts_scrollbar = ttk.Scrollbar(
-            alerts_frame, orient=tk.VERTICAL, command=self.alerts_listbox.yview,
+            alerts_frame,
+            orient=tk.VERTICAL,
+            command=self.alerts_listbox.yview,
         )
         self.alerts_listbox.configure(yscrollcommand=alerts_scrollbar.set)
 
@@ -577,7 +596,9 @@ Safety Flags: {', '.join(conflict.safety_flags) if conflict.safety_flags else 'N
         """Setup system status display"""
 
         status_label = ttk.Label(
-            self.status_frame, text="System Status", font=("Arial", 12, "bold"),
+            self.status_frame,
+            text="System Status",
+            font=("Arial", 12, "bold"),
         )
         status_label.pack(anchor=tk.W, pady=(0, 10))
 
@@ -600,10 +621,12 @@ Safety Flags: {', '.join(conflict.safety_flags) if conflict.safety_flags else 'N
         control_frame.pack(fill=tk.X)
 
         ttk.Button(control_frame, text="Export Report", command=self._export_report).pack(
-            side=tk.LEFT, padx=(0, 5),
+            side=tk.LEFT,
+            padx=(0, 5),
         )
         ttk.Button(control_frame, text="Reset Alerts", command=self._reset_alerts).pack(
-            side=tk.LEFT, padx=(0, 5),
+            side=tk.LEFT,
+            padx=(0, 5),
         )
         ttk.Button(control_frame, text="Emergency Stop", command=self._emergency_stop).pack(
             side=tk.RIGHT,
@@ -613,14 +636,19 @@ Safety Flags: {', '.join(conflict.safety_flags) if conflict.safety_flags else 'N
         """Setup override history display"""
 
         history_label = ttk.Label(
-            self.history_frame, text="Override History", font=("Arial", 12, "bold"),
+            self.history_frame,
+            text="Override History",
+            font=("Arial", 12, "bold"),
         )
         history_label.pack(anchor=tk.W, pady=(0, 5))
 
         # History treeview
         hist_columns = ("Timestamp", "Conflict ID", "Action", "Reason")
         self.history_tree = ttk.Treeview(
-            self.history_frame, columns=hist_columns, show="headings", height=15,
+            self.history_frame,
+            columns=hist_columns,
+            show="headings",
+            height=15,
         )
 
         for col in hist_columns:
@@ -658,7 +686,8 @@ Safety Flags: {', '.join(conflict.safety_flags) if conflict.safety_flags else 'N
             or conflict.safety_flags
         ):
             self.safety_monitor.escalate_to_human(
-                conflict.conflict_id, "Low confidence or safety flags",
+                conflict.conflict_id,
+                "Low confidence or safety flags",
             )
 
     def _color_code_conflict(self, conflict_id: str, confidence: ConfidenceLevel) -> None:
@@ -699,26 +728,29 @@ Safety Flags: {', '.join(conflict.safety_flags) if conflict.safety_flags else 'N
         self.details_text.delete(1.0, tk.END)
 
         details = f"""Conflict ID: {conflict.conflict_id}
-Aircraft: {', '.join(conflict.aircraft_ids)}
+Aircraft: {", ".join(conflict.aircraft_ids)}
 Time to Conflict: {conflict.time_to_conflict:.1f} seconds
 Current Separation: {conflict.current_separation:.1f} nautical miles
 Severity: {conflict.severity}
 Confidence Level: {conflict.confidence_level.value}
 
 LLM Recommendation:
-  Action: {conflict.llm_recommendation.get('action', 'N/A')}
-  Type: {conflict.llm_recommendation.get('type', 'N/A')}
-  Safety Score: {conflict.llm_recommendation.get('safety_score', 'N/A')}
-  Reasoning: {conflict.llm_recommendation.get('reasoning', 'N/A')}
+  Action: {conflict.llm_recommendation.get("action", "N/A")}
+  Type: {conflict.llm_recommendation.get("type", "N/A")}
+  Safety Score: {conflict.llm_recommendation.get("safety_score", "N/A")}
+  Reasoning: {conflict.llm_recommendation.get("reasoning", "N/A")}
 
 Baseline Recommendation:
-  Action: {conflict.baseline_recommendation.get('action', 'N/A')}
-  Type: {conflict.baseline_recommendation.get('type', 'N/A')}
-  Safety Score: {conflict.baseline_recommendation.get('safety_score', 'N/A')}
+  Action: {conflict.baseline_recommendation.get("action", "N/A")}
+  Type: {conflict.baseline_recommendation.get("type", "N/A")}
+  Safety Score: {conflict.baseline_recommendation.get("safety_score", "N/A")}
 
 Safety Flags:
-{chr(10).join(f"  - {flag}" for flag in conflict.safety_flags)
- if conflict.safety_flags else "  None"}
+{
+            chr(10).join(f"  - {flag}" for flag in conflict.safety_flags)
+            if conflict.safety_flags
+            else "  None"
+        }
 """
 
         self.details_text.insert(1.0, details)
@@ -885,7 +917,7 @@ Safety Flags:
         status_info = f"""System Status: OPERATIONAL
 LLM Models: Active
 Safety Monitor: Running
-Last Update: {time.strftime('%H:%M:%S')}
+Last Update: {time.strftime("%H:%M:%S")}
 Active Conflicts: {len(self.active_conflicts)}
 Total Overrides: {len(self.override_history)}
 """
@@ -901,10 +933,15 @@ Confidence Average: 0.75
 Safety Score Average: 0.82
 Hallucination Rate: 15.2%
 Override Rate: 8.7%
-Critical Alerts: {len([
-    a for a in self.safety_monitor.get_recent_alerts()
-    if 'critical' in a['alert'].lower()
-])}
+Critical Alerts: {
+            len(
+                [
+                    a
+                    for a in self.safety_monitor.get_recent_alerts()
+                    if "critical" in a["alert"].lower()
+                ]
+            )
+        }
 """
 
         self.perf_text.delete(1.0, tk.END)
@@ -949,7 +986,9 @@ Critical Alerts: {len([
         """Emergency stop procedure"""
 
         if messagebox.askyesno(
-            "Emergency Stop", "This will halt all AI operations. Continue?", icon="warning",
+            "Emergency Stop",
+            "This will halt all AI operations. Continue?",
+            icon="warning",
         ):
             self.monitoring_active = False
             logging.critical("EMERGENCY STOP activated by controller")

@@ -147,28 +147,52 @@ Choose ONE aircraft and provide the resolution in EXACTLY the above format.
 """
 
         self.conflict_detection_template = """
-You are an expert Air Traffic Controller analyzing aircraft positions for potential conflicts.
+You are an expert Air Traffic Controller with mathematical precision in conflict detection.
 
 AIRCRAFT STATUS:
 {aircraft_list}
 
-ANALYSIS REQUIREMENTS:
-- Check for pairs that may lose minimum separation (5 NM horizontal OR 1000 ft vertical)
-- Consider current trajectories and speeds
-- Look ahead {time_horizon} minutes
-- Account for pilot response time (~15-30 seconds)
+CRITICAL SEPARATION RULES:
+- Conflict occurs ONLY when BOTH conditions violated: horizontal <5 NM AND vertical <1000 ft
+- If either horizontal ≥5 NM OR vertical ≥1000 ft → NO CONFLICT POSSIBLE
+- Must calculate actual distances, not guess based on coordinates
+
+MATHEMATICAL ANALYSIS REQUIRED:
+1. Calculate current horizontal distance: Use lat/lon to find actual NM separation
+2. Calculate current vertical separation: |altitude1 - altitude2| in feet
+3. If horizontal ≥5 NM OR vertical ≥1000 ft → STOP → NO CONFLICT
+4. Only if BOTH violated: project trajectories to find closest approach
+5. Check if closest approach occurs within {time_horizon} minutes
+
+EXAMPLES - LEARN THESE PATTERNS:
+❌ FALSE ALARM: Aircraft 20+ NM apart, same altitude → NO CONFLICT (distance too large)
+❌ FALSE ALARM: Aircraft same position, 2000+ ft apart → NO CONFLICT (vertical separation)
+❌ FALSE ALARM: Aircraft 6+ NM apart, any scenario → NO CONFLICT (horizontal separation)
+✅ REAL CONFLICT: Aircraft 4 NM apart, same altitude, converging → POTENTIAL CONFLICT
+
+DISTANCE REFERENCE:
+- 1 degree latitude ≈ 60 NM
+- At 52°N, 1 degree longitude ≈ 37 NM
+- 0.6° longitude difference = ~22 NM separation
+
+BE MATHEMATICALLY PRECISE - Calculate before deciding!
 
 RESPONSE FORMAT (JSON):
 {{
   "conflict_detected": true/false,
-  "aircraft_pairs": ["AC001-AC002", "AC003-AC004"],
-  "time_to_conflict": [120.5, 180.0],
-  "confidence": 0.85,
-  "priority": "high",
-  "analysis": "Brief explanation of findings"
+  "aircraft_pairs": ["AC001-AC002"] or [],
+  "time_to_conflict": [120.5] or [],
+  "confidence": 0.0-1.0,
+  "priority": "low/medium/high",
+  "analysis": "Show your distance calculations and reasoning",
+  "calculation_details": {{
+    "current_horizontal_nm": calculated_distance,
+    "current_vertical_ft": calculated_altitude_diff,
+    "meets_separation_standards": true/false
+  }}
 }}
 
-Provide your analysis as valid JSON only.
+Only detect conflicts with mathematical certainty. When in doubt, NO CONFLICT.
 """
 
         self.safety_assessment_template = """
@@ -256,7 +280,9 @@ RECOMMENDATION: APPROVE
             return self._get_fallback_conflict_prompt(conflict_info)
 
     def format_detector_prompt(
-        self, aircraft_states: list[dict[str, Any]], time_horizon: float = 5.0,
+        self,
+        aircraft_states: list[dict[str, Any]],
+        time_horizon: float = 5.0,
     ) -> str:
         """
         Create a prompt for LLM-based conflict detection.
@@ -272,12 +298,12 @@ RECOMMENDATION: APPROVE
         aircraft_list = []
         for i, aircraft in enumerate(aircraft_states):
             aircraft_str = f"""
-Aircraft {aircraft.get('id', f'AC{i+1:03d}')}:
-  Position: {aircraft.get('lat', 0):.4f}°N, {aircraft.get('lon', 0):.4f}°E
-  Altitude: {aircraft.get('alt', 0):.0f} ft
-  Heading: {aircraft.get('hdg', 0):.0f}°
-  Speed: {aircraft.get('spd', 0):.0f} kts
-  Vertical Speed: {aircraft.get('vs', 0):.0f} fpm"""
+Aircraft {aircraft.get("id", f"AC{i + 1:03d}")}:
+  Position: {aircraft.get("lat", 0):.4f}°N, {aircraft.get("lon", 0):.4f}°E
+  Altitude: {aircraft.get("alt", 0):.0f} ft
+  Heading: {aircraft.get("hdg", 0):.0f}°
+  Speed: {aircraft.get("spd", 0):.0f} kts
+  Vertical Speed: {aircraft.get("vs", 0):.0f} fpm"""
             aircraft_list.append(aircraft_str)
 
         return self.conflict_detection_template.format(
@@ -451,14 +477,18 @@ Aircraft {aircraft.get('id', f'AC{i+1:03d}')}:
         try:
             # Parse conflict detection
             conflict_match = re.search(
-                r"Conflict Detected:\s*(YES|NO)", response_text, re.IGNORECASE,
+                r"Conflict Detected:\s*(YES|NO)",
+                response_text,
+                re.IGNORECASE,
             )
             if conflict_match:
                 result["conflict_detected"] = conflict_match.group(1).upper() == "YES"
 
             # Parse aircraft pairs
             pairs_match = re.search(
-                r"Aircraft Pairs at Risk:\s*([^\n]+)", response_text, re.IGNORECASE,
+                r"Aircraft Pairs at Risk:\s*([^\n]+)",
+                response_text,
+                re.IGNORECASE,
             )
             if pairs_match:
                 pairs_text = pairs_match.group(1).strip()
@@ -467,7 +497,9 @@ Aircraft {aircraft.get('id', f'AC{i+1:03d}')}:
 
             # Parse time to conflict
             time_match = re.search(
-                r"Time to Loss of Separation:\s*([^\n]+)", response_text, re.IGNORECASE,
+                r"Time to Loss of Separation:\s*([^\n]+)",
+                response_text,
+                re.IGNORECASE,
             )
             if time_match:
                 result["time_to_conflict"] = self._parse_time_values(time_match.group(1))
@@ -490,7 +522,9 @@ Aircraft {aircraft.get('id', f'AC{i+1:03d}')}:
             return result
 
     def get_conflict_resolution(
-        self, conflict_info: dict[str, Any], use_function_calls: Optional[bool] = None,
+        self,
+        conflict_info: dict[str, Any],
+        use_function_calls: Optional[bool] = None,
     ) -> Optional[str]:
         """
         High-level API for getting conflict resolution from LLM.
@@ -530,7 +564,9 @@ Aircraft {aircraft.get('id', f'AC{i+1:03d}')}:
             return None
 
     def detect_conflict_via_llm(
-        self, aircraft_states: list[dict[str, Any]], time_horizon: float = 5.0,
+        self,
+        aircraft_states: list[dict[str, Any]],
+        time_horizon: float = 5.0,
     ) -> dict[str, Any]:
         """
         High-level API for LLM-based conflict detection.
@@ -564,7 +600,9 @@ Aircraft {aircraft.get('id', f'AC{i+1:03d}')}:
             return {"conflict_detected": False, "error": str(e)}
 
     def assess_resolution_safety(
-        self, command: str, conflict_info: dict[str, Any],
+        self,
+        command: str,
+        conflict_info: dict[str, Any],
     ) -> dict[str, Any]:
         """
         Use LLM to assess the safety of a proposed resolution.
@@ -606,8 +644,8 @@ Aircraft {aircraft.get('id', f'AC{i+1:03d}')}:
     def _get_fallback_conflict_prompt(self, conflict_info: dict[str, Any]) -> str:
         """Generate a simple fallback prompt when main formatting fails"""
         return f"""
-Aircraft conflict detected between {conflict_info.get('aircraft_1_id', 'AC1')}
-and {conflict_info.get('aircraft_2_id', 'AC2')}.
+Aircraft conflict detected between {conflict_info.get("aircraft_1_id", "AC1")}
+and {conflict_info.get("aircraft_2_id", "AC2")}.
 
 Please provide a single BlueSky command to resolve this conflict safely.
 Maintain minimum separation of 5 NM horizontal or 1000 ft vertical.
@@ -616,7 +654,8 @@ Command:
 """
 
     def _parse_function_call_response(
-        self, response_dict: dict[str, Any],
+        self,
+        response_dict: dict[str, Any],
     ) -> Optional[ResolutionResponse]:
         """Parse function call response into ResolutionResponse"""
         try:
@@ -765,7 +804,9 @@ Command:
             self.logger.warning(f"Multiple commands detected in response: {text[:100]}...")
             # Return the first valid command found
             first_match = re.search(
-                r"\b(HDG|ALT|SPD|VS)\s+([A-Z0-9-]+)\s+(\d+)", cleaned_text, re.IGNORECASE,
+                r"\b(HDG|ALT|SPD|VS)\s+([A-Z0-9-]+)\s+(\d+)",
+                cleaned_text,
+                re.IGNORECASE,
             )
             if first_match:
                 cmd, aircraft, value = first_match.groups()
@@ -783,7 +824,9 @@ Command:
         # Clean command: remove degree symbols and other formatting
         cleaned_command = command.replace("°", "").replace("degrees", "").replace("deg", "")
         cleaned_command = re.sub(
-            r"[^\w\s-]", " ", cleaned_command,
+            r"[^\w\s-]",
+            " ",
+            cleaned_command,
         )  # Remove special chars except hyphens
 
         # Remove extra whitespace and convert to uppercase
@@ -909,12 +952,16 @@ Command:
         try:
             # Parse safety rating (new format with underscores)
             rating_match = re.search(
-                r"SAFETY_RATING:\s*(SAFE|MARGINAL|UNSAFE)", response_text, re.IGNORECASE,
+                r"SAFETY_RATING:\s*(SAFE|MARGINAL|UNSAFE)",
+                response_text,
+                re.IGNORECASE,
             )
             if not rating_match:
                 # Fallback to old format
                 rating_match = re.search(
-                    r"Safety Rating:\s*(SAFE|MARGINAL|UNSAFE)", response_text, re.IGNORECASE,
+                    r"Safety Rating:\s*(SAFE|MARGINAL|UNSAFE)",
+                    response_text,
+                    re.IGNORECASE,
                 )
 
             if rating_match:
@@ -927,7 +974,9 @@ Command:
             if not sep_match:
                 # Fallback to old format
                 sep_match = re.search(
-                    r"Separation Achieved:\s*([^\n]+)", response_text, re.IGNORECASE,
+                    r"Separation Achieved:\s*([^\n]+)",
+                    response_text,
+                    re.IGNORECASE,
                 )
 
             if sep_match:
@@ -937,12 +986,16 @@ Command:
 
             # Parse compliance (new format)
             compliance_match = re.search(
-                r"ICAO_COMPLIANT:\s*(YES|NO)", response_text, re.IGNORECASE,
+                r"ICAO_COMPLIANT:\s*(YES|NO)",
+                response_text,
+                re.IGNORECASE,
             )
             if not compliance_match:
                 # Fallback to old format
                 compliance_match = re.search(
-                    r"ICAO compliant:\s*(YES|NO)", response_text, re.IGNORECASE,
+                    r"ICAO compliant:\s*(YES|NO)",
+                    response_text,
+                    re.IGNORECASE,
                 )
 
             if compliance_match:
@@ -963,12 +1016,16 @@ Command:
 
             # Parse recommendation (new format)
             rec_match = re.search(
-                r"RECOMMENDATION:\s*(APPROVE|MODIFY|REJECT)", response_text, re.IGNORECASE,
+                r"RECOMMENDATION:\s*(APPROVE|MODIFY|REJECT)",
+                response_text,
+                re.IGNORECASE,
             )
             if not rec_match:
                 # Fallback to old format
                 rec_match = re.search(
-                    r"Recommendation:\s*(APPROVE|MODIFY|REJECT)", response_text, re.IGNORECASE,
+                    r"Recommendation:\s*(APPROVE|MODIFY|REJECT)",
+                    response_text,
+                    re.IGNORECASE,
                 )
 
             if rec_match:

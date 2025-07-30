@@ -338,7 +338,9 @@ class Planner:
         return commands
 
     def _calculate_expected_outcome(
-        self, _assessment: ConflictAssessment, _commands: list[str],
+        self,
+        _assessment: ConflictAssessment,
+        _commands: list[str],
     ) -> dict[str, Any]:
         """Calculate expected outcome of executing the commands"""
         return {

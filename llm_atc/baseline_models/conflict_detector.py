@@ -365,7 +365,8 @@ class BaselineConflictDetector:
 
         if len(features) >= 20:
             risk_factors["proximity_risk"] = 1.0 - min(
-                features[10] / 10.0, 1.0,
+                features[10] / 10.0,
+                1.0,
             )  # Horizontal distance
             risk_factors["altitude_risk"] = min(features[6] / 1000.0, 1.0)  # Altitude difference
             risk_factors["speed_risk"] = min(features[7] / 100.0, 1.0)  # Speed difference
@@ -386,7 +387,7 @@ if __name__ == "__main__":
         scenario = {
             "aircraft": [
                 {
-                    "id": f"AC{i*2}",
+                    "id": f"AC{i * 2}",
                     "lat": 52.0 + np.random.normal(0, 0.1),
                     "lon": 4.0 + np.random.normal(0, 0.1),
                     "alt": 35000 + np.random.normal(0, 2000),
@@ -397,7 +398,7 @@ if __name__ == "__main__":
                     "flight_phase": "cruise",
                 },
                 {
-                    "id": f"AC{i*2+1}",
+                    "id": f"AC{i * 2 + 1}",
                     "lat": 52.0 + np.random.normal(0, 0.1),
                     "lon": 4.0 + np.random.normal(0, 0.1),
                     "alt": 35000 + np.random.normal(0, 2000),

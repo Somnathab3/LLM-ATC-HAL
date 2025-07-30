@@ -280,7 +280,9 @@ class Scratchpad:
         )
 
     def complete_session(
-        self, success: bool = True, final_status: str = "completed",
+        self,
+        success: bool = True,
+        final_status: str = "completed",
     ) -> SessionSummary:
         """
         Complete the current session and generate summary

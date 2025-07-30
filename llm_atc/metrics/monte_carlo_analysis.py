@@ -173,7 +173,8 @@ class MonteCarloResultsAnalyzer:
         return conflict_pairs
 
     def compute_success_rates_by_scenario(
-        self, results_df: pd.DataFrame,
+        self,
+        results_df: pd.DataFrame,
     ) -> dict[str, dict[str, float]]:
         """
         Compute success rates grouped by scenario type.
@@ -220,7 +221,9 @@ class MonteCarloResultsAnalyzer:
         return success_rates
 
     def compute_success_rates_by_group(
-        self, results_df: pd.DataFrame, group_cols: list[str],
+        self,
+        results_df: pd.DataFrame,
+        group_cols: list[str],
     ) -> pd.DataFrame:
         """
         Compute success rates grouped by specified columns.
@@ -473,9 +476,9 @@ class MonteCarloResultsAnalyzer:
                 report_lines.extend(
                     [
                         f"### {scenario_type.title()} Scenarios",
-                        f"- **Success Rate:** {metrics['success_rate']:.3f} ({metrics['success_rate']*100:.1f}%)",
+                        f"- **Success Rate:** {metrics['success_rate']:.3f} ({metrics['success_rate'] * 100:.1f}%)",
                         f"- **Successful Scenarios:** {metrics['successful_scenarios']}/{metrics['total_scenarios']}",
-                        f"- **Failure Rate:** {metrics['failure_rate']:.3f} ({metrics['failure_rate']*100:.1f}%)",
+                        f"- **Failure Rate:** {metrics['failure_rate']:.3f} ({metrics['failure_rate'] * 100:.1f}%)",
                         "",
                     ],
                 )
@@ -742,13 +745,14 @@ class MonteCarloResultsAnalyzer:
             failed = int(row.get("failed_scenarios", 0))
 
             lines.append(
-                f"| {group_name} | {success_rate:.3f} ({success_rate*100:.1f}%) | {successful} | {total} | {failed} |",
+                f"| {group_name} | {success_rate:.3f} ({success_rate * 100:.1f}%) | {successful} | {total} | {failed} |",
             )
 
         return "\n".join(lines)
 
     def _format_distribution_shift_analysis(
-        self, shift_analysis: dict[str, dict[str, float]],
+        self,
+        shift_analysis: dict[str, dict[str, float]],
     ) -> str:
         """Format distribution shift analysis as markdown."""
         lines = ["Performance degradation analysis across distribution shift levels:", ""]
@@ -831,7 +835,7 @@ class MonteCarloResultsAnalyzer:
                 "✅ **Overall Good Performance**: No critical issues identified. Continue monitoring and gradual improvements.",
             )
 
-        return "\n".join(f"{i+1}. {rec}" for i, rec in enumerate(recommendations))
+        return "\n".join(f"{i + 1}. {rec}" for i, rec in enumerate(recommendations))
 
     def aggregate_monte_carlo_metrics(self, results_df: pd.DataFrame) -> dict[str, Any]:
         """
@@ -942,7 +946,9 @@ class MonteCarloVisualizer:
             self.logger.warning("Plotting libraries not available - visualizations disabled")
 
     def create_performance_summary_charts(
-        self, aggregated_metrics: dict[str, Any], output_dir: Union[str, Path] = "monte_carlo_plots",
+        self,
+        aggregated_metrics: dict[str, Any],
+        output_dir: Union[str, Path] = "monte_carlo_plots",
     ) -> list[str]:
         """
         Create bar charts summarizing performance across scenario types.
@@ -990,7 +996,9 @@ class MonteCarloVisualizer:
         return created_plots
 
     def create_distribution_shift_plots(
-        self, aggregated_metrics: dict[str, Any], output_dir: Union[str, Path] = "monte_carlo_plots",
+        self,
+        aggregated_metrics: dict[str, Any],
+        output_dir: Union[str, Path] = "monte_carlo_plots",
     ) -> list[str]:
         """
         Create scatter plots showing performance differences under distribution shifts.
@@ -1027,7 +1035,9 @@ class MonteCarloVisualizer:
         return created_plots
 
     def _create_success_rate_chart(
-        self, success_data: dict[str, dict[str, float]], save_path: Path,
+        self,
+        success_data: dict[str, dict[str, float]],
+        save_path: Path,
     ) -> Optional[str]:
         """Create bar chart of success rates by scenario type."""
         try:
@@ -1071,7 +1081,9 @@ class MonteCarloVisualizer:
             return None
 
     def _create_detection_performance_chart(
-        self, detection_data: dict[str, float], save_path: Path,
+        self,
+        detection_data: dict[str, float],
+        save_path: Path,
     ) -> Optional[str]:
         """Create bar chart of false positive/negative rates."""
         try:
@@ -1114,7 +1126,9 @@ class MonteCarloVisualizer:
             return None
 
     def _create_safety_margins_chart(
-        self, margins_data: dict[str, float], save_path: Path,
+        self,
+        margins_data: dict[str, float],
+        save_path: Path,
     ) -> Optional[str]:
         """Create bar chart of safety margins."""
         try:
@@ -1158,7 +1172,9 @@ class MonteCarloVisualizer:
             return None
 
     def _create_shift_performance_scatter(
-        self, shift_data: dict[str, dict[str, float]], save_path: Path,
+        self,
+        shift_data: dict[str, dict[str, float]],
+        save_path: Path,
     ) -> Optional[str]:
         """Create scatter plot of performance vs distribution shift level."""
         try:
@@ -1221,7 +1237,8 @@ class MonteCarloVisualizer:
 
 # Convenience functions for direct usage
 def analyze_monte_carlo_results(
-    results_file: Union[str, Path], output_dir: Union[str, Path] = "monte_carlo_analysis",
+    results_file: Union[str, Path],
+    output_dir: Union[str, Path] = "monte_carlo_analysis",
 ) -> dict[str, Any]:
     """
     Complete Monte Carlo analysis pipeline from results file to metrics and plots.

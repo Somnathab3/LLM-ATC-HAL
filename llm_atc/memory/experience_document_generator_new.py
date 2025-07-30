@@ -220,7 +220,10 @@ class ExperienceDocumentGenerator:
         return f"Conflict scenario involving {num_ac} aircraft in a {conflict_type} conflict situation. {conflict_desc}"
 
     def _generate_decision_text(
-        self, commands_do: list[str], commands_dont: list[str], reasoning: str,
+        self,
+        commands_do: list[str],
+        commands_dont: list[str],
+        reasoning: str,
     ) -> str:
         """Generate decision description text"""
         do_text = "; ".join(commands_do) if commands_do else "No specific actions recommended"

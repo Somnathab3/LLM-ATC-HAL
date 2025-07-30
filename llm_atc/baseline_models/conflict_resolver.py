@@ -44,9 +44,9 @@ class BaselineConflictResolver:
     def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
-        # Standard separation requirements (ICAO)
-        self.min_horizontal_separation = 5.0  # nautical miles
-        self.min_vertical_separation = 1000  # feet
+        # Standard separation requirements (ICAO) - Both detection and ground truth
+        self.min_horizontal_separation = 5.0  # nautical miles (ICAO standard)
+        self.min_vertical_separation = 1000  # feet (ICAO standard)
 
         # Standard maneuver parameters
         self.standard_altitude_change = 1000  # feet
@@ -169,7 +169,11 @@ class BaselineConflictResolver:
         return maneuvers
 
     def _try_vertical_resolution(
-        self, ac1: dict, ac2: dict, geometry: dict, environmental: dict,
+        self,
+        ac1: dict,
+        ac2: dict,
+        geometry: dict,
+        environmental: dict,
     ) -> Optional[ResolutionManeuver]:
         """Try to resolve conflict with altitude change"""
 
@@ -223,7 +227,11 @@ class BaselineConflictResolver:
         )
 
     def _try_lateral_resolution(
-        self, ac1: dict, ac2: dict, geometry: dict, environmental: dict,
+        self,
+        ac1: dict,
+        ac2: dict,
+        geometry: dict,
+        environmental: dict,
     ) -> Optional[ResolutionManeuver]:
         """Try to resolve conflict with heading change"""
 
@@ -268,7 +276,11 @@ class BaselineConflictResolver:
         )
 
     def _try_speed_resolution(
-        self, ac1: dict, ac2: dict, geometry: dict, environmental: dict,
+        self,
+        ac1: dict,
+        ac2: dict,
+        geometry: dict,
+        environmental: dict,
     ) -> Optional[ResolutionManeuver]:
         """Try to resolve conflict with speed change"""
 
@@ -316,7 +328,11 @@ class BaselineConflictResolver:
         )
 
     def _try_fallback_resolution(
-        self, ac1: dict, ac2: dict, geometry: dict, environmental: dict,
+        self,
+        ac1: dict,
+        ac2: dict,
+        geometry: dict,
+        environmental: dict,
     ) -> Optional[ResolutionManeuver]:
         """Try fallback resolution (vector or hold)"""
 
@@ -405,7 +421,10 @@ class BaselineConflictResolver:
         return base_priority
 
     def _calculate_optimal_heading_change(
-        self, current_heading: float, conflict_bearing: float, geometry: dict,
+        self,
+        current_heading: float,
+        conflict_bearing: float,
+        geometry: dict,
     ) -> float:
         """Calculate optimal heading change to avoid conflict"""
 
@@ -421,7 +440,11 @@ class BaselineConflictResolver:
         return heading_change
 
     def _calculate_vertical_safety_score(
-        self, target_ac: dict, other_ac: dict, altitude_change: float, env: dict,
+        self,
+        target_ac: dict,
+        other_ac: dict,
+        altitude_change: float,
+        env: dict,
     ) -> float:
         """Calculate safety score for altitude change"""
         base_score = 0.85
@@ -441,7 +464,10 @@ class BaselineConflictResolver:
         return max(0.5, base_score)
 
     def _calculate_lateral_safety_score(
-        self, target_ac: dict, heading_change: float, env: dict,
+        self,
+        target_ac: dict,
+        heading_change: float,
+        env: dict,
     ) -> float:
         """Calculate safety score for heading change"""
         base_score = 0.75
@@ -457,7 +483,10 @@ class BaselineConflictResolver:
         return max(0.5, base_score)
 
     def _calculate_speed_safety_score(
-        self, target_ac: dict, speed_change: float, env: dict,
+        self,
+        target_ac: dict,
+        speed_change: float,
+        env: dict,
     ) -> float:
         """Calculate safety score for speed change"""
         base_score = 0.70
@@ -509,7 +538,8 @@ class BaselineConflictResolver:
         return abs(speed_change) * 0.3  # kg per knot
 
     def _deduplicate_maneuvers(
-        self, maneuvers: list[ResolutionManeuver],
+        self,
+        maneuvers: list[ResolutionManeuver],
     ) -> list[ResolutionManeuver]:
         """Remove duplicate maneuvers for same aircraft"""
         seen_aircraft = set()

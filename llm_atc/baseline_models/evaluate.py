@@ -46,8 +46,9 @@ class BaselineEvaluator:
         # Load pre-trained models if available
         self._load_trained_models()
 
-    def evaluate_scenario(self, scenario: dict[str, Any],
-                         ground_truth: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+    def evaluate_scenario(
+        self, scenario: dict[str, Any], ground_truth: Optional[dict[str, Any]] = None
+    ) -> dict[str, Any]:
         """
         Evaluate baseline models on a single scenario.
 
@@ -73,7 +74,10 @@ class BaselineEvaluator:
 
             # 3. Calculate metrics
             metrics = self._calculate_metrics(
-                scenario, detection_result, resolution_maneuvers, ground_truth,
+                scenario,
+                detection_result,
+                resolution_maneuvers,
+                ground_truth,
             )
 
             # 4. Compile results
@@ -105,13 +109,13 @@ class BaselineEvaluator:
                 "model_type": "baseline",
             }
 
-
         except Exception as e:
             self.logger.exception("Error evaluating scenario")
             return self._create_error_result(scenario, str(e))
 
-    def evaluate_batch(self, scenarios: list[dict[str, Any]],
-                      ground_truths: Optional[list[dict[str, Any]]] = None) -> list[dict[str, Any]]:
+    def evaluate_batch(
+        self, scenarios: list[dict[str, Any]], ground_truths: Optional[list[dict[str, Any]]] = None
+    ) -> list[dict[str, Any]]:
         """
         Evaluate baseline models on a batch of scenarios.
 
@@ -135,8 +139,9 @@ class BaselineEvaluator:
 
         return results
 
-    def train_detector(self, training_scenarios: list[dict[str, Any]],
-                      labels: list[bool]) -> dict[str, float]:
+    def train_detector(
+        self, training_scenarios: list[dict[str, Any]], labels: list[bool]
+    ) -> dict[str, float]:
         """
         Train the baseline conflict detector.
 
@@ -162,8 +167,9 @@ class BaselineEvaluator:
             self.logger.exception("Error training detector")
             return {}
 
-    def generate_training_data(self, scenarios: list[dict[str, Any]],
-                             ground_truths: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[bool]]:
+    def generate_training_data(
+        self, scenarios: list[dict[str, Any]], ground_truths: list[dict[str, Any]]
+    ) -> tuple[list[dict[str, Any]], list[bool]]:
         """
         Generate training data from scenarios and ground truth.
 
@@ -185,19 +191,22 @@ class BaselineEvaluator:
 
         return training_data, labels
 
-    def _prepare_conflict_scenario(self, scenario: dict[str, Any],
-                                 detection_result) -> dict[str, Any]:
+    def _prepare_conflict_scenario(
+        self, scenario: dict[str, Any], detection_result
+    ) -> dict[str, Any]:
         """Prepare conflict scenario for resolver"""
         conflicts = []
 
         # Convert detection result to conflict format
         for ac1_id, ac2_id in detection_result.conflict_pairs:
-            conflicts.append({
-                "aircraft1_id": ac1_id,
-                "aircraft2_id": ac2_id,
-                "time_to_conflict": detection_result.time_to_conflict,
-                "confidence": detection_result.confidence,
-            })
+            conflicts.append(
+                {
+                    "aircraft1_id": ac1_id,
+                    "aircraft2_id": ac2_id,
+                    "time_to_conflict": detection_result.time_to_conflict,
+                    "confidence": detection_result.confidence,
+                }
+            )
 
         return {
             "aircraft": scenario.get("aircraft", []),
@@ -205,9 +214,13 @@ class BaselineEvaluator:
             "environmental_conditions": scenario.get("environmental_conditions", {}),
         }
 
-    def _calculate_metrics(self, scenario: dict[str, Any],
-                          detection_result, resolution_maneuvers: list,
-                          ground_truth: Optional[dict[str, Any]]) -> dict[str, Any]:
+    def _calculate_metrics(
+        self,
+        scenario: dict[str, Any],
+        detection_result,
+        resolution_maneuvers: list,
+        ground_truth: Optional[dict[str, Any]],
+    ) -> dict[str, Any]:
         """Calculate evaluation metrics"""
         metrics = {}
 
@@ -261,14 +274,16 @@ class BaselineEvaluator:
         # Risk assessment
         if detection_result.risk_factors:
             metrics["max_risk_factor"] = max(detection_result.risk_factors.values())
-            metrics["avg_risk_factor"] = sum(detection_result.risk_factors.values()) / len(detection_result.risk_factors)
+            metrics["avg_risk_factor"] = sum(detection_result.risk_factors.values()) / len(
+                detection_result.risk_factors
+            )
         else:
             metrics["max_risk_factor"] = 0.0
             metrics["avg_risk_factor"] = 0.0
 
         return metrics
 
-    def _load_trained_models(self):
+    def _load_trained_models(self) -> None:
         """Load pre-trained models if available"""
         detector_path = self.model_dir / "conflict_detector.pkl"
 
@@ -310,8 +325,9 @@ class BaselineEvaluator:
 
 
 # Convenience functions for integration with experiment framework
-def evaluate_baseline_on_scenarios(scenarios: list[dict[str, Any]],
-                                  ground_truths: Optional[list[dict[str, Any]]] = None) -> list[dict[str, Any]]:
+def evaluate_baseline_on_scenarios(
+    scenarios: list[dict[str, Any]], ground_truths: Optional[list[dict[str, Any]]] = None
+) -> list[dict[str, Any]]:
     """
     Convenience function to evaluate baseline models on scenarios.
 
@@ -326,8 +342,9 @@ def evaluate_baseline_on_scenarios(scenarios: list[dict[str, Any]],
     return evaluator.evaluate_batch(scenarios, ground_truths)
 
 
-def train_baseline_detector(training_scenarios: list[dict[str, Any]],
-                           labels: list[bool]) -> dict[str, float]:
+def train_baseline_detector(
+    training_scenarios: list[dict[str, Any]], labels: list[bool]
+) -> dict[str, float]:
     """
     Convenience function to train baseline detector.
 
@@ -396,16 +413,10 @@ if __name__ == "__main__":
         evaluator = BaselineEvaluator()
         results = evaluator.evaluate_batch(test_scenarios, ground_truths)
 
-        print("Baseline Evaluation Results:")
         for result in results:
-            print(f"Scenario: {result['scenario_id']}")
-            print(f"Conflicts detected: {result['detection_result']['has_conflict']}")
-            print(f"Confidence: {result['detection_result']['confidence']:.3f}")
-            print(f"Resolution maneuvers: {len(result['resolution_maneuvers'])}")
-            print(f"Metrics: {result['metrics']}")
-            print("---")
+            pass
 
     except Exception as e:
-        print(f"Test failed: {e}")
         import traceback
+
         traceback.print_exc()
