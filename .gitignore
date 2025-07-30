@@ -94,6 +94,9 @@ data/simulated/large/
 test_results/
 thesis_results/
 memory/replay_data/
+experiments/
+visualizations/
+notebooks/
 
 # generated
 .chroma_experience_library/
