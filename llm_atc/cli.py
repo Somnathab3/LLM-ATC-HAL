@@ -196,6 +196,8 @@ def analyze(log_file, results_dir):
 @click.option("--complexities", default="simple,moderate,complex", help="Comma-separated complexity tiers")
 @click.option("--shift-levels", default="in_distribution,moderate_shift,extreme_shift", help="Comma-separated shift levels")
 @click.option("--horizon", default=5, help="Minutes to simulate after each resolution")
+@click.option("--max-interventions", default=5, help="Maximum interventions per scenario")
+@click.option("--step-size", default=10.0, help="Simulation step size in seconds")
 @click.option("--output-dir", default="experiments/monte_carlo_results", help="Directory to save results")
 def monte_carlo_benchmark(**opts):
     """Run the Monte Carlo safety benchmark."""
@@ -207,7 +209,7 @@ def monte_carlo_benchmark(**opts):
         from scenarios.monte_carlo_framework import ComplexityTier
         from scenarios.scenario_generator import ScenarioType
         
-        # Parse complexities into ComplexityTier objects
+        # Validate and parse complexities into ComplexityTier objects
         complexity_strings = [c.strip().lower() for c in opts['complexities'].split(",")]
         complexity_tiers = []
         
@@ -218,41 +220,60 @@ def monte_carlo_benchmark(**opts):
             'extreme': ComplexityTier.EXTREME
         }
         
+        invalid_complexities = []
         for comp_str in complexity_strings:
             if comp_str in complexity_mapping:
                 complexity_tiers.append(complexity_mapping[comp_str])
             else:
-                click.echo(f"⚠️  Warning: Unknown complexity tier '{comp_str}', skipping")
+                invalid_complexities.append(comp_str)
+        
+        # Validate complexity tiers explicitly
+        if invalid_complexities:
+            valid_options = list(complexity_mapping.keys())
+            raise click.BadParameter(
+                f"Invalid complexity tier(s): {', '.join(invalid_complexities)}. "
+                f"Valid options are: {', '.join(valid_options)}"
+            )
         
         if not complexity_tiers:
-            click.echo("❌ No valid complexity tiers specified", err=True)
-            sys.exit(1)
+            raise click.BadParameter("No valid complexity tiers specified")
         
         # Parse shift levels into strings
         shift_levels = [s.strip() for s in opts['shift_levels'].split(",")]
         
-        # Determine scenario types and counts
-        scenario_types = []
+        # Create per-type scenario counts dictionary
+        scenario_counts = {}
         total_scenarios = 0
         
         if opts['num_horizontal'] > 0:
-            scenario_types.append(ScenarioType.HORIZONTAL)
+            scenario_counts[ScenarioType.HORIZONTAL.value] = opts['num_horizontal']
             total_scenarios += opts['num_horizontal']
         
         if opts['num_vertical'] > 0:
-            scenario_types.append(ScenarioType.VERTICAL)
+            scenario_counts[ScenarioType.VERTICAL.value] = opts['num_vertical']
             total_scenarios += opts['num_vertical']
         
         if opts['num_sector'] > 0:
-            scenario_types.append(ScenarioType.SECTOR)
+            scenario_counts[ScenarioType.SECTOR.value] = opts['num_sector']
             total_scenarios += opts['num_sector']
         
-        if not scenario_types:
-            click.echo("❌ At least one scenario type must have count > 0", err=True)
-            sys.exit(1)
+        if not scenario_counts:
+            raise click.BadParameter("At least one scenario type must have count > 0")
         
-        # Calculate scenarios per type (average across types for now)
-        num_scenarios_per_type = max(opts['num_horizontal'], opts['num_vertical'], opts['num_sector'])
+        # Determine scenario types from counts
+        scenario_types = [
+            getattr(ScenarioType, key.upper()) 
+            for key in scenario_counts.keys()
+        ]
+        
+        # Calculate adaptive step size based on time horizon
+        horizon_seconds = float(opts['horizon']) * 60
+        if horizon_seconds < 300:  # Less than 5 minutes
+            default_step_size = min(float(opts['step_size']), 5.0)
+        elif horizon_seconds > 1200:  # More than 20 minutes
+            default_step_size = max(float(opts['step_size']), 15.0)
+        else:
+            default_step_size = float(opts['step_size'])
         
         # Create output directory if it doesn't exist
         output_dir = Path(opts['output_dir'])
@@ -261,11 +282,13 @@ def monte_carlo_benchmark(**opts):
         
         # Create benchmark configuration
         config = BenchmarkConfiguration(
-            num_scenarios_per_type=num_scenarios_per_type,
+            scenario_counts=scenario_counts,
             scenario_types=scenario_types,
             complexity_tiers=complexity_tiers,
             distribution_shift_levels=shift_levels,
             time_horizon_minutes=float(opts['horizon']),
+            max_interventions_per_scenario=int(opts['max_interventions']),
+            step_size_seconds=default_step_size,
             output_directory=str(output_dir),
             generate_visualizations=True,
             detailed_logging=True
@@ -273,14 +296,15 @@ def monte_carlo_benchmark(**opts):
         
         # Display configuration summary
         click.echo(f"📊 Configuration Summary:")
-        click.echo(f"   Scenario types: {[t.value for t in scenario_types]}")
+        click.echo(f"   Scenario counts: {scenario_counts}")
         click.echo(f"   Complexity tiers: {[c.value for c in complexity_tiers]}")
         click.echo(f"   Shift levels: {shift_levels}")
-        click.echo(f"   Scenarios per type: {num_scenarios_per_type}")
+        click.echo(f"   Max interventions: {opts['max_interventions']}")
+        click.echo(f"   Step size: {default_step_size:.1f}s")
         click.echo(f"   Time horizon: {opts['horizon']} minutes")
         
-        total_scenarios = len(scenario_types) * len(complexity_tiers) * len(shift_levels) * num_scenarios_per_type
-        click.echo(f"   Total scenarios: {total_scenarios}")
+        total_scenarios_expanded = sum(scenario_counts.values()) * len(complexity_tiers) * len(shift_levels)
+        click.echo(f"   Total scenarios: {total_scenarios_expanded}")
         
         # Initialize and run benchmark
         benchmark = MonteCarloBenchmark(config)
@@ -289,7 +313,21 @@ def monte_carlo_benchmark(**opts):
         summary = benchmark.run()
         
         click.echo(f"✅ Benchmark complete! Results saved to {opts['output_dir']}")
-        click.echo(f"📈 Summary: {summary['successful_scenarios']}/{summary['total_scenarios']} scenarios successful")
+        
+        # Extract success metrics from summary
+        if isinstance(summary, dict):
+            scenario_counts_summary = summary.get('scenario_counts', {})
+            successful = scenario_counts_summary.get('successful_scenarios', 0)
+            total = scenario_counts_summary.get('total_scenarios', 0)
+            success_rate = scenario_counts_summary.get('success_rate', 0.0)
+            
+            click.echo(f"📈 Summary: {successful}/{total} scenarios successful ({success_rate:.1%})")
+        else:
+            click.echo(f"📈 Summary: Benchmark completed")
+        
+    except click.BadParameter as e:
+        click.echo(f"❌ Configuration error: {e}", err=True)
+        sys.exit(1)
         
     except ImportError as e:
         click.echo(f"❌ Import error: {e}", err=True)

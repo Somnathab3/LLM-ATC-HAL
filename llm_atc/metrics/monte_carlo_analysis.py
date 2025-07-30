@@ -251,14 +251,20 @@ class MonteCarloResultsAnalyzer:
                 return pd.DataFrame()
         
         # Group by specified columns and calculate success metrics
-        grouped = results_df.groupby(group_cols).agg({
-            'success': ['count', 'sum', 'mean'],
-            'detection_accuracy': 'mean',
-            'precision': 'mean',
-            'recall': 'mean',
-            'min_separation_nm': 'mean',
-            'separation_violations': 'sum'
-        }).round(4)
+        agg_dict = {
+            'success': ['count', 'sum', 'mean']
+        }
+        
+        # Add optional columns if they exist
+        optional_columns = ['detection_accuracy', 'precision', 'recall', 'min_separation_nm', 'separation_violations']
+        for col in optional_columns:
+            if col in results_df.columns:
+                if col == 'separation_violations':
+                    agg_dict[col] = 'sum'
+                else:
+                    agg_dict[col] = 'mean'
+        
+        grouped = results_df.groupby(group_cols).agg(agg_dict).round(4)
         
         # Flatten column names
         grouped.columns = ['_'.join(col).strip() for col in grouped.columns.values]
@@ -355,6 +361,374 @@ class MonteCarloResultsAnalyzer:
             'max_efficiency_penalty': np.max(penalties) if penalties else 0.0,
             'num_penalty_samples': len(penalties)
         }
+    
+    def generate_report(self, results_df: pd.DataFrame, 
+                       aggregated_metrics: Dict[str, Any] = None,
+                       output_file: Union[str, Path] = "monte_carlo_report.md") -> str:
+        """
+        Generate a comprehensive markdown report with all metrics and analysis.
+        
+        Args:
+            results_df: DataFrame with simulation results
+            aggregated_metrics: Pre-computed metrics (if None, will compute from results_df)
+            output_file: Path to save the markdown report
+            
+        Returns:
+            Path to the generated report file
+        """
+        if aggregated_metrics is None:
+            aggregated_metrics = self.aggregate_monte_carlo_metrics(results_df)
+        
+        output_file = Path(output_file)
+        
+        # Generate grouped success rates for detailed analysis
+        group_cols = ['scenario_type', 'complexity_tier'] if 'complexity_tier' in results_df.columns else ['scenario_type']
+        if 'distribution_shift_level' in results_df.columns:
+            group_cols.append('distribution_shift_level')
+        
+        grouped_success_rates = self.compute_success_rates_by_group(results_df, group_cols)
+        
+        # Build the markdown report
+        report_lines = []
+        
+        # Header
+        report_lines.extend([
+            "# Monte Carlo Analysis Report",
+            "",
+            f"**Generated:** {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}",
+            f"**Total Scenarios:** {aggregated_metrics['summary']['total_scenarios']}",
+            f"**Scenario Types:** {', '.join(aggregated_metrics['summary']['scenario_types'])}",
+            "",
+            "---",
+            ""
+        ])
+        
+        # Executive Summary
+        report_lines.extend([
+            "## Executive Summary",
+            "",
+            self._generate_executive_summary(aggregated_metrics),
+            "",
+            "---",
+            ""
+        ])
+        
+        # Detection Performance
+        detection = aggregated_metrics['detection_performance']
+        report_lines.extend([
+            "## Detection Performance",
+            "",
+            f"- **False Positive Rate:** {detection['false_positive_rate']:.3f}",
+            f"- **False Negative Rate:** {detection['false_negative_rate']:.3f}",
+            f"- **Total False Positives:** {detection.get('total_false_positives', 'N/A')}",
+            f"- **Total False Negatives:** {detection.get('total_false_negatives', 'N/A')}",
+            f"- **Total Predicted Conflicts:** {detection.get('total_predicted_conflicts', 'N/A')}",
+            f"- **Total Actual Conflicts:** {detection.get('total_actual_conflicts', 'N/A')}",
+            "",
+            "### Performance Assessment",
+            self._assess_detection_performance(detection),
+            "",
+            "---",
+            ""
+        ])
+        
+        # Success Rates by Scenario Type
+        report_lines.extend([
+            "## Success Rates by Scenario Type",
+            ""
+        ])
+        
+        success_rates = aggregated_metrics['success_rates_by_scenario']
+        if success_rates:
+            for scenario_type, metrics in success_rates.items():
+                report_lines.extend([
+                    f"### {scenario_type.title()} Scenarios",
+                    f"- **Success Rate:** {metrics['success_rate']:.3f} ({metrics['success_rate']*100:.1f}%)",
+                    f"- **Successful Scenarios:** {metrics['successful_scenarios']}/{metrics['total_scenarios']}",
+                    f"- **Failure Rate:** {metrics['failure_rate']:.3f} ({metrics['failure_rate']*100:.1f}%)",
+                    ""
+                ])
+        else:
+            report_lines.append("No scenario-specific success rate data available.\n")
+        
+        # Detailed Grouped Analysis
+        if not grouped_success_rates.empty:
+            report_lines.extend([
+                "### Detailed Success Rate Analysis",
+                "",
+                self._format_grouped_success_table(grouped_success_rates),
+                ""
+            ])
+        
+        report_lines.extend(["---", ""])
+        
+        # Safety Margins
+        margins = aggregated_metrics['separation_margins']
+        report_lines.extend([
+            "## Safety Margins",
+            "",
+            f"- **Average Horizontal Margin:** {margins['avg_horizontal_margin']:.2f} NM",
+            f"- **Average Vertical Margin:** {margins['avg_vertical_margin']:.0f} ft",
+            f"- **Std Horizontal Margin:** {margins.get('std_horizontal_margin', 0):.2f} NM",
+            f"- **Std Vertical Margin:** {margins.get('std_vertical_margin', 0):.0f} ft",
+            f"- **Margin Samples:** {margins.get('num_margin_samples', 0)}",
+            "",
+            "### Safety Assessment",
+            self._assess_safety_margins(margins),
+            "",
+            "---",
+            ""
+        ])
+        
+        # Efficiency Metrics
+        efficiency = aggregated_metrics['efficiency_metrics']
+        report_lines.extend([
+            "## Efficiency Metrics",
+            "",
+            f"- **Average Efficiency Penalty:** {efficiency['avg_efficiency_penalty']:.2f}%",
+            f"- **Std Efficiency Penalty:** {efficiency.get('std_efficiency_penalty', 0):.2f}%",
+            f"- **Max Efficiency Penalty:** {efficiency.get('max_efficiency_penalty', 0):.2f}%",
+            f"- **Penalty Samples:** {efficiency.get('num_penalty_samples', 0)}",
+            "",
+            "### Efficiency Assessment",
+            self._assess_efficiency_performance(efficiency),
+            "",
+            "---",
+            ""
+        ])
+        
+        # Distribution Shift Analysis
+        shift_analysis = aggregated_metrics.get('distribution_shift_analysis', {})
+        if shift_analysis:
+            report_lines.extend([
+                "## Distribution Shift Analysis",
+                "",
+                self._format_distribution_shift_analysis(shift_analysis),
+                "",
+                "---",
+                ""
+            ])
+        
+        # Recommendations
+        report_lines.extend([
+            "## Recommendations",
+            "",
+            self._generate_recommendations(aggregated_metrics),
+            "",
+            "---",
+            ""
+        ])
+        
+        # Technical Details
+        report_lines.extend([
+            "## Technical Details",
+            "",
+            f"- **Analysis Tool:** LLM-ATC Monte Carlo Analyzer",
+            f"- **Results File:** {len(results_df)} scenarios",
+            f"- **Analysis Date:** {pd.Timestamp.now().strftime('%Y-%m-%d')}",
+            f"- **Data Columns:** {', '.join(results_df.columns.tolist())}",
+            ""
+        ])
+        
+        # Write the report
+        with open(output_file, 'w', encoding='utf-8') as f:
+            f.write('\n'.join(report_lines))
+        
+        self.logger.info(f"Monte Carlo report generated: {output_file}")
+        return str(output_file)
+    
+    def _generate_executive_summary(self, metrics: Dict[str, Any]) -> str:
+        """Generate executive summary section."""
+        detection = metrics['detection_performance']
+        success_rates = metrics['success_rates_by_scenario']
+        margins = metrics['separation_margins']
+        
+        # Calculate overall success rate
+        if success_rates:
+            overall_success = np.mean([s['success_rate'] for s in success_rates.values()])
+        else:
+            overall_success = 0.0
+        
+        summary = []
+        summary.append(f"This Monte Carlo analysis evaluated {metrics['summary']['total_scenarios']} scenarios across {len(metrics['summary']['scenario_types'])} scenario types.")
+        
+        # Performance assessment
+        if overall_success >= 0.9:
+            summary.append(f"**Overall Performance: EXCELLENT** - Success rate of {overall_success:.1%} indicates robust performance.")
+        elif overall_success >= 0.8:
+            summary.append(f"**Overall Performance: GOOD** - Success rate of {overall_success:.1%} shows generally reliable operation.")
+        elif overall_success >= 0.7:
+            summary.append(f"**Overall Performance: ACCEPTABLE** - Success rate of {overall_success:.1%} suggests room for improvement.")
+        else:
+            summary.append(f"**Overall Performance: NEEDS IMPROVEMENT** - Success rate of {overall_success:.1%} indicates significant issues.")
+        
+        # Detection assessment
+        fp_rate = detection['false_positive_rate']
+        fn_rate = detection['false_negative_rate']
+        
+        if fp_rate < 0.1 and fn_rate < 0.1:
+            summary.append("Detection accuracy is excellent with low false positive and false negative rates.")
+        elif fp_rate < 0.2 and fn_rate < 0.2:
+            summary.append("Detection accuracy is good but could be improved.")
+        else:
+            summary.append("Detection accuracy shows significant issues requiring attention.")
+        
+        # Safety assessment
+        h_margin = margins['avg_horizontal_margin']
+        if h_margin >= 5.0:
+            summary.append("Safety margins are well maintained above regulatory minimums.")
+        elif h_margin >= 3.0:
+            summary.append("Safety margins meet regulatory requirements but are close to limits.")
+        else:
+            summary.append("**SAFETY CONCERN**: Average horizontal margins below 3 NM indicate potential safety issues.")
+        
+        return ' '.join(summary)
+    
+    def _assess_detection_performance(self, detection: Dict[str, float]) -> str:
+        """Assess detection performance and provide interpretation."""
+        fp_rate = detection['false_positive_rate']
+        fn_rate = detection['false_negative_rate']
+        
+        assessment = []
+        
+        if fp_rate < 0.05:
+            assessment.append("✅ **False Positive Rate**: Excellent - very few unnecessary alerts.")
+        elif fp_rate < 0.15:
+            assessment.append("⚠️ **False Positive Rate**: Good - acceptable level of false alerts.")
+        else:
+            assessment.append("❌ **False Positive Rate**: Poor - too many false alerts may reduce trust.")
+        
+        if fn_rate < 0.05:
+            assessment.append("✅ **False Negative Rate**: Excellent - very few missed conflicts.")
+        elif fn_rate < 0.15:
+            assessment.append("⚠️ **False Negative Rate**: Acceptable - some conflicts missed but manageable.")
+        else:
+            assessment.append("❌ **False Negative Rate**: Dangerous - too many conflicts missed, safety risk.")
+        
+        return '\n'.join(assessment)
+    
+    def _assess_safety_margins(self, margins: Dict[str, float]) -> str:
+        """Assess safety margin performance."""
+        h_margin = margins['avg_horizontal_margin']
+        v_margin = margins['avg_vertical_margin']
+        
+        assessment = []
+        
+        # Horizontal margin assessment (5 NM standard, 3 NM minimum)
+        if h_margin >= 5.0:
+            assessment.append("✅ **Horizontal Margins**: Excellent - well above standard separation.")
+        elif h_margin >= 3.0:
+            assessment.append("⚠️ **Horizontal Margins**: Acceptable - meeting minimum separation requirements.")
+        else:
+            assessment.append("❌ **Horizontal Margins**: Critical - below minimum separation standards.")
+        
+        # Vertical margin assessment (1000 ft standard)
+        if v_margin >= 1000:
+            assessment.append("✅ **Vertical Margins**: Excellent - maintaining standard vertical separation.")
+        elif v_margin >= 500:
+            assessment.append("⚠️ **Vertical Margins**: Marginal - below standard but some separation maintained.")
+        else:
+            assessment.append("❌ **Vertical Margins**: Critical - insufficient vertical separation.")
+        
+        return '\n'.join(assessment)
+    
+    def _assess_efficiency_performance(self, efficiency: Dict[str, float]) -> str:
+        """Assess efficiency performance."""
+        avg_penalty = efficiency['avg_efficiency_penalty']
+        
+        if avg_penalty < 5.0:
+            return "✅ **Efficiency**: Excellent - minimal impact on flight efficiency."
+        elif avg_penalty < 15.0:
+            return "⚠️ **Efficiency**: Acceptable - moderate efficiency impact within acceptable bounds."
+        else:
+            return "❌ **Efficiency**: Poor - significant efficiency penalties affecting operational costs."
+    
+    def _format_grouped_success_table(self, grouped_df: pd.DataFrame) -> str:
+        """Format grouped success rates as a markdown table."""
+        if grouped_df.empty:
+            return "No grouped success rate data available."
+        
+        lines = ["| Group | Success Rate | Successful | Total | Failed |", "|-------|--------------|------------|-------|--------|"]
+        
+        for index, row in grouped_df.iterrows():
+            # Handle multi-index
+            if isinstance(index, tuple):
+                group_name = " / ".join(str(x) for x in index)
+            else:
+                group_name = str(index)
+            
+            success_rate = row.get('success_rate', 0)
+            successful = int(row.get('successful_scenarios', 0))
+            total = int(row.get('total_scenarios', 0))
+            failed = int(row.get('failed_scenarios', 0))
+            
+            lines.append(f"| {group_name} | {success_rate:.3f} ({success_rate*100:.1f}%) | {successful} | {total} | {failed} |")
+        
+        return '\n'.join(lines)
+    
+    def _format_distribution_shift_analysis(self, shift_analysis: Dict[str, Dict[str, float]]) -> str:
+        """Format distribution shift analysis as markdown."""
+        lines = ["Performance degradation analysis across distribution shift levels:", ""]
+        lines.extend(["| Shift Level | Scenarios | FP Rate | FN Rate | Success Rate | H-Margin |",
+                     "|-------------|-----------|---------|---------|--------------|----------|"])
+        
+        for shift_level, metrics in shift_analysis.items():
+            fp_rate = metrics['false_positive_rate']
+            fn_rate = metrics['false_negative_rate']
+            success_rate = metrics['avg_success_rate']
+            h_margin = metrics['avg_horizontal_margin']
+            count = metrics['scenario_count']
+            
+            lines.append(f"| {shift_level} | {count} | {fp_rate:.3f} | {fn_rate:.3f} | {success_rate:.3f} | {h_margin:.2f} |")
+        
+        return '\n'.join(lines)
+    
+    def _generate_recommendations(self, metrics: Dict[str, Any]) -> str:
+        """Generate specific recommendations based on the analysis."""
+        recommendations = []
+        
+        detection = metrics['detection_performance']
+        success_rates = metrics['success_rates_by_scenario']
+        margins = metrics['separation_margins']
+        efficiency = metrics['efficiency_metrics']
+        
+        # Detection recommendations
+        if detection['false_positive_rate'] > 0.15:
+            recommendations.append("🔧 **Reduce False Positives**: Consider tuning conflict detection thresholds to reduce unnecessary alerts.")
+        
+        if detection['false_negative_rate'] > 0.10:
+            recommendations.append("🚨 **Critical - Improve Detection**: False negative rate is concerning. Review detection algorithms immediately.")
+        
+        # Success rate recommendations
+        if success_rates:
+            worst_scenario = min(success_rates.items(), key=lambda x: x[1]['success_rate'])
+            if worst_scenario[1]['success_rate'] < 0.7:
+                recommendations.append(f"📊 **Focus on {worst_scenario[0]} Scenarios**: Success rate of {worst_scenario[1]['success_rate']:.1%} needs attention.")
+        
+        # Safety margin recommendations
+        if margins['avg_horizontal_margin'] < 4.0:
+            recommendations.append("⚠️ **Improve Safety Margins**: Horizontal margins are close to minimum standards. Consider more conservative conflict resolution.")
+        
+        # Efficiency recommendations
+        if efficiency['avg_efficiency_penalty'] > 20.0:
+            recommendations.append("✈️ **Optimize Efficiency**: High efficiency penalties suggest room for route optimization improvements.")
+        
+        # Distribution shift recommendations
+        shift_analysis = metrics.get('distribution_shift_analysis', {})
+        if shift_analysis:
+            # Check for performance degradation
+            shift_levels = list(shift_analysis.keys())
+            if len(shift_levels) > 1:
+                baseline = shift_analysis[shift_levels[0]]
+                worst = shift_analysis[shift_levels[-1]]
+                
+                if worst['avg_success_rate'] < baseline['avg_success_rate'] * 0.8:
+                    recommendations.append("🎯 **Address Distribution Shift**: Significant performance degradation under distribution shift. Consider domain adaptation techniques.")
+        
+        if not recommendations:
+            recommendations.append("✅ **Overall Good Performance**: No critical issues identified. Continue monitoring and gradual improvements.")
+        
+        return '\n'.join(f"{i+1}. {rec}" for i, rec in enumerate(recommendations))
     
     def aggregate_monte_carlo_metrics(self, results_df: pd.DataFrame) -> Dict[str, Any]:
         """

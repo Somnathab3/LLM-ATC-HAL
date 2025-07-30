@@ -155,15 +155,22 @@ class ScenarioResult:
     
     # Execution metadata - NEW: success flag
     success: bool = False  # Overall scenario execution success
-    execution_time_seconds: float
-    errors: List[str]
-    warnings: List[str]
-    timestamp: str
+    execution_time_seconds: float = 0.0
+    errors: List[str] = None
+    warnings: List[str] = None
+    timestamp: str = ""
     
     # Environmental factors
-    wind_speed_kts: float
-    visibility_nm: float
-    turbulence_level: float
+    wind_speed_kts: float = 0.0
+    visibility_nm: float = 0.0
+    turbulence_level: float = 0.0
+    
+    def __post_init__(self):
+        """Set defaults for mutable fields"""
+        if self.errors is None:
+            self.errors = []
+        if self.warnings is None:
+            self.warnings = []
 
 
 class MonteCarloBenchmark:
