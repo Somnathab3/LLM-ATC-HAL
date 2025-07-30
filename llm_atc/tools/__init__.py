@@ -17,6 +17,17 @@ from .bluesky_tools import (
     get_weather_info,
     search_experience_library,
     send_command,
+    get_distance,
+    step_simulation,
+    reset_simulation,
+    get_minimum_separation,
+    check_separation_violation,
+)
+
+from .llm_prompt_engine import (
+    LLMPromptEngine,
+    ConflictPromptData,
+    ResolutionResponse,
 )
 
 __all__ = [
@@ -33,4 +44,12 @@ __all__ = [
     "get_weather_info",
     "search_experience_library",
     "send_command",
+    "get_distance",
+    "step_simulation",
+    "reset_simulation",
+    "get_minimum_separation",
+    "check_separation_violation",
+    "LLMPromptEngine",
+    "ConflictPromptData",
+    "ResolutionResponse",
 ]

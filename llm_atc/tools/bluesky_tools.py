@@ -4,6 +4,7 @@ BlueSky Integration Tools - Function stubs for embodied agent system
 """
 
 import logging
+import math
 import time
 from dataclasses import dataclass
 from typing import Any
@@ -182,7 +183,11 @@ def send_command(command: str) -> dict[str, Any]:
         command_type = command_parts[0].upper()
 
         # Validate command format
-        valid_commands = ["ALT", "HDG", "SPD", "CRE", "DEL", "DEST", "DIRECT", "LNAV"]
+        valid_commands = [
+            "ALT", "HDG", "SPD", "CRE", "DEL", "DEST", "DIRECT", "LNAV",
+            "DT", "DTMULT", "VS", "GO", "RESET", "AREA", "CDMETHOD", "CDSEP",
+            "WIND", "TURB", "PAUSE", "UNPAUSE", "FF", "IC"
+        ]
 
         if command_type not in valid_commands:
             logging.warning("Unknown command type: %s", command_type)
@@ -413,6 +418,282 @@ def get_airspace_info() -> dict[str, Any]:
         raise BlueSkyToolsError(msg) from e
 
 
+def get_distance(aircraft_id1: str, aircraft_id2: str) -> dict[str, float]:
+    """
+    Compute current horizontal and vertical separation between two aircraft.
+    
+    Args:
+        aircraft_id1: ID of first aircraft
+        aircraft_id2: ID of second aircraft
+    
+    Returns:
+        Dictionary with separation distances:
+        - horizontal_nm: Horizontal separation in nautical miles
+        - vertical_ft: Vertical separation in feet
+        - total_3d_nm: Total 3D separation in nautical miles
+    """
+    try:
+        logging.info("Computing distance between %s and %s", aircraft_id1, aircraft_id2)
+        
+        # Get aircraft information
+        aircraft_data = get_all_aircraft_info()
+        aircraft_dict = aircraft_data.get("aircraft", {})
+        
+        if aircraft_id1 not in aircraft_dict:
+            msg = f"Aircraft {aircraft_id1} not found"
+            raise BlueSkyToolsError(msg)
+            
+        if aircraft_id2 not in aircraft_dict:
+            msg = f"Aircraft {aircraft_id2} not found"
+            raise BlueSkyToolsError(msg)
+        
+        ac1 = aircraft_dict[aircraft_id1]
+        ac2 = aircraft_dict[aircraft_id2]
+        
+        # Calculate horizontal distance using haversine formula
+        horizontal_nm = _haversine_distance(
+            ac1["lat"], ac1["lon"], ac2["lat"], ac2["lon"]
+        )
+        
+        # Calculate vertical separation
+        vertical_ft = abs(ac1["alt"] - ac2["alt"])
+        
+        # Calculate 3D separation
+        # Convert vertical separation to nautical miles (1 ft = 1/6076 nm approximately)
+        vertical_nm = vertical_ft / 6076.0
+        total_3d_nm = math.sqrt(horizontal_nm**2 + vertical_nm**2)
+        
+        result = {
+            "horizontal_nm": horizontal_nm,
+            "vertical_ft": vertical_ft,
+            "total_3d_nm": total_3d_nm
+        }
+        
+        logging.info(
+            "Distance computed: %.2f nm horizontal, %.0f ft vertical, %.2f nm 3D",
+            horizontal_nm, vertical_ft, total_3d_nm
+        )
+        
+        return result
+        
+    except Exception as e:
+        logging.exception("Error computing distance between aircraft")
+        msg = f"Failed to compute distance: {e}"
+        raise BlueSkyToolsError(msg) from e
+
+
+def _haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """
+    Calculate the great circle distance between two points on Earth in nautical miles.
+    
+    Args:
+        lat1, lon1: Latitude and longitude of first point in degrees
+        lat2, lon2: Latitude and longitude of second point in degrees
+    
+    Returns:
+        Distance in nautical miles
+    """
+    # Convert latitude and longitude from degrees to radians
+    lat1_rad = math.radians(lat1)
+    lon1_rad = math.radians(lon1)
+    lat2_rad = math.radians(lat2)
+    lon2_rad = math.radians(lon2)
+    
+    # Haversine formula
+    dlat = lat2_rad - lat1_rad
+    dlon = lon2_rad - lon1_rad
+    a = (math.sin(dlat/2)**2 + 
+         math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon/2)**2)
+    c = 2 * math.asin(math.sqrt(a))
+    
+    # Earth's radius in nautical miles
+    earth_radius_nm = 3440.065
+    
+    return c * earth_radius_nm
+
+
+def step_simulation(minutes: float, dtmult: float = 1.0) -> dict[str, Any]:
+    """
+    Advance the BlueSky simulation by a number of minutes.
+    
+    Args:
+        minutes: Number of minutes to advance the simulation
+        dtmult: Time multiplier (simulation speed factor)
+    
+    Returns:
+        Status dictionary with simulation step information
+    """
+    try:
+        logging.info("Stepping simulation forward by %.2f minutes (dtmult=%.1f)", 
+                    minutes, dtmult)
+        
+        # Calculate real-time delay based on simulation speed
+        real_time_delay = (minutes * 60) / dtmult
+        
+        # In stub implementation, just sleep for the calculated time
+        # In real implementation, this would send DT command to BlueSky
+        time.sleep(min(real_time_delay, 5.0))  # Cap sleep time for testing
+        
+        # Send DT command to advance simulation
+        dt_seconds = minutes * 60
+        dt_command = f"DT {dt_seconds:.0f}"
+        command_result = send_command(dt_command)
+        
+        result = {
+            "action": "step_simulation",
+            "minutes_advanced": minutes,
+            "seconds_advanced": dt_seconds,
+            "dtmult": dtmult,
+            "real_time_elapsed": real_time_delay,
+            "simulation_time": time.time(),
+            "command_sent": dt_command,
+            "command_result": command_result,
+            "status": "completed",
+            "success": True
+        }
+        
+        logging.info("Simulation stepped forward successfully")
+        return result
+        
+    except Exception as e:
+        logging.exception("Error stepping simulation")
+        return {
+            "action": "step_simulation",
+            "status": "failed",
+            "success": False,
+            "error": str(e),
+            "timestamp": time.time()
+        }
+
+
+def reset_simulation() -> dict[str, Any]:
+    """
+    Reset the BlueSky simulation to initial state.
+    
+    Returns:
+        Status dictionary with reset information
+    """
+    try:
+        logging.info("Resetting BlueSky simulation")
+        
+        # Send RESET command
+        reset_result = send_command("RESET")
+        
+        # Additional setup that might be needed after reset
+        setup_commands = [
+            "DTMULT 1",
+            "CDMETHOD SWARM", 
+            "CDSEP 5.0 1000"
+        ]
+        
+        setup_results = []
+        for cmd in setup_commands:
+            setup_results.append(send_command(cmd))
+        
+        result = {
+            "action": "reset_simulation",
+            "reset_command": reset_result,
+            "setup_commands": setup_results,
+            "simulation_state": "initialized",
+            "aircraft_count": 0,
+            "timestamp": time.time(),
+            "success": True,
+            "status": "completed"
+        }
+        
+        logging.info("Simulation reset completed")
+        return result
+        
+    except Exception as e:
+        logging.exception("Error resetting simulation")
+        return {
+            "action": "reset_simulation",
+            "status": "failed",
+            "success": False,
+            "error": str(e),
+            "timestamp": time.time()
+        }
+
+
+def get_minimum_separation() -> dict[str, float]:
+    """
+    Get the current minimum separation standards.
+    
+    Returns:
+        Dictionary with minimum separation requirements
+    """
+    return {
+        "horizontal_nm": 5.0,    # Standard horizontal separation
+        "vertical_ft": 1000.0,   # Standard vertical separation
+        "approach_horizontal_nm": 3.0,  # Approach phase horizontal
+        "approach_vertical_ft": 500.0,  # Approach phase vertical
+        "terminal_horizontal_nm": 3.0,  # Terminal area horizontal
+        "oceanic_horizontal_nm": 10.0,  # Oceanic separation
+        "rvsm_vertical_ft": 1000.0,     # RVSM vertical separation
+    }
+
+
+def check_separation_violation(aircraft_id1: str, aircraft_id2: str) -> dict[str, Any]:
+    """
+    Check if two aircraft are violating separation standards.
+    
+    Args:
+        aircraft_id1: ID of first aircraft
+        aircraft_id2: ID of second aircraft
+    
+    Returns:
+        Dictionary with violation status and details
+    """
+    try:
+        # Get current separation
+        distances = get_distance(aircraft_id1, aircraft_id2)
+        min_sep = get_minimum_separation()
+        
+        # Check violations
+        horizontal_violation = distances["horizontal_nm"] < min_sep["horizontal_nm"]
+        vertical_violation = distances["vertical_ft"] < min_sep["vertical_ft"]
+        
+        # Separation violation occurs when BOTH horizontal AND vertical are violated
+        # (aircraft need to maintain EITHER horizontal OR vertical separation)
+        separation_violation = horizontal_violation and vertical_violation
+        
+        result = {
+            "aircraft_pair": [aircraft_id1, aircraft_id2],
+            "current_separation": distances,
+            "minimum_required": {
+                "horizontal_nm": min_sep["horizontal_nm"],
+                "vertical_ft": min_sep["vertical_ft"]
+            },
+            "violations": {
+                "horizontal": horizontal_violation,
+                "vertical": vertical_violation,
+                "separation_loss": separation_violation
+            },
+            "safety_margins": {
+                "horizontal_nm": distances["horizontal_nm"] - min_sep["horizontal_nm"],
+                "vertical_ft": distances["vertical_ft"] - min_sep["vertical_ft"]
+            },
+            "timestamp": time.time()
+        }
+        
+        if separation_violation:
+            logging.warning(
+                "SEPARATION VIOLATION: %s and %s - %.2f nm horizontal, %.0f ft vertical",
+                aircraft_id1, aircraft_id2, 
+                distances["horizontal_nm"], distances["vertical_ft"]
+            )
+        
+        return result
+        
+    except Exception as e:
+        logging.exception("Error checking separation violation")
+        return {
+            "aircraft_pair": [aircraft_id1, aircraft_id2],
+            "error": str(e),
+            "timestamp": time.time()
+        }
+
+
 # Tool registry for function calling
 TOOL_REGISTRY = {
     "GetAllAircraftInfo": get_all_aircraft_info,
@@ -422,6 +703,11 @@ TOOL_REGISTRY = {
     "SearchExperienceLibrary": search_experience_library,
     "GetWeatherInfo": get_weather_info,
     "GetAirspaceInfo": get_airspace_info,
+    "GetDistance": get_distance,
+    "StepSimulation": step_simulation,
+    "ResetSimulation": reset_simulation,
+    "GetMinimumSeparation": get_minimum_separation,
+    "CheckSeparationViolation": check_separation_violation,
 }
 
 

@@ -179,9 +179,15 @@ class BlueSkyScenarioGenerator:
         """Sample a value from a range specification"""
         if isinstance(range_spec, list) and len(range_spec) == 2:
             if isinstance(range_spec[0], int) and isinstance(range_spec[1], int):
-                return random.randint(range_spec[0], range_spec[1])
+                # Ensure min <= max to avoid empty range error
+                min_val = min(range_spec[0], range_spec[1])
+                max_val = max(range_spec[0], range_spec[1])
+                return random.randint(min_val, max_val)
             else:
-                return random.uniform(range_spec[0], range_spec[1])
+                # Ensure min <= max for float ranges too
+                min_val = min(range_spec[0], range_spec[1])
+                max_val = max(range_spec[0], range_spec[1])
+                return random.uniform(min_val, max_val)
         elif isinstance(range_spec, (int, float, str)):
             return range_spec
         else:
@@ -222,10 +228,9 @@ class BlueSkyScenarioGenerator:
             multiplier = shift_config['traffic_density_multiplier']
             for complexity in shifted_ranges['aircraft']['count']:
                 base_range = shifted_ranges['aircraft']['count'][complexity]
-                shifted_ranges['aircraft']['count'][complexity] = [
-                    max(1, int(base_range[0] * multiplier)),
-                    min(25, int(base_range[1] * multiplier))  # Cap at safety limit
-                ]
+                new_min = max(1, int(base_range[0] * multiplier))
+                new_max = max(new_min, min(25, int(base_range[1] * multiplier)))  # Ensure max >= min
+                shifted_ranges['aircraft']['count'][complexity] = [new_min, new_max]
         
         # 2. Apply aircraft pool shifts
         aircraft_config = shift_config.get('aircraft', {})
@@ -244,28 +249,33 @@ class BlueSkyScenarioGenerator:
         if 'wind' in weather_config and 'speed_shift_kts' in weather_config['wind']:
             wind_shift = weather_config['wind']['speed_shift_kts']
             base_wind = shifted_ranges['weather']['wind']['speed_kts']
-            shifted_ranges['weather']['wind']['speed_kts'] = [
-                max(0, base_wind[0] + wind_shift[0]),
-                min(100, base_wind[1] + wind_shift[1])  # Cap at reasonable limit
-            ]
+            new_min = max(0, base_wind[0] + wind_shift[0])
+            new_max = max(new_min, min(100, base_wind[1] + wind_shift[1]))  # Ensure max >= min
+            shifted_ranges['weather']['wind']['speed_kts'] = [new_min, new_max]
         
         # Wind direction shifts
         if 'wind' in weather_config and 'direction_shift_deg' in weather_config['wind']:
             dir_shift = weather_config['wind']['direction_shift_deg']
             base_dir = shifted_ranges['weather']['wind']['direction_deg']
-            shifted_ranges['weather']['wind']['direction_deg'] = [
-                (base_dir[0] + dir_shift[0]) % 360,
-                (base_dir[1] + dir_shift[1]) % 360
-            ]
+            
+            # Apply shift and ensure valid range
+            new_min = (base_dir[0] + dir_shift[0]) % 360
+            new_max = (base_dir[1] + dir_shift[1]) % 360
+            
+            # Ensure min <= max, if not, wrap around or expand range
+            if new_min > new_max:
+                # If range wraps around 360°, use full range to avoid issues
+                shifted_ranges['weather']['wind']['direction_deg'] = [0, 360]
+            else:
+                shifted_ranges['weather']['wind']['direction_deg'] = [new_min, new_max]
         
         # Turbulence intensity shifts
         if 'turbulence' in weather_config and 'intensity_shift' in weather_config['turbulence']:
             turb_shift = weather_config['turbulence']['intensity_shift']
             base_turb = shifted_ranges['weather'].get('turbulence_factor', [0.0, 0.3])
-            shifted_ranges['weather']['turbulence_factor'] = [
-                max(0.0, base_turb[0] + turb_shift[0]),
-                min(1.0, base_turb[1] + turb_shift[1])
-            ]
+            new_min = max(0.0, base_turb[0] + turb_shift[0])
+            new_max = max(new_min, min(1.0, base_turb[1] + turb_shift[1]))  # Ensure max >= min
+            shifted_ranges['weather']['turbulence_factor'] = [new_min, new_max]
         
         # Visibility degradation
         if 'visibility' in weather_config and 'degradation_factor' in weather_config['visibility']:
@@ -273,10 +283,9 @@ class BlueSkyScenarioGenerator:
             for vis_type in ['clear_nm', 'reduced_nm']:
                 if vis_type in shifted_ranges['weather'].get('visibility', {}):
                     base_vis = shifted_ranges['weather']['visibility'][vis_type]
-                    shifted_ranges['weather']['visibility'][vis_type] = [
-                        max(0.5, base_vis[0] * degradation),
-                        max(1.0, base_vis[1] * degradation)
-                    ]
+                    new_min = max(0.5, base_vis[0] * degradation)
+                    new_max = max(new_min, max(1.0, base_vis[1] * degradation))  # Ensure max >= min
+                    shifted_ranges['weather']['visibility'][vis_type] = [new_min, new_max]
         
         # 4. Apply airspace complexity shifts
         airspace_config = shift_config.get('airspace', {})
@@ -286,10 +295,9 @@ class BlueSkyScenarioGenerator:
                 shifted_ranges['traffic'] = {}
             
             base_density = shifted_ranges['traffic'].get('density_multiplier', [0.5, 1.5])
-            shifted_ranges['traffic']['density_multiplier'] = [
-                max(0.1, base_density[0] * density_mult),
-                min(3.0, base_density[1] * density_mult)
-            ]
+            new_min = max(0.1, base_density[0] * density_mult)
+            new_max = max(new_min, min(3.0, base_density[1] * density_mult))  # Ensure max >= min
+            shifted_ranges['traffic']['density_multiplier'] = [new_min, new_max]
         
         # 5. Apply navigation error parameters (new ranges for error injection)
         nav_config = shift_config.get('navigation', {})
@@ -307,9 +315,10 @@ class BlueSkyScenarioGenerator:
             expansion = geography_config['radius_expansion_factor']
             for region in shifted_ranges['geography']['airspace_regions']:
                 base_radius = shifted_ranges['geography']['airspace_regions'][region]['radius_nm']
+                new_min = base_radius[0] * expansion
+                new_max = max(new_min, base_radius[1] * expansion)  # Ensure max >= min
                 shifted_ranges['geography']['airspace_regions'][region]['radius_nm'] = [
-                    base_radius[0] * expansion,
-                    base_radius[1] * expansion
+                    new_min, new_max
                 ]
         
         self.logger.info(f"Distribution shift applied: {shift_tier}")

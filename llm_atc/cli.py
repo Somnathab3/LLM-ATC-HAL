@@ -190,6 +190,119 @@ def analyze(log_file, results_dir):
         sys.exit(1)
 
 @cli.command()
+@click.option("--num-horizontal", default=50, help="Number of horizontal scenarios")
+@click.option("--num-vertical", default=50, help="Number of vertical scenarios")
+@click.option("--num-sector", default=50, help="Number of sector scenarios")
+@click.option("--complexities", default="simple,moderate,complex", help="Comma-separated complexity tiers")
+@click.option("--shift-levels", default="in_distribution,moderate_shift,extreme_shift", help="Comma-separated shift levels")
+@click.option("--horizon", default=5, help="Minutes to simulate after each resolution")
+@click.option("--output-dir", default="experiments/monte_carlo_results", help="Directory to save results")
+def monte_carlo_benchmark(**opts):
+    """Run the Monte Carlo safety benchmark."""
+    click.echo("🚀 Starting Monte Carlo Safety Benchmark...")
+    
+    try:
+        # Import required modules
+        from scenarios.monte_carlo_runner import MonteCarloBenchmark, BenchmarkConfiguration
+        from scenarios.monte_carlo_framework import ComplexityTier
+        from scenarios.scenario_generator import ScenarioType
+        
+        # Parse complexities into ComplexityTier objects
+        complexity_strings = [c.strip().lower() for c in opts['complexities'].split(",")]
+        complexity_tiers = []
+        
+        complexity_mapping = {
+            'simple': ComplexityTier.SIMPLE,
+            'moderate': ComplexityTier.MODERATE,
+            'complex': ComplexityTier.COMPLEX,
+            'extreme': ComplexityTier.EXTREME
+        }
+        
+        for comp_str in complexity_strings:
+            if comp_str in complexity_mapping:
+                complexity_tiers.append(complexity_mapping[comp_str])
+            else:
+                click.echo(f"⚠️  Warning: Unknown complexity tier '{comp_str}', skipping")
+        
+        if not complexity_tiers:
+            click.echo("❌ No valid complexity tiers specified", err=True)
+            sys.exit(1)
+        
+        # Parse shift levels into strings
+        shift_levels = [s.strip() for s in opts['shift_levels'].split(",")]
+        
+        # Determine scenario types and counts
+        scenario_types = []
+        total_scenarios = 0
+        
+        if opts['num_horizontal'] > 0:
+            scenario_types.append(ScenarioType.HORIZONTAL)
+            total_scenarios += opts['num_horizontal']
+        
+        if opts['num_vertical'] > 0:
+            scenario_types.append(ScenarioType.VERTICAL)
+            total_scenarios += opts['num_vertical']
+        
+        if opts['num_sector'] > 0:
+            scenario_types.append(ScenarioType.SECTOR)
+            total_scenarios += opts['num_sector']
+        
+        if not scenario_types:
+            click.echo("❌ At least one scenario type must have count > 0", err=True)
+            sys.exit(1)
+        
+        # Calculate scenarios per type (average across types for now)
+        num_scenarios_per_type = max(opts['num_horizontal'], opts['num_vertical'], opts['num_sector'])
+        
+        # Create output directory if it doesn't exist
+        output_dir = Path(opts['output_dir'])
+        output_dir.mkdir(parents=True, exist_ok=True)
+        click.echo(f"📁 Output directory: {output_dir}")
+        
+        # Create benchmark configuration
+        config = BenchmarkConfiguration(
+            num_scenarios_per_type=num_scenarios_per_type,
+            scenario_types=scenario_types,
+            complexity_tiers=complexity_tiers,
+            distribution_shift_levels=shift_levels,
+            time_horizon_minutes=float(opts['horizon']),
+            output_directory=str(output_dir),
+            generate_visualizations=True,
+            detailed_logging=True
+        )
+        
+        # Display configuration summary
+        click.echo(f"📊 Configuration Summary:")
+        click.echo(f"   Scenario types: {[t.value for t in scenario_types]}")
+        click.echo(f"   Complexity tiers: {[c.value for c in complexity_tiers]}")
+        click.echo(f"   Shift levels: {shift_levels}")
+        click.echo(f"   Scenarios per type: {num_scenarios_per_type}")
+        click.echo(f"   Time horizon: {opts['horizon']} minutes")
+        
+        total_scenarios = len(scenario_types) * len(complexity_tiers) * len(shift_levels) * num_scenarios_per_type
+        click.echo(f"   Total scenarios: {total_scenarios}")
+        
+        # Initialize and run benchmark
+        benchmark = MonteCarloBenchmark(config)
+        
+        click.echo("🔄 Running benchmark... (this may take a while)")
+        summary = benchmark.run()
+        
+        click.echo(f"✅ Benchmark complete! Results saved to {opts['output_dir']}")
+        click.echo(f"📈 Summary: {summary['successful_scenarios']}/{summary['total_scenarios']} scenarios successful")
+        
+    except ImportError as e:
+        click.echo(f"❌ Import error: {e}", err=True)
+        click.echo("💡 Make sure all required modules are installed", err=True)
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"❌ Benchmark execution failed: {e}", err=True)
+        import traceback
+        if verbose_logging := os.getenv('VERBOSE_LOGGING'):
+            click.echo(traceback.format_exc(), err=True)
+        sys.exit(1)
+
+@cli.command()
 def validate():
     """Validate system installation and dependencies"""
     click.echo("Validating LLM-ATC-HAL installation...")
