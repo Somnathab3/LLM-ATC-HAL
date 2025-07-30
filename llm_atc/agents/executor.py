@@ -26,6 +26,7 @@ class ExecutionStatus(Enum):
 @dataclass
 class ExecutionResult:
     """Result of plan execution"""
+
     execution_id: str
     plan_id: str
     status: ExecutionStatus
@@ -125,7 +126,8 @@ class Executor:
                 # Partial success still considered completed
                 result.status = ExecutionStatus.COMPLETED
                 self.logger.warning(
-                    "Plan execution completed with partial success: %s", execution_id,
+                    "Plan execution completed with partial success: %s",
+                    execution_id,
                 )
             else:
                 result.status = ExecutionStatus.FAILED
@@ -290,10 +292,9 @@ class Executor:
             }
 
         total_executions = len(self.execution_history)
-        successful_executions = len([
-            r for r in self.execution_history
-            if r.status == ExecutionStatus.COMPLETED
-        ])
+        successful_executions = len(
+            [r for r in self.execution_history if r.status == ExecutionStatus.COMPLETED],
+        )
         total_execution_time = sum(r.execution_time for r in self.execution_history)
         total_commands = sum(len(r.commands_sent) for r in self.execution_history)
 

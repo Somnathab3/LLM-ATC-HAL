@@ -20,8 +20,9 @@ try:
         recall_score,
         roc_auc_score,
     )
-    from sklearn.model_selection import cross_val_score, train_test_split
+    from sklearn.model_selection import train_test_split
     from sklearn.preprocessing import StandardScaler
+
     SKLEARN_AVAILABLE = True
 except ImportError:
     SKLEARN_AVAILABLE = False
@@ -29,6 +30,7 @@ except ImportError:
 
 try:
     import xgboost as xgb
+
     XGBOOST_AVAILABLE = True
 except ImportError:
     XGBOOST_AVAILABLE = False
@@ -38,6 +40,7 @@ except ImportError:
 @dataclass
 class ConflictPrediction:
     """Conflict detection prediction result"""
+
     has_conflict: bool
     confidence: float
     time_to_conflict: float
@@ -51,7 +54,7 @@ class BaselineConflictDetector:
     Serves as baseline comparison for LLM-based detection.
     """
 
-    def __init__(self, model_type: str = "random_forest"):
+    def __init__(self, model_type: str = "random_forest") -> None:
         """
         Initialize baseline conflict detector.
 
@@ -67,9 +70,11 @@ class BaselineConflictDetector:
 
         # Check dependencies
         if model_type == "random_forest" and not SKLEARN_AVAILABLE:
-            raise ImportError("scikit-learn required for RandomForest model")
+            msg = "scikit-learn required for RandomForest model"
+            raise ImportError(msg)
         if model_type == "xgboost" and not XGBOOST_AVAILABLE:
-            raise ImportError("xgboost required for XGBoost model")
+            msg = "xgboost required for XGBoost model"
+            raise ImportError(msg)
 
         # Initialize model
         if model_type == "random_forest":
@@ -92,7 +97,8 @@ class BaselineConflictDetector:
                 n_jobs=-1,
             )
         else:
-            raise ValueError(f"Unknown model type: {model_type}")
+            msg = f"Unknown model type: {model_type}"
+            raise ValueError(msg)
 
     def extract_features(self, scenario: dict[str, Any]) -> np.ndarray:
         """
@@ -114,12 +120,14 @@ class BaselineConflictDetector:
             return np.array([0] * 20)  # Return zero vector
 
         # Basic scenario features
-        features.extend([
-            len(aircraft_data),  # Number of aircraft
-            scenario.get("time_horizon", 600),  # Time horizon
-            scenario.get("traffic_density", 0.5),  # Traffic density
-            scenario.get("weather_severity", 0.0),  # Weather severity
-        ])
+        features.extend(
+            [
+                len(aircraft_data),  # Number of aircraft
+                scenario.get("time_horizon", 600),  # Time horizon
+                scenario.get("traffic_density", 0.5),  # Traffic density
+                scenario.get("weather_severity", 0.0),  # Weather severity
+            ],
+        )
 
         # Pairwise aircraft features (take first two for simplicity)
         ac1, ac2 = aircraft_data[0], aircraft_data[1]
@@ -164,8 +172,7 @@ class BaselineConflictDetector:
 
         return np.array(features, dtype=np.float32)
 
-    def train(self, training_data: list[dict[str, Any]],
-              labels: list[bool]) -> dict[str, float]:
+    def train(self, training_data: list[dict[str, Any]], labels: list[bool]) -> dict[str, float]:
         """
         Train the baseline model.
 
@@ -177,7 +184,8 @@ class BaselineConflictDetector:
             Training metrics
         """
         if not SKLEARN_AVAILABLE:
-            raise RuntimeError("scikit-learn not available for training")
+            msg = "scikit-learn not available for training"
+            raise RuntimeError(msg)
 
         # Extract features
         X = np.array([self.extract_features(scenario) for scenario in training_data])
@@ -185,16 +193,35 @@ class BaselineConflictDetector:
 
         # Store feature names for reference
         self.feature_names = [
-            "num_aircraft", "time_horizon", "traffic_density", "weather_severity",
-            "lat_diff", "lon_diff", "alt_diff", "speed_diff", "heading_diff", "vspeed_diff",
-            "horizontal_distance", "relative_speed", "approach_rate",
-            "ac1_type", "ac2_type", "ac1_phase", "ac2_phase",
-            "feature_18", "feature_19", "feature_20",
+            "num_aircraft",
+            "time_horizon",
+            "traffic_density",
+            "weather_severity",
+            "lat_diff",
+            "lon_diff",
+            "alt_diff",
+            "speed_diff",
+            "heading_diff",
+            "vspeed_diff",
+            "horizontal_distance",
+            "relative_speed",
+            "approach_rate",
+            "ac1_type",
+            "ac2_type",
+            "ac1_phase",
+            "ac2_phase",
+            "feature_18",
+            "feature_19",
+            "feature_20",
         ]
 
         # Split data
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=42, stratify=y,
+            X,
+            y,
+            test_size=0.2,
+            random_state=42,
+            stratify=y,
         )
 
         # Scale features
@@ -233,7 +260,8 @@ class BaselineConflictDetector:
             ConflictPrediction object
         """
         if not self.is_trained:
-            raise RuntimeError("Model must be trained before prediction")
+            msg = "Model must be trained before prediction"
+            raise RuntimeError(msg)
 
         # Extract features
         features = self.extract_features(scenario).reshape(1, -1)
@@ -250,8 +278,9 @@ class BaselineConflictDetector:
         aircraft_data = scenario.get("aircraft", [])
         conflict_pairs = []
         if len(aircraft_data) >= 2 and has_conflict:
-            conflict_pairs = [(aircraft_data[0].get("id", "AC1"),
-                             aircraft_data[1].get("id", "AC2"))]
+            conflict_pairs = [
+                (aircraft_data[0].get("id", "AC1"), aircraft_data[1].get("id", "AC2")),
+            ]
 
         # Analyze risk factors
         risk_factors = self._analyze_risk_factors(features[0])
@@ -264,10 +293,11 @@ class BaselineConflictDetector:
             risk_factors=risk_factors,
         )
 
-    def save_model(self, filepath: str):
+    def save_model(self, filepath: str) -> None:
         """Save trained model to file"""
         if not self.is_trained:
-            raise RuntimeError("No trained model to save")
+            msg = "No trained model to save"
+            raise RuntimeError(msg)
 
         model_data = {
             "model": self.model,
@@ -282,7 +312,7 @@ class BaselineConflictDetector:
 
         self.logger.info("Model saved to %s", filepath)
 
-    def load_model(self, filepath: str):
+    def load_model(self, filepath: str) -> None:
         """Load trained model from file"""
         with open(filepath, "rb") as f:
             model_data = pickle.load(f)
@@ -319,8 +349,7 @@ class BaselineConflictDetector:
         }
         return phase_mapping.get(flight_phase.lower(), 3.0)  # Default to cruise
 
-    def _estimate_time_to_conflict(self, scenario: dict[str, Any],
-                                 features: np.ndarray) -> float:
+    def _estimate_time_to_conflict(self, scenario: dict[str, Any], features: np.ndarray) -> float:
         """Estimate time to conflict based on features"""
         # Simplified calculation based on approach rate
         approach_rate = features[12] if len(features) > 12 else 1.0
@@ -335,7 +364,9 @@ class BaselineConflictDetector:
         risk_factors = {}
 
         if len(features) >= 20:
-            risk_factors["proximity_risk"] = 1.0 - min(features[10] / 10.0, 1.0)  # Horizontal distance
+            risk_factors["proximity_risk"] = 1.0 - min(
+                features[10] / 10.0, 1.0,
+            )  # Horizontal distance
             risk_factors["altitude_risk"] = min(features[6] / 1000.0, 1.0)  # Altitude difference
             risk_factors["speed_risk"] = min(features[7] / 100.0, 1.0)  # Speed difference
             risk_factors["approach_risk"] = 1.0 - min(features[12] / 10.0, 1.0)  # Approach rate
@@ -389,13 +420,9 @@ if __name__ == "__main__":
     if SKLEARN_AVAILABLE:
         detector = BaselineConflictDetector("random_forest")
         metrics = detector.train(training_scenarios, labels)
-        print("Training metrics:", metrics)
 
         # Test prediction
         test_scenario = training_scenarios[0]
         prediction = detector.predict(test_scenario)
-        print(f"Conflict prediction: {prediction.has_conflict}")
-        print(f"Confidence: {prediction.confidence:.3f}")
-        print(f"Time to conflict: {prediction.time_to_conflict:.1f}s")
     else:
-        print("scikit-learn not available - skipping test")
+        pass

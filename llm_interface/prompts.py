@@ -6,26 +6,27 @@ Specialized prompts for air traffic control conflict resolution,
 safety assessment, and technical compliance checking.
 """
 
-from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
+from typing import Any, Optional
 
 
 @dataclass
 class ConflictScenario:
     """Data structure for conflict scenario information"""
-    aircraft_data: List[Dict[str, Any]]
+
+    aircraft_data: list[dict[str, Any]]
     conflict_type: str
     urgency_level: str
-    environmental_conditions: Dict[str, Any]
-    airspace_constraints: Optional[Dict[str, Any]] = None
+    environmental_conditions: dict[str, Any]
+    airspace_constraints: Optional[dict[str, Any]] = None
 
 
 class ATCPromptGenerator:
     """
     Generate specialized prompts for ATC conflict resolution using LLMs
     """
-    
-    def __init__(self):
+
+    def __init__(self) -> None:
         self.base_context = """
 You are an expert Air Traffic Controller AI assistant with deep knowledge of:
 - ICAO standards and regulations
@@ -36,13 +37,15 @@ You are an expert Air Traffic Controller AI assistant with deep knowledge of:
 
 Always prioritize safety, provide clear rationale, and suggest ICAO-compliant solutions.
 """
-    
-    def generate_conflict_prompt(self, aircraft_data: List[Dict], conflict_type: str, urgency_level: str) -> str:
+
+    def generate_conflict_prompt(
+        self, aircraft_data: list[dict], conflict_type: str, urgency_level: str,
+    ) -> str:
         """Generate conflict resolution prompt"""
-        
+
         aircraft_info = self._format_aircraft_data(aircraft_data)
-        
-        prompt = f"""{self.base_context}
+
+        return f"""{self.base_context}
 
 CONFLICT RESOLUTION REQUEST
 ==========================
@@ -66,12 +69,11 @@ Ensure all recommendations comply with ICAO standards and consider:
 - Fuel efficiency
 - Weather conditions
 """
-        return prompt
-    
+
     def generate_safety_assessment_prompt(self, scenario: ConflictScenario) -> str:
         """Generate safety assessment prompt"""
-        
-        prompt = f"""{self.base_context}
+
+        return f"""{self.base_context}
 
 SAFETY ASSESSMENT REQUEST
 ========================
@@ -93,12 +95,11 @@ Please evaluate:
 
 Provide quantitative safety scores where possible.
 """
-        return prompt
-    
-    def generate_validation_prompt(self, proposed_solution: str, original_conflict: Dict) -> str:
+
+    def generate_validation_prompt(self, proposed_solution: str, original_conflict: dict) -> str:
         """Generate validation prompt for proposed solutions"""
-        
-        prompt = f"""{self.base_context}
+
+        return f"""{self.base_context}
 
 SOLUTION VALIDATION REQUEST
 ===========================
@@ -120,14 +121,13 @@ Provide:
 - Improvement suggestions
 - Confidence score (0-100)
 """
-        return prompt
-    
-    def generate_technical_compliance_prompt(self, actions: List[str]) -> str:
+
+    def generate_technical_compliance_prompt(self, actions: list[str]) -> str:
         """Generate technical compliance checking prompt"""
-        
+
         actions_list = "\n".join([f"- {action}" for action in actions])
-        
-        prompt = f"""{self.base_context}
+
+        return f"""{self.base_context}
 
 TECHNICAL COMPLIANCE CHECK
 =========================
@@ -147,9 +147,8 @@ For each action, provide:
 - Risk assessment
 - Alternative if non-compliant
 """
-        return prompt
-    
-    def _format_aircraft_data(self, aircraft_data: List[Dict]) -> str:
+
+    def _format_aircraft_data(self, aircraft_data: list[dict]) -> str:
         """Format aircraft data for prompt inclusion"""
         formatted = []
         for i, aircraft in enumerate(aircraft_data, 1):
@@ -163,10 +162,10 @@ Aircraft {i}: {aircraft.get('callsign', f'AC{i:03d}')}
 - Vertical Speed: {aircraft.get('vertical_speed', 0)} ft/min
 """
             formatted.append(info)
-        
+
         return "\n".join(formatted)
-    
-    def _format_environmental_data(self, env_data: Dict) -> str:
+
+    def _format_environmental_data(self, env_data: dict) -> str:
         """Format environmental conditions for prompt inclusion"""
         return f"""
 - Weather: {env_data.get('weather', 'Clear')}
