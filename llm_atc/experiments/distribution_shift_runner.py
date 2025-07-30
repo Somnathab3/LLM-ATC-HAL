@@ -18,6 +18,7 @@ Stores results in parquet format for statistical analysis.
 import argparse
 import json
 import logging
+import os
 
 # LLM-ATC-HAL imports
 import sys
@@ -31,7 +32,7 @@ import numpy as np
 import pandas as pd
 import yaml
 
-sys.path.append(str(Path(__file__).parent.parent.resolve()))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from baseline_models.evaluate import BaselineEvaluator
 
@@ -50,74 +51,73 @@ from scenarios.monte_carlo_framework import BlueSkyScenarioGenerator, Complexity
 @dataclass
 class ExperimentResult:
     """Single experiment result row"""
-
-    tier: str  # Distribution shift tier
-    sim_id: int  # Simulation ID within tier
-    scenario_id: str  # Unique scenario identifier
-    complexity: str  # Scenario complexity level
-    aircraft_count: int  # Number of aircraft
-    model_type: str  # 'llm' or 'baseline'
+    tier: str                      # Distribution shift tier
+    sim_id: int                   # Simulation ID within tier
+    scenario_id: str              # Unique scenario identifier
+    complexity: str               # Scenario complexity level
+    aircraft_count: int           # Number of aircraft
+    model_type: str               # 'llm' or 'baseline'
 
     # Detection metrics
-    fp_rate: float  # False positive rate
-    fn_rate: float  # False negative rate
-    detection_accuracy: float  # Overall detection accuracy
+    fp_rate: float                # False positive rate
+    fn_rate: float                # False negative rate
+    detection_accuracy: float     # Overall detection accuracy
 
     # Safety metrics
-    avg_margin_hz: float  # Average horizontal separation margin
-    avg_margin_vt: float  # Average vertical separation margin
-    safety_score: float  # Overall safety score
-    icao_compliant: bool  # ICAO compliance
+    avg_margin_hz: float          # Average horizontal separation margin
+    avg_margin_vt: float          # Average vertical separation margin
+    safety_score: float           # Overall safety score
+    icao_compliant: bool          # ICAO compliance
 
     # Efficiency metrics
-    extra_distance: float  # Extra distance due to resolution (nm)
-    interventions: int  # Number of ATC interventions
-    total_delay: float  # Total delay (seconds)
-    fuel_penalty: float  # Extra fuel consumption
+    extra_distance: float         # Extra distance due to resolution (nm)
+    interventions: int            # Number of ATC interventions
+    total_delay: float            # Total delay (seconds)
+    fuel_penalty: float           # Extra fuel consumption
 
     # Shift metrics
-    shift_score: float  # Distribution shift score
+    shift_score: float            # Distribution shift score
 
     # Performance metrics
-    response_time: float  # Response time (seconds)
+    response_time: float          # Response time (seconds)
     hallucination_detected: bool  # Whether hallucination was detected
-    hallucination_score: float  # Hallucination confidence score
+    hallucination_score: float    # Hallucination confidence score
 
     # Additional metrics
-    conflict_count: int  # Number of conflicts detected
-    resolution_success: bool  # Whether conflicts were resolved
+    conflict_count: int           # Number of conflicts detected
+    resolution_success: bool     # Whether conflicts were resolved
     environmental_difficulty: float  # Environmental challenge score
 
     # LLM Performance
     hallucination_detected: bool  # Whether hallucination was detected
-    fp: int  # False positives in conflict detection
-    fn: int  # False negatives in conflict detection
-    llm_confidence: float  # LLM confidence score
-    ensemble_consensus: float  # Ensemble consensus score
+    fp: int                      # False positives in conflict detection
+    fn: int                      # False negatives in conflict detection
+    llm_confidence: float        # LLM confidence score
+    ensemble_consensus: float    # Ensemble consensus score
 
     # Safety Metrics
-    horiz_margin_ft: float  # Horizontal safety margin (feet)
-    vert_margin_nm: float  # Vertical safety margin (nautical miles)
-    extra_nm: float  # Extra distance traveled due to resolution
-    n_interventions: int  # Number of controller interventions required
-    safety_score: float  # Overall safety score
-    icao_compliant: bool  # ICAO compliance status
+    horiz_margin_ft: float       # Horizontal safety margin (feet)
+    vert_margin_nm: float        # Vertical safety margin (nautical miles)
+    extra_nm: float              # Extra distance traveled due to resolution
+    n_interventions: int         # Number of controller interventions required
+    safety_score: float          # Overall safety score
+    icao_compliant: bool         # ICAO compliance status
 
     # Performance Metrics
-    runtime_s: float  # Total runtime for scenario processing
-    response_time_s: float  # LLM response time
-    detection_time_s: float  # Hallucination detection time
+    runtime_s: float             # Total runtime for scenario processing
+    response_time_s: float       # LLM response time
+    detection_time_s: float      # Hallucination detection time
 
     # Environmental Conditions
-    wind_speed_kts: float  # Wind speed
+    wind_speed_kts: float        # Wind speed
     turbulence_intensity: float  # Turbulence intensity
-    visibility_nm: float  # Visibility
-    navigation_error_nm: float  # Navigation error magnitude
+    visibility_nm: float         # Visibility
+    navigation_error_nm: float   # Navigation error magnitude
 
     # Command Logs (stored as JSON strings)
-    bluesky_commands: str  # BlueSky command log
-    llm_output: str  # LLM decision output
-    detection_evidence: str  # Hallucination detection evidence
+    bluesky_commands: str        # BlueSky command log
+    llm_output: str              # LLM decision output
+    detection_evidence: str      # Hallucination detection evidence
 
 
 class DistributionShiftRunner:
@@ -125,12 +125,10 @@ class DistributionShiftRunner:
     Runs systematic distribution shift experiments across tiers and simulations.
     """
 
-    def __init__(
-        self,
-        config_file: str = "experiments/shift_experiment_config.yaml",
-        output_dir: str = "experiments/results",
-        run_baseline: bool = False,
-    ) -> None:
+    def __init__(self,
+                 config_file: str = "experiments/shift_experiment_config.yaml",
+                 output_dir: str = "experiments/results",
+                 run_baseline: bool = False):
         """
         Initialize experiment runner.
 
@@ -162,8 +160,8 @@ class DistributionShiftRunner:
     def _load_config(self) -> dict[str, Any]:
         """Load experiment configuration"""
         try:
-            config_path = Path(self.config_file)
-            config = yaml.safe_load(config_path.read_text())
+            with open(self.config_file) as f:
+                config = yaml.safe_load(f)
             self.logger.info("Loaded experiment config from %s", self.config_file)
             return config
         except Exception as e:
@@ -206,7 +204,7 @@ class DistributionShiftRunner:
             },
         }
 
-    def _initialize_components(self) -> None:
+    def _initialize_components(self):
         """Initialize LLM-ATC-HAL components"""
         self.logger.info("Initializing LLM-ATC-HAL components...")
 
@@ -257,9 +255,7 @@ class DistributionShiftRunner:
 
         # Loop over distribution shift tiers
         for tier_idx, shift_tier in enumerate(shift_tiers):
-            self.logger.info(
-                "Processing tier %d/%d: %s", tier_idx + 1, len(shift_tiers), shift_tier,
-            )
+            self.logger.info("Processing tier %d/%d: %s", tier_idx+1, len(shift_tiers), shift_tier)
 
             # Generate CR flowchart once per tier
             try:
@@ -276,9 +272,7 @@ class DistributionShiftRunner:
             # Loop over simulations within tier
             for sim_id in range(n_sims_per_tier):
                 if sim_id % 20 == 0:
-                    self.logger.info(
-                        "  Simulation %d/%d in %s", sim_id + 1, n_sims_per_tier, shift_tier,
-                    )
+                    self.logger.info("  Simulation %d/%d in %s", sim_id+1, n_sims_per_tier, shift_tier)
 
                 try:
                     # Run single simulation
@@ -286,15 +280,15 @@ class DistributionShiftRunner:
                     self.results.append(result)
 
                     # Select one random simulation per tier for CD timeline visualization
-                    if (
-                        shift_tier not in self.tier_random_sims and np.random.random() < 0.1
-                    ):  # 10% chance to select this sim
+                    if (shift_tier not in self.tier_random_sims and
+                        np.random.random() < 0.1):  # 10% chance to select this sim
                         self.tier_random_sims[shift_tier] = result.scenario_id
 
                     completed_sims += 1
 
                     # Save intermediate results periodically
-                    if completed_sims % 50 == 0 and self.config["output"]["save_intermediate"]:
+                    if (completed_sims % 50 == 0 and
+                        self.config["output"]["save_intermediate"]):
                         self._save_intermediate_results(completed_sims)
 
                 except Exception:
@@ -324,8 +318,7 @@ class DistributionShiftRunner:
             Path to baseline results parquet file
         """
         if not self.run_baseline:
-            msg = "Baseline experiment requested but run_baseline=False"
-            raise ValueError(msg)
+            raise ValueError("Baseline experiment requested but run_baseline=False")
 
         experiment_start = time.time()
         self.logger.info("Starting baseline model experiment")
@@ -339,21 +332,15 @@ class DistributionShiftRunner:
 
         # Loop over distribution shift tiers
         for tier_idx, shift_tier in enumerate(shift_tiers):
-            self.logger.info(
-                "Processing baseline tier %d/%d: %s", tier_idx + 1, len(shift_tiers), shift_tier,
-            )
+            self.logger.info("Processing baseline tier %d/%d: %s", tier_idx+1, len(shift_tiers), shift_tier)
 
             for sim_id in range(n_sims_per_tier):
                 if sim_id % 20 == 0:
-                    self.logger.info(
-                        "  Baseline simulation %d/%d in %s", sim_id + 1, n_sims_per_tier, shift_tier,
-                    )
+                    self.logger.info("  Baseline simulation %d/%d in %s", sim_id+1, n_sims_per_tier, shift_tier)
 
                 try:
                     # Run single baseline simulation
-                    result = self._run_single_baseline_simulation(
-                        shift_tier, sim_id, complexity_dist,
-                    )
+                    result = self._run_single_baseline_simulation(shift_tier, sim_id, complexity_dist)
                     baseline_results.append(result)
 
                 except Exception:
@@ -369,9 +356,10 @@ class DistributionShiftRunner:
 
         return baseline_results_file
 
-    def _run_single_baseline_simulation(
-        self, shift_tier: str, sim_id: int, complexity_dist: dict[str, float],
-    ) -> dict:
+    def _run_single_baseline_simulation(self,
+                                      shift_tier: str,
+                                      sim_id: int,
+                                      complexity_dist: dict[str, float]) -> dict:
         """
         Run a single baseline simulation within a distribution shift tier.
 
@@ -419,6 +407,7 @@ class DistributionShiftRunner:
             **baseline_result,  # Include all baseline evaluation metrics
         }
 
+
     def _save_baseline_results(self, results: list[dict]) -> str:
         """
         Save baseline experiment results to CSV file.
@@ -438,10 +427,13 @@ class DistributionShiftRunner:
 
         # Generate filename with timestamp
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        results_file = Path(self.config["output_dir"]) / f"results_baseline_{timestamp}.csv"
+        results_file = os.path.join(
+            self.config["output_dir"],
+            f"results_baseline_{timestamp}.csv",
+        )
 
         # Ensure output directory exists
-        results_file.parent.mkdir(parents=True, exist_ok=True)
+        os.makedirs(os.path.dirname(results_file), exist_ok=True)
 
         # Save to CSV
         df.to_csv(results_file, index=False)
@@ -460,9 +452,10 @@ class DistributionShiftRunner:
 
         return results_file
 
-    def _run_single_simulation(
-        self, shift_tier: str, sim_id: int, complexity_dist: dict[str, float],
-    ) -> ExperimentResult:
+    def _run_single_simulation(self,
+                              shift_tier: str,
+                              sim_id: int,
+                              complexity_dist: dict[str, float]) -> ExperimentResult:
         """
         Run a single simulation within a distribution shift tier.
 
@@ -523,35 +516,27 @@ class DistributionShiftRunner:
         try:
             # Use a simplified safety assessment instead of full geometry calculation
             safety_score = 0.7  # Default reasonable safety score
-            safety_result = type(
-                "SafetyResult",
-                (),
-                {
-                    "horizontal_margin": 5.2,  # nm
-                    "vertical_margin": 1200.0,  # ft
-                    "temporal_margin": 80.0,  # seconds
-                    "effective_margin": safety_score,
-                    "margin_to_uncertainty_ratio": 1.2,
-                    "degradation_factor": 0.9,
-                    "safety_level": "adequate",
-                },
-            )()
+            safety_result = type("SafetyResult", (), {
+                "horizontal_margin": 5.2,    # nm
+                "vertical_margin": 1200.0,   # ft
+                "temporal_margin": 80.0,     # seconds
+                "effective_margin": safety_score,
+                "margin_to_uncertainty_ratio": 1.2,
+                "degradation_factor": 0.9,
+                "safety_level": "adequate",
+            })()
         except Exception as e:
             self.logger.warning("Safety margin calculation failed: %s", e)
             # Provide default safety metrics
-            safety_result = type(
-                "SafetyResult",
-                (),
-                {
-                    "horizontal_margin": 0.0,
-                    "vertical_margin": 0.0,
-                    "temporal_margin": 0.0,
-                    "effective_margin": 0.5,
-                    "margin_to_uncertainty_ratio": 1.0,
-                    "degradation_factor": 1.0,
-                    "safety_level": "marginal",
-                },
-            )()
+            safety_result = type("SafetyResult", (), {
+                "horizontal_margin": 0.0,
+                "vertical_margin": 0.0,
+                "temporal_margin": 0.0,
+                "effective_margin": 0.5,
+                "margin_to_uncertainty_ratio": 1.0,
+                "degradation_factor": 1.0,
+                "safety_level": "marginal",
+            })()
 
         # Calculate false positives/negatives
         gt_conflicts = self._extract_ground_truth_conflicts(scenario)
@@ -576,37 +561,39 @@ class DistributionShiftRunner:
             scenario_id=scenario_id,
             complexity=complexity_name,
             aircraft_count=scenario.aircraft_count,
+
             # LLM Performance
             hallucination_detected=hallucination_result.detected,
             fp=fp,
             fn=fn,
             llm_confidence=llm_response.confidence,
             ensemble_consensus=llm_response.consensus_score,
+
             # Safety Metrics
             horiz_margin_ft=safety_result.horizontal_margin * 6076.12,  # Convert nm to ft
-            vert_margin_nm=safety_result.vertical_margin / 6076.12,  # Convert ft to nm
+            vert_margin_nm=safety_result.vertical_margin / 6076.12,      # Convert ft to nm
             extra_nm=extra_nm,
             n_interventions=n_interventions,
             safety_score=safety_result.effective_margin,
             icao_compliant=(safety_result.safety_level in ["adequate", "excellent"]),
+
             # Performance Metrics
             runtime_s=runtime,
             response_time_s=response_time,
             detection_time_s=detection_time,
+
             # Environmental Conditions
             wind_speed_kts=env.get("wind_speed_kts", 0),
             turbulence_intensity=env.get("turbulence_intensity", 0),
             visibility_nm=env.get("visibility_nm", 10),
             navigation_error_nm=env.get("navigation_error_nm", 0),
+
             # Command Logs (as JSON strings)
-            bluesky_commands=(
-                json.dumps(scenario.bluesky_commands)
-                if self.config["output"]["include_command_logs"]
-                else ""
-            ),
+            bluesky_commands=json.dumps(scenario.bluesky_commands) if self.config["output"]["include_command_logs"] else "",
             llm_output=json.dumps(llm_response.consensus_response),
             detection_evidence=json.dumps(hallucination_result.evidence),
         )
+
 
     def _extract_conflict_geometry(self, scenario) -> dict:
         """Extract conflict geometry from scenario for safety calculation"""
@@ -663,15 +650,13 @@ class DistributionShiftRunner:
         """Generate baseline response for hallucination detection"""
         # Simple baseline: maintain current headings/altitudes
         baseline_actions = []
-        for _i, aircraft in enumerate(scenario.aircraft_list):
-            baseline_actions.append(
-                {
-                    "aircraft_id": aircraft["id"],
-                    "action": "maintain",
-                    "type": "heading",
-                    "value": aircraft["heading"],
-                },
-            )
+        for i, aircraft in enumerate(scenario.aircraft_list):
+            baseline_actions.append({
+                "aircraft_id": aircraft["id"],
+                "action": "maintain",
+                "type": "heading",
+                "value": aircraft["heading"],
+            })
 
         return {"actions": baseline_actions, "strategy": "maintain_course"}
 
@@ -683,14 +668,12 @@ class DistributionShiftRunner:
         if scenario.aircraft_count >= 2:
             # Simple heuristic: conflicts based on proximity and convergent headings
             for i in range(min(scenario.aircraft_count - 1, 3)):
-                conflicts.append(
-                    {
-                        "id1": f"AC{i+1:03d}",
-                        "id2": f"AC{i+2:03d}",
-                        "time_to_conflict": 120 + i * 30,
-                        "min_distance": 4.5,
-                    },
-                )
+                conflicts.append({
+                    "id1": f"AC{i+1:03d}",
+                    "id2": f"AC{i+2:03d}",
+                    "time_to_conflict": 120 + i * 30,
+                    "min_distance": 4.5,
+                })
         return conflicts
 
     def _extract_predicted_conflicts(self, llm_response: dict[str, Any]) -> list[dict[str, Any]]:
@@ -707,27 +690,25 @@ class DistributionShiftRunner:
     def _extract_original_trajectories(self, scenario) -> list[dict[str, Any]]:
         """Extract original aircraft trajectories"""
         trajectories = []
-        for _i, aircraft in enumerate(scenario.aircraft_list):
+        for i, aircraft in enumerate(scenario.aircraft_list):
             # Simple straight-line projection
-            trajectories.append(
-                {
-                    "aircraft_id": aircraft["id"],
-                    "path": [
-                        {
-                            "lat": aircraft["latitude"],
-                            "lon": aircraft["longitude"],
-                            "alt": aircraft["altitude"],
-                            "time": 0,
-                        },
-                        {
-                            "lat": aircraft["latitude"] + 0.1,  # Mock projection
-                            "lon": aircraft["longitude"] + 0.1,
-                            "alt": aircraft["altitude"],
-                            "time": 600,
-                        },
-                    ],
-                },
-            )
+            trajectories.append({
+                "aircraft_id": aircraft["id"],
+                "path": [
+                    {
+                        "lat": aircraft["latitude"],
+                        "lon": aircraft["longitude"],
+                        "alt": aircraft["altitude"],
+                        "time": 0,
+                    },
+                    {
+                        "lat": aircraft["latitude"] + 0.1,  # Mock projection
+                        "lon": aircraft["longitude"] + 0.1,
+                        "alt": aircraft["altitude"],
+                        "time": 600,
+                    },
+                ],
+            })
         return trajectories
 
     def _extract_resolved_trajectories(self, llm_response: dict[str, Any]) -> list[dict[str, Any]]:
@@ -749,7 +730,7 @@ class DistributionShiftRunner:
 
         return interventions
 
-    def _save_intermediate_results(self, completed_sims: int) -> None:
+    def _save_intermediate_results(self, completed_sims: int):
         """Save intermediate results"""
         if not self.results:
             return
@@ -782,7 +763,8 @@ class DistributionShiftRunner:
         # Also save summary statistics
         summary_file = self.output_dir / f"experiment_summary_{timestamp}.json"
         summary = self._generate_experiment_summary(df)
-        summary_file.write_text(json.dumps(summary, indent=2))
+        with open(summary_file, "w") as f:
+            json.dump(summary, f, indent=2)
 
         self.logger.info("Saved final results: %s", filepath)
         self.logger.info("Saved summary: %s", summary_file)
@@ -842,7 +824,7 @@ class DistributionShiftRunner:
 
         return summary
 
-    def _generate_experiment_visualizations(self, results_file: str) -> None:
+    def _generate_experiment_visualizations(self, results_file: str):
         """Generate visualizations from experiment results"""
         if not self.results:
             self.logger.warning("No results available for visualization")
@@ -880,7 +862,6 @@ class DistributionShiftRunner:
             # Create visualization summary
             try:
                 from analysis.visualisation import create_visualization_summary
-
                 summary_file = create_visualization_summary(
                     output_dir=str(self.output_dir.parent / "thesis_results"),
                 )
@@ -893,11 +874,9 @@ class DistributionShiftRunner:
             self.logger.exception("Visualization generation failed")
 
 
-def run_distribution_shift_experiment(
-    config_file: Optional[str] = None,
-    output_dir: Optional[str] = None,
-    n_sims_per_tier: Optional[int] = None,
-) -> str:
+def run_distribution_shift_experiment(config_file: Optional[str] = None,
+                                     output_dir: Optional[str] = None,
+                                     n_sims_per_tier: Optional[int] = None) -> str:
     """
     Convenience function to run distribution shift experiment.
 
@@ -922,7 +901,7 @@ def run_distribution_shift_experiment(
 
 
 # Command-line interface
-def main() -> Optional[int]:
+def main():
     """Main CLI entry point"""
 
     parser = argparse.ArgumentParser(
@@ -1029,28 +1008,41 @@ Examples:
         # If baseline flag is set, also run baseline experiment
         baseline_results_file = None
         if args.baseline:
+            print("\n🔄 Running baseline models...")
             baseline_results_file = runner.run_baseline_experiment()
+            print(f"✅ Baseline results: {baseline_results_file}")
 
+        print("\n✅ Experiment completed successfully!")
+        print(f"LLM Results file: {results_file}")
         if baseline_results_file:
-            pass
+            print(f"Baseline Results file: {baseline_results_file}")
 
         # Load and display basic statistics
         df = pd.read_parquet(results_file)
+        print("\nLLM Model Statistics:")
+        print(f"Total simulations: {len(df)}")
 
         if baseline_results_file:
-            pd.read_parquet(baseline_results_file)
+            baseline_df = pd.read_parquet(baseline_results_file)
+            print("\nBaseline Model Statistics:")
+            print(f"Total simulations: {len(baseline_df)}")
 
         if len(df) > 0:
-            pass
+            print(f"Tiers tested: {df['tier'].unique().tolist()}")
+            print(f"Average hallucination rate: {df['hallucination_detected'].mean():.3f}")
+            print(f"Average safety score: {df['safety_score'].mean():.3f}")
+            print(f"ICAO compliance rate: {df['icao_compliant'].mean():.3f}")
         else:
-            pass
+            print("No successful simulations completed")
 
         # Print CSV summary if requested
         if args.summary and len(df) > 0:
+            print("\n" + "="*60)
+            print("CSV SUMMARY - THESIS RESULTS")
+            print("="*60)
 
             # Aggregate metrics
             from analysis.metrics import aggregate_thesis_metrics
-
             metrics = aggregate_thesis_metrics(df)
 
             # Create summary CSV data
@@ -1058,55 +1050,45 @@ Examples:
 
             # Overall metrics
             overall = metrics.get("overall_metrics", {})
-            summary_data.append(
-                {
-                    "tier": "OVERALL",
-                    "n_sims": len(df),
-                    "hallucination_rate": f"{overall.get('avg_hallucination_rate', 0):.3f}",
-                    "safety_score": f"{overall.get('avg_safety_score', 0):.3f}",
-                    "icao_compliance": f"{overall.get('icao_compliance_rate', 0):.3f}",
-                    "fp_rate": f"{overall.get('avg_fp_rate', 0):.3f}",
-                    "fn_rate": f"{overall.get('avg_fn_rate', 0):.3f}",
-                    "runtime_s": f"{overall.get('avg_runtime_s', 0):.2f}",
-                },
-            )
+            summary_data.append({
+                "tier": "OVERALL",
+                "n_sims": len(df),
+                "hallucination_rate": f"{overall.get('avg_hallucination_rate', 0):.3f}",
+                "safety_score": f"{overall.get('avg_safety_score', 0):.3f}",
+                "icao_compliance": f"{overall.get('icao_compliance_rate', 0):.3f}",
+                "fp_rate": f"{overall.get('avg_fp_rate', 0):.3f}",
+                "fn_rate": f"{overall.get('avg_fn_rate', 0):.3f}",
+                "runtime_s": f"{overall.get('avg_runtime_s', 0):.2f}",
+            })
 
             # Per-tier metrics
             tier_performance = metrics.get("performance_by_tier", {})
             for tier, perf in tier_performance.items():
-                summary_data.append(
-                    {
-                        "tier": tier,
-                        "n_sims": perf.get("n_simulations", 0),
-                        "hallucination_rate": f"{perf.get('hallucination_rate', 0):.3f}",
-                        "safety_score": f"{perf.get('safety_score', 0):.3f}",
-                        "icao_compliance": f"{perf.get('icao_compliance', 0):.3f}",
-                        "fp_rate": f"{perf.get('fp_rate', 0):.3f}",
-                        "fn_rate": f"{perf.get('fn_rate', 0):.3f}",
-                        "runtime_s": f"{perf.get('avg_runtime', 0):.2f}",
-                    },
-                )
+                summary_data.append({
+                    "tier": tier,
+                    "n_sims": perf.get("n_simulations", 0),
+                    "hallucination_rate": f"{perf.get('hallucination_rate', 0):.3f}",
+                    "safety_score": f"{perf.get('safety_score', 0):.3f}",
+                    "icao_compliance": f"{perf.get('icao_compliance', 0):.3f}",
+                    "fp_rate": f"{perf.get('fp_rate', 0):.3f}",
+                    "fn_rate": f"{perf.get('fn_rate', 0):.3f}",
+                    "runtime_s": f"{perf.get('avg_runtime', 0):.2f}",
+                })
 
             # Print as CSV table
             import csv
             import io
 
             output = io.StringIO()
-            writer = csv.DictWriter(
-                output,
-                fieldnames=[
-                    "tier",
-                    "n_sims",
-                    "hallucination_rate",
-                    "safety_score",
-                    "icao_compliance",
-                    "fp_rate",
-                    "fn_rate",
-                    "runtime_s",
-                ],
-            )
+            writer = csv.DictWriter(output, fieldnames=["tier", "n_sims", "hallucination_rate",
+                                                       "safety_score", "icao_compliance",
+                                                       "fp_rate", "fn_rate", "runtime_s"])
             writer.writeheader()
             writer.writerows(summary_data)
+
+            print(output.getvalue())
+
+            print("="*60)
 
         return 0
 
@@ -1116,7 +1098,6 @@ Examples:
     except Exception:
         logger.exception("Experiment failed")
         import traceback
-
         traceback.print_exc()
         return 1
 
@@ -1124,4 +1105,4 @@ Examples:
 # Example usage
 if __name__ == "__main__":
     exit_code = main()
-    sys.exit(exit_code)
+    exit(exit_code)

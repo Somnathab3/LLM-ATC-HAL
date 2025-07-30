@@ -1,0 +1,56 @@
+{
+  "dataset_info": {
+    "total_samples": 1000,
+    "date_generated": "2025-07-30 21:02:51",
+    "distribution_shifts": {
+      "moderate_shift": 411,
+      "in_distribution": 400,
+      "extreme_shift": 189
+    },
+    "complexity_levels": {
+      "moderate": 408,
+      "complex": 296,
+      "simple": 179,
+      "extreme": 117
+    },
+    "scenario_types": {
+      "converging": 287,
+      "overtaking": 251,
+      "vertical": 244,
+      "horizontal": 218
+    }
+  },
+  "key_metrics": {
+    "mean_safety_score": 0.608601303488105,
+    "std_safety_score": 0.223223129344018,
+    "mean_fp_rate": 0.2848309765867706,
+    "mean_fn_rate": 0.2849997115585552,
+    "mean_horizontal_margin": 3.470034987687591,
+    "mean_response_time": 3.553234152707898,
+    "overall_performance": 0.6556051183253347
+  },
+  "performance_by_tier": {
+    "in_distribution": {
+      "count": 400,
+      "mean_safety_score": 0.687566542790907,
+      "mean_fp_rate": 0.2406639010444057,
+      "mean_horizontal_margin": 4.20162586611445,
+      "success_rate": 0.5025
+    },
+    "moderate_shift": {
+      "count": 411,
+      "mean_safety_score": 0.5837134123242422,
+      "mean_fp_rate": 0.29971392802696345,
+      "mean_horizontal_margin": 3.2273538445369896,
+      "success_rate": 0.32116788321167883
+    },
+    "extreme_shift": {
+      "count": 189,
+      "mean_safety_score": 0.4956003910395692,
+      "mean_fp_rate": 0.34594175529061577,
+      "mean_horizontal_margin": 2.4494296885561266,
+      "success_rate": 0.18518518518518517
+    }
+  },
+  "visualizations_created": []
+}
