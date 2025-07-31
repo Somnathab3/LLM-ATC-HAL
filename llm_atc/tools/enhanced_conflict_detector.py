@@ -128,16 +128,28 @@ class EnhancedConflictDetector:
             if hasattr(traf, 'cd') and hasattr(traf.cd, 'confpairs_all'):
                 confpairs = traf.cd.confpairs_all
                 if confpairs is not None:
-                    for i, (ac1_idx, ac2_idx) in enumerate(confpairs):
-                        # Ensure indices are integers
-                        ac1_idx = int(ac1_idx) if isinstance(ac1_idx, str) else ac1_idx
-                        ac2_idx = int(ac2_idx) if isinstance(ac2_idx, str) else ac2_idx
-                        if ac1_idx < len(traf.id) and ac2_idx < len(traf.id):
-                            conflict_data = self._analyze_aircraft_pair(
-                                ac1_idx, ac2_idx, "SWARM"
-                            )
-                            if conflict_data:
-                                conflicts.append(conflict_data)
+                    for i, (ac1_id, ac2_id) in enumerate(confpairs):
+                        # Convert aircraft IDs to indices in traf.id list
+                        try:
+                            if isinstance(ac1_id, str):
+                                ac1_idx = list(traf.id).index(ac1_id)
+                            else:
+                                ac1_idx = int(ac1_id)
+                                
+                            if isinstance(ac2_id, str):
+                                ac2_idx = list(traf.id).index(ac2_id)
+                            else:
+                                ac2_idx = int(ac2_id)
+                                
+                            if ac1_idx < len(traf.id) and ac2_idx < len(traf.id):
+                                conflict_data = self._analyze_aircraft_pair(
+                                    ac1_idx, ac2_idx, "SWARM"
+                                )
+                                if conflict_data:
+                                    conflicts.append(conflict_data)
+                        except (ValueError, IndexError) as e:
+                            self.logger.warning(f"Invalid aircraft ID in SWARM confpairs: {ac1_id}, {ac2_id} - {e}")
+                            continue
                                 
         except Exception as e:
             self.logger.exception(f"SWARM detection failed: {e}")
@@ -157,16 +169,28 @@ class EnhancedConflictDetector:
             if hasattr(traf, 'cd') and hasattr(traf.cd, 'confpairs_all'):
                 confpairs = traf.cd.confpairs_all
                 if confpairs is not None:
-                    for i, (ac1_idx, ac2_idx) in enumerate(confpairs):
-                        # Ensure indices are integers
-                        ac1_idx = int(ac1_idx) if isinstance(ac1_idx, str) else ac1_idx
-                        ac2_idx = int(ac2_idx) if isinstance(ac2_idx, str) else ac2_idx
-                        if ac1_idx < len(traf.id) and ac2_idx < len(traf.id):
-                            conflict_data = self._analyze_aircraft_pair(
-                                ac1_idx, ac2_idx, "STATEBASED"
-                            )
-                            if conflict_data:
-                                conflicts.append(conflict_data)
+                    for i, (ac1_id, ac2_id) in enumerate(confpairs):
+                        # Convert aircraft IDs to indices in traf.id list
+                        try:
+                            if isinstance(ac1_id, str):
+                                ac1_idx = list(traf.id).index(ac1_id)
+                            else:
+                                ac1_idx = int(ac1_id)
+                                
+                            if isinstance(ac2_id, str):
+                                ac2_idx = list(traf.id).index(ac2_id)
+                            else:
+                                ac2_idx = int(ac2_id)
+                                
+                            if ac1_idx < len(traf.id) and ac2_idx < len(traf.id):
+                                conflict_data = self._analyze_aircraft_pair(
+                                    ac1_idx, ac2_idx, "STATEBASED"
+                                )
+                                if conflict_data:
+                                    conflicts.append(conflict_data)
+                        except (ValueError, IndexError) as e:
+                            self.logger.warning(f"Invalid aircraft ID in STATEBASED confpairs: {ac1_id}, {ac2_id} - {e}")
+                            continue
                                 
         except Exception as e:
             self.logger.exception(f"STATEBASED detection failed: {e}")

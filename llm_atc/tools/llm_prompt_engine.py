@@ -16,7 +16,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Optional, List
 
 from llm_interface.llm_client import LLMClient
 
@@ -74,7 +74,7 @@ class LLMPromptEngine:
                                        r'^[A-Z0-9-]+$' for flexible alphanumeric with hyphens.
             enable_streaming: Use streaming for faster responses
             enable_caching: Cache responses for repeated scenarios
-            enable_optimized_prompts: Use optimized, shorter prompt templates
+                              enable_optimized_prompts: Use optimized, shorter prompt templates
         """
         self.llm_client = LLMClient(
             model=model,
@@ -90,6 +90,14 @@ class LLMPromptEngine:
         self.min_horizontal_separation_nm = 5.0
         self.min_vertical_separation_ft = 1000.0
 
+        # Enhanced sector scenario configuration
+        self.sector_config = {
+            "min_aircraft_for_sector": 3,
+            "sector_detection_threshold_nm": 4.0,  # Stricter for sectors
+            "sector_confidence_boost": 0.15,
+            "multi_aircraft_complexity_factor": 0.1
+        }
+
         # Prompt templates
         self._init_prompt_templates()
 
@@ -97,7 +105,7 @@ class LLMPromptEngine:
         """Initialize standardized prompt templates"""
 
         if self.enable_optimized_prompts:
-            # Optimized templates (60% size reduction)
+            # Enhanced optimized templates for sector scenarios
             self.conflict_resolution_system = """You are an expert Air Traffic Controller responsible for aircraft separation.
 
 REQUIREMENTS:
@@ -105,6 +113,11 @@ REQUIREMENTS:
 - Minimize flight path disruption  
 - ICAO compliance mandatory
 - Choose ONE aircraft only
+
+SECTOR SCENARIO AWARENESS:
+- Multiple aircraft may be present
+- Consider downstream effects of maneuvers
+- Prioritize systemic safety over individual efficiency
 
 RESPONSE FORMAT (EXACT):
 COMMAND: [HDG/ALT/SPD] [AIRCRAFT_ID] [VALUE]
@@ -116,20 +129,53 @@ COMMAND: HDG UAL890 045
 RATIONALE: Right turn avoids conflict
 CONFIDENCE: 0.92"""
 
-            self.conflict_detection_system = """You are a precision conflict detection specialist.
+            self.conflict_detection_system = """You are a precision conflict detection specialist for air traffic control.
 
-RULES:
+DETECTION RULES:
 - Conflict = BOTH violated: horizontal <5 NM AND vertical <1000 ft
-- Calculate actual distances, don't estimate
+- For SECTOR scenarios (3+ aircraft): Use 4 NM threshold for enhanced safety
+- Calculate actual distances using coordinates, don't estimate
 - Only detect with mathematical certainty
 
-RESPONSE: Valid JSON only
+SECTOR SCENARIO CONSIDERATIONS:
+- With 3+ aircraft: Check ALL possible pairs
+- Higher traffic density = increased vigilance required
+- Consider chain reaction conflicts
+- Account for controller workload limitations
+
+DISTANCE CALCULATION GUIDELINES:
+- 1° latitude ≈ 60 NM
+- At 52°N: 1° longitude ≈ 37 NM  
+- At 40°N: 1° longitude ≈ 46 NM
+- Use Haversine formula for precision
+
+EXAMPLES - LEARN THESE PATTERNS:
+❌ FALSE ALARM: Aircraft 20+ NM apart, same altitude → NO CONFLICT (distance too large)
+❌ FALSE ALARM: Aircraft same position, 2000+ ft apart → NO CONFLICT (vertical separation)
+❌ FALSE ALARM: Aircraft 6+ NM apart (normal scenarios) → NO CONFLICT
+❌ FALSE ALARM: Aircraft 5+ NM apart (sector scenarios) → NO CONFLICT
+✅ REAL CONFLICT: Aircraft 4 NM apart, same altitude, converging → POTENTIAL CONFLICT
+✅ SECTOR CONFLICT: 3+ aircraft with multiple pairs <5 NM apart → MULTIPLE CONFLICTS
+
+RESPONSE FORMAT (STRICT JSON):
 {
   "conflict_detected": true/false,
-  "aircraft_pairs": ["AC1-AC2"],
+  "aircraft_pairs": ["AC001-AC002", "AC003-AC004"] or [],
+  "time_to_conflict": [120.5, 180.0] or [],
   "confidence": 0.0-1.0,
-  "analysis": "Brief calculation"
-}"""
+  "priority": "low/medium/high/critical",
+  "scenario_type": "simple/complex/sector", 
+  "analysis": "Show distance calculations and reasoning",
+  "calculation_details": {
+    "current_horizontal_nm": [calculated_distance_for_each_pair],
+    "current_vertical_ft": [calculated_altitude_diff_for_each_pair],
+    "meets_separation_standards": true/false,
+    "sector_considerations": "relevant_notes_for_multi_aircraft"
+  }
+}
+
+CRITICAL: Only detect conflicts with mathematical certainty. When in doubt, NO CONFLICT.
+"""
 
         else:
             # Original verbose templates
@@ -341,7 +387,7 @@ RECOMMENDATION: APPROVE
         cpa_data: Optional[dict[str, Any]] = None,
     ) -> str:
         """
-        Create a prompt for LLM-based conflict detection.
+        Create a prompt for LLM-based conflict detection with enhanced sector support.
 
         Args:
             aircraft_states: List of aircraft state dictionaries
@@ -351,10 +397,27 @@ RECOMMENDATION: APPROVE
         Returns:
             Formatted detection prompt string
         """
-        # Format aircraft list
+        # Determine if this is a sector scenario
+        num_aircraft = len(aircraft_states)
+        is_sector_scenario = num_aircraft >= self.sector_config["min_aircraft_for_sector"]
+        
+        # Format aircraft list with enhanced data for sector scenarios
         aircraft_list = []
         for i, aircraft in enumerate(aircraft_states):
-            aircraft_str = f"""
+            if is_sector_scenario:
+                # More detailed aircraft information for sector scenarios
+                aircraft_str = f"""
+Aircraft {aircraft.get("id", f"AC{i + 1:03d}")}:
+  Position: {aircraft.get("lat", 0):.4f}°N, {aircraft.get("lon", 0):.4f}°E
+  Altitude: {aircraft.get("alt", 0):.0f} ft
+  Heading: {aircraft.get("hdg", 0):.0f}°
+  Speed: {aircraft.get("spd", 0):.0f} kts
+  Vertical Speed: {aircraft.get("vs", 0):.0f} fpm
+  Type: {aircraft.get("type", "Unknown")}
+  Phase: {aircraft.get("flight_phase", "cruise")}"""
+            else:
+                # Standard format for simple scenarios
+                aircraft_str = f"""
 Aircraft {aircraft.get("id", f"AC{i + 1:03d}")}:
   Position: {aircraft.get("lat", 0):.4f}°N, {aircraft.get("lon", 0):.4f}°E
   Altitude: {aircraft.get("alt", 0):.0f} ft
@@ -363,11 +426,39 @@ Aircraft {aircraft.get("id", f"AC{i + 1:03d}")}:
   Vertical Speed: {aircraft.get("vs", 0):.0f} fpm"""
             aircraft_list.append(aircraft_str)
 
-        # Build the base prompt
-        base_prompt = self.conflict_detection_template.format(
-            aircraft_list="\n".join(aircraft_list),
-            time_horizon=time_horizon,
-        )
+        # Build the base prompt using the appropriate template
+        if self.enable_optimized_prompts:
+            # Use optimized format with sector enhancements
+            system_prompt, user_prompt = self.format_conflict_detection_prompt_optimized(
+                aircraft_states, time_horizon
+            )
+            base_prompt = f"{system_prompt}\n\n{user_prompt}"
+        else:
+            # Use original verbose template
+            base_prompt = self.conflict_detection_template.format(
+                aircraft_list="\n".join(aircraft_list),
+                time_horizon=time_horizon,
+            )
+        
+        # Add sector-specific enhancements
+        if is_sector_scenario:
+            sector_enhancement = f"""
+
+SECTOR SCENARIO DETECTED ({num_aircraft} aircraft):
+- Apply {self.sector_config["sector_detection_threshold_nm"]} NM threshold for enhanced safety
+- Check ALL {num_aircraft * (num_aircraft - 1) // 2} possible aircraft pairs
+- Consider workload impact on controller effectiveness
+- Priority: Prevent cascade conflicts in high-density airspace
+- Enhanced confidence required for conflict declarations
+
+REQUIRED ANALYSIS STEPS:
+1. Calculate distances for ALL aircraft pairs
+2. Identify pairs violating separation standards
+3. Assess trajectory convergence for each pair
+4. Consider downstream conflict potential
+5. Prioritize by severity and time to conflict
+"""
+            base_prompt += sector_enhancement
         
         # Enhance with CPA data if available
         if cpa_data:
@@ -478,15 +569,14 @@ Use this precise data to validate your mathematical calculations and improve det
 
     def parse_detector_response(self, response_text: str) -> dict[str, Any]:
         """
-        Interpret conflict detection response from LLM (JSON format).
+        Parse LLM detector response with enhanced validation for sector scenarios.
 
         Args:
-            response_text: Raw LLM response text (expected to be JSON)
+            response_text: Raw response from LLM
 
         Returns:
-            Dictionary with detection results
+            Parsed detection results with validation status
         """
-        # Default response structure
         result = {
             "conflict_detected": False,
             "aircraft_pairs": [],
@@ -494,27 +584,43 @@ Use this precise data to validate your mathematical calculations and improve det
             "confidence": 0.5,
             "priority": "low",
             "analysis": "No analysis provided",
+            "scenario_type": "unknown",
+            "validation_status": "pending",
+            "validation_errors": []
         }
 
         try:
-            # First, try to parse as JSON
-            # Clean the response text to extract JSON
-            json_text = response_text.strip()
-
-            # Look for JSON block in case there's extra text
-            json_match = re.search(r"\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}", json_text, re.DOTALL)
-            if json_match:
-                json_text = json_match.group(0)
+            # Extract JSON from response
+            json_text = self._extract_json_from_response(response_text)
+            if not json_text:
+                result["validation_errors"].append("No valid JSON found in response")
+                return self._parse_detector_response_legacy(response_text)
 
             json_data = json.loads(json_text)
 
-            # Extract fields with defaults
-            result["conflict_detected"] = json_data.get("conflict_detected", False)
-            result["aircraft_pairs"] = json_data.get("aircraft_pairs", [])
+            # Enhanced validation for sector scenarios
+            validation_errors = self._validate_detector_response(json_data)
+            result["validation_errors"] = validation_errors
+            result["validation_status"] = "valid" if not validation_errors else "invalid"
+
+            # Extract fields with enhanced validation
+            result["conflict_detected"] = bool(json_data.get("conflict_detected", False))
+            result["aircraft_pairs"] = self._validate_aircraft_pairs(json_data.get("aircraft_pairs", []))
             result["time_to_conflict"] = json_data.get("time_to_conflict", [])
-            result["confidence"] = float(json_data.get("confidence", 0.5))
-            result["priority"] = json_data.get("priority", "low").lower()
+            result["confidence"] = self._validate_confidence(json_data.get("confidence", 0.5))
+            result["priority"] = self._validate_priority(json_data.get("priority", "low"))
             result["analysis"] = json_data.get("analysis", "No analysis provided")
+            result["scenario_type"] = json_data.get("scenario_type", "unknown")
+
+            # Enhanced sector scenario validation
+            if result["scenario_type"] == "sector" or len(result["aircraft_pairs"]) > 2:
+                result.update(self._validate_sector_response(json_data))
+
+            # Validate calculation details if present
+            if "calculation_details" in json_data:
+                result["calculation_details"] = json_data["calculation_details"]
+                calc_errors = self._validate_calculation_details(json_data["calculation_details"])
+                result["validation_errors"].extend(calc_errors)
 
             # Convert aircraft pairs to tuples if they're strings
             if result["aircraft_pairs"]:
@@ -530,14 +636,16 @@ Use this precise data to validate your mathematical calculations and improve det
 
             return result
 
-        except json.JSONDecodeError:
-            # Fallback to legacy text parsing
+        except json.JSONDecodeError as e:
+            # Enhanced fallback to legacy parsing with better error reporting
+            result["validation_errors"].append(f"JSON parsing failed: {e}")
             self.logger.warning("JSON parsing failed, falling back to text parsing")
             return self._parse_detector_response_legacy(response_text)
 
         except Exception as e:
             self.logger.exception(f"Error parsing detector response: {e}")
             result["error"] = str(e)
+            result["validation_errors"].append(f"Parsing error: {e}")
             return result
 
     def _parse_detector_response_legacy(self, response_text: str) -> dict[str, Any]:
@@ -549,6 +657,9 @@ Use this precise data to validate your mathematical calculations and improve det
             "confidence": 0.5,
             "priority": "low",
             "analysis": "Legacy parsing used",
+            "validation_status": "legacy",
+            "validation_errors": ["Non-JSON response processed with legacy parser"],
+            "scenario_type": "unknown"
         }
 
         try:
@@ -597,6 +708,130 @@ Use this precise data to validate your mathematical calculations and improve det
             self.logger.exception(f"Error in legacy detector response parsing: {e}")
             result["error"] = str(e)
             return result
+
+    def _validate_detector_response(self, json_data: dict) -> List[str]:
+        """Validate detector response for completeness and correctness"""
+        errors = []
+
+        # Required fields
+        required_fields = ["conflict_detected", "confidence"]
+        for field in required_fields:
+            if field not in json_data:
+                errors.append(f"Missing required field: {field}")
+
+        # Validate conflict_detected type
+        if "conflict_detected" in json_data and not isinstance(json_data["conflict_detected"], bool):
+            errors.append("conflict_detected must be boolean")
+
+        # Validate aircraft_pairs format
+        if "aircraft_pairs" in json_data:
+            pairs = json_data["aircraft_pairs"]
+            if not isinstance(pairs, list):
+                errors.append("aircraft_pairs must be a list")
+            else:
+                for i, pair in enumerate(pairs):
+                    if isinstance(pair, str):
+                        if "-" not in pair:
+                            errors.append(f"aircraft_pairs[{i}]: string format must contain '-'")
+                    elif isinstance(pair, list):
+                        if len(pair) < 2:
+                            errors.append(f"aircraft_pairs[{i}]: list format must have at least 2 elements")
+                    else:
+                        errors.append(f"aircraft_pairs[{i}]: invalid format")
+
+        return errors
+
+    def _validate_aircraft_pairs(self, pairs: list) -> list:
+        """Validate and normalize aircraft pairs"""
+        validated_pairs = []
+        
+        for pair in pairs:
+            if isinstance(pair, str) and "-" in pair:
+                parts = pair.split("-", 1)
+                if len(parts) == 2 and all(re.match(self.aircraft_id_regex, p.strip()) for p in parts):
+                    validated_pairs.append(pair)
+            elif isinstance(pair, (list, tuple)) and len(pair) >= 2:
+                if all(re.match(self.aircraft_id_regex, str(p)) for p in pair[:2]):
+                    validated_pairs.append(f"{pair[0]}-{pair[1]}")
+                    
+        return validated_pairs
+
+    def _validate_confidence(self, confidence: Any) -> float:
+        """Validate and normalize confidence score"""
+        try:
+            conf = float(confidence)
+            return max(0.0, min(1.0, conf))
+        except (ValueError, TypeError):
+            self.logger.warning(f"Invalid confidence value: {confidence}, using 0.5")
+            return 0.5
+
+    def _validate_priority(self, priority: Any) -> str:
+        """Validate and normalize priority level"""
+        valid_priorities = ["low", "medium", "high", "critical"]
+        if isinstance(priority, str) and priority.lower() in valid_priorities:
+            return priority.lower()
+        else:
+            self.logger.warning(f"Invalid priority: {priority}, using 'low'")
+            return "low"
+
+    def _validate_sector_response(self, json_data: dict) -> dict:
+        """Additional validation for sector scenarios"""
+        sector_validation = {
+            "sector_validation_status": "passed",
+            "sector_validation_warnings": []
+        }
+
+        warnings = []
+
+        # Check for comprehensive pair analysis
+        aircraft_pairs = json_data.get("aircraft_pairs", [])
+        if len(aircraft_pairs) > 3:
+            warnings.append("High number of conflicts detected - verify all pairs analyzed")
+
+        # Check for proper calculation details in complex scenarios
+        if "calculation_details" not in json_data and len(aircraft_pairs) > 1:
+            warnings.append("Missing calculation_details for multi-conflict scenario")
+
+        # Validate confidence scores for sector scenarios
+        confidence = json_data.get("confidence", 0.5)
+        if len(aircraft_pairs) > 2 and confidence > 0.9:
+            warnings.append("Very high confidence for complex sector scenario - review")
+
+        sector_validation["sector_validation_warnings"] = warnings
+        if warnings:
+            sector_validation["sector_validation_status"] = "warnings"
+
+        return sector_validation
+
+    def _validate_calculation_details(self, calc_details: dict) -> List[str]:
+        """Validate calculation details for mathematical accuracy"""
+        errors = []
+
+        required_calc_fields = ["current_horizontal_nm", "current_vertical_ft", "meets_separation_standards"]
+        for field in required_calc_fields:
+            if field not in calc_details:
+                errors.append(f"Missing calculation field: {field}")
+
+        # Validate distance values are reasonable
+        if "current_horizontal_nm" in calc_details:
+            h_distances = calc_details["current_horizontal_nm"]
+            if isinstance(h_distances, list):
+                for i, dist in enumerate(h_distances):
+                    if not isinstance(dist, (int, float)) or dist < 0 or dist > 1000:
+                        errors.append(f"Invalid horizontal distance[{i}]: {dist}")
+            elif isinstance(h_distances, (int, float)):
+                if h_distances < 0 or h_distances > 1000:
+                    errors.append(f"Invalid horizontal distance: {h_distances}")
+
+        return errors
+
+    def _extract_json_from_response(self, response_text: str) -> Optional[str]:
+        """Extract JSON object from response text"""
+        # Look for JSON object in response
+        json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+        if json_match:
+            return json_match.group(0)
+        return None
 
     def get_conflict_resolution(
         self,

@@ -8,7 +8,7 @@ import logging
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
+from typing import Any, Optional
 
 
 class HallucinationType(Enum):
@@ -39,8 +39,15 @@ class EnhancedHallucinationDetector:
     Enhanced hallucination detector using multiple detection strategies
     """
 
-    def __init__(self) -> None:
+    def __init__(self, prompt_engine: Optional[Any] = None) -> None:
+        """
+        Initialize the enhanced hallucination detector.
+        
+        Args:
+            prompt_engine: Optional LLMPromptEngine instance for sophisticated prompts
+        """
         self.logger = logging.getLogger(__name__)
+        self.prompt_engine = prompt_engine
         self._init_detection_patterns()
 
     def _init_detection_patterns(self) -> None:
