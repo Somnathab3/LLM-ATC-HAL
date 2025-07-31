@@ -97,6 +97,7 @@ memory/replay_data/
 experiments/
 visualizations/
 notebooks/
+.github/instructions/
 
 # generated
 .chroma_experience_library/

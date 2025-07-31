@@ -283,6 +283,7 @@ RECOMMENDATION: APPROVE
         self,
         aircraft_states: list[dict[str, Any]],
         time_horizon: float = 5.0,
+        cpa_data: Optional[dict[str, Any]] = None,
     ) -> str:
         """
         Create a prompt for LLM-based conflict detection.
@@ -290,6 +291,7 @@ RECOMMENDATION: APPROVE
         Args:
             aircraft_states: List of aircraft state dictionaries
             time_horizon: Time horizon in minutes for conflict detection
+            cpa_data: Optional Closest Point of Approach data with additional context
 
         Returns:
             Formatted detection prompt string
@@ -306,10 +308,30 @@ Aircraft {aircraft.get("id", f"AC{i + 1:03d}")}:
   Vertical Speed: {aircraft.get("vs", 0):.0f} fpm"""
             aircraft_list.append(aircraft_str)
 
-        return self.conflict_detection_template.format(
+        # Build the base prompt
+        base_prompt = self.conflict_detection_template.format(
             aircraft_list="\n".join(aircraft_list),
             time_horizon=time_horizon,
         )
+        
+        # Enhance with CPA data if available
+        if cpa_data:
+            cpa_enhancement = f"""
+
+ADDITIONAL CONTEXT FROM PRIOR ANALYSIS:
+- Time to Closest Point of Approach: {cpa_data.get('time_to_cpa', 'Unknown')} seconds
+- Minimum Horizontal Separation: {cpa_data.get('min_horizontal_separation', 'Unknown')} NM
+- Minimum Vertical Separation: {cpa_data.get('min_vertical_separation', 'Unknown')} ft
+- Current Horizontal Separation: {cpa_data.get('current_horizontal_separation', 'Unknown')} NM
+- Current Vertical Separation: {cpa_data.get('current_vertical_separation', 'Unknown')} ft
+- ICAO Separation Violation: {cpa_data.get('violates_icao_separation', 'Unknown')}
+- Conflict Severity: {cpa_data.get('severity', 'Unknown')}
+
+Use this precise data to validate your mathematical calculations and improve detection accuracy.
+"""
+            base_prompt += cpa_enhancement
+        
+        return base_prompt
 
     def parse_resolution_response(self, response_text: str) -> Optional[ResolutionResponse]:
         """
@@ -563,10 +585,73 @@ Aircraft {aircraft.get("id", f"AC{i + 1:03d}")}:
             self.logger.exception(f"Error getting conflict resolution: {e}")
             return None
 
+    def get_conflict_resolution_with_prompts(
+        self,
+        conflict_info: dict[str, Any],
+        use_function_calls: Optional[bool] = None,
+    ) -> dict[str, Any]:
+        """
+        Enhanced API for getting conflict resolution that returns prompt and response data.
+
+        Args:
+            conflict_info: Conflict scenario information
+            use_function_calls: Override function calling setting
+
+        Returns:
+            Dictionary with resolution data including prompt and response
+        """
+        try:
+            # Format the prompt
+            prompt = self.format_conflict_prompt(conflict_info)
+
+            # Determine function calling setting
+            enable_calls = (
+                use_function_calls if use_function_calls is not None else self.enable_function_calls
+            )
+
+            # Query the LLM
+            response = self.llm_client.ask(prompt, enable_function_calls=enable_calls)
+
+            # Parse the response
+            resolution = self.parse_resolution_response(response)
+
+            if resolution:
+                self.logger.info(
+                    f"Generated resolution: {resolution.command} (confidence: {resolution.confidence:.2f})",
+                )
+                return {
+                    "command": resolution.command,
+                    "resolution_prompt": prompt,
+                    "resolution_response": response,
+                    "confidence": resolution.confidence,
+                    "success": True
+                }
+            else:
+                self.logger.warning("Failed to parse resolution from LLM response")
+                return {
+                    "command": None,
+                    "resolution_prompt": prompt,
+                    "resolution_response": response,
+                    "confidence": 0.0,
+                    "success": False
+                }
+
+        except Exception as e:
+            self.logger.exception(f"Error getting conflict resolution: {e}")
+            return {
+                "command": None,
+                "resolution_prompt": "",
+                "resolution_response": "",
+                "confidence": 0.0,
+                "success": False,
+                "error": str(e)
+            }
+
     def detect_conflict_via_llm(
         self,
         aircraft_states: list[dict[str, Any]],
         time_horizon: float = 5.0,
+        cpa_data: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
         """
         High-level API for LLM-based conflict detection.
@@ -574,13 +659,15 @@ Aircraft {aircraft.get("id", f"AC{i + 1:03d}")}:
         Args:
             aircraft_states: List of aircraft state dictionaries
             time_horizon: Time horizon in minutes
+            cpa_data: Optional Closest Point of Approach data with additional context
+                     including timing, separation distances, and severity information
 
         Returns:
             Dictionary with detection results
         """
         try:
             # Format the detection prompt
-            prompt = self.format_detector_prompt(aircraft_states, time_horizon)
+            prompt = self.format_detector_prompt(aircraft_states, time_horizon, cpa_data)
 
             # Query the LLM
             response = self.llm_client.ask(prompt, enable_function_calls=False)
@@ -598,6 +685,48 @@ Aircraft {aircraft.get("id", f"AC{i + 1:03d}")}:
         except Exception as e:
             self.logger.exception(f"Error in LLM-based conflict detection: {e}")
             return {"conflict_detected": False, "error": str(e)}
+
+    def detect_conflict_via_llm_with_prompts(
+        self,
+        aircraft_states: list[dict[str, Any]],
+        time_horizon: float = 5.0,
+        cpa_data: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
+        """
+        Enhanced API for LLM-based conflict detection that returns prompt and response data.
+
+        Args:
+            aircraft_states: List of aircraft state dictionaries
+            time_horizon: Time horizon in minutes
+            cpa_data: Optional Closest Point of Approach data with additional context
+
+        Returns:
+            Dictionary with detection results including prompt and response
+        """
+        try:
+            # Format the detection prompt
+            prompt = self.format_detector_prompt(aircraft_states, time_horizon, cpa_data)
+
+            # Query the LLM
+            response = self.llm_client.ask(prompt, enable_function_calls=False)
+
+            # Parse the response
+            detection_result = self.parse_detector_response(response)
+
+            # Add prompt and response to result
+            detection_result["llm_prompt"] = prompt
+            detection_result["llm_response"] = response
+
+            self.logger.info(
+                f"Conflict detection: {detection_result['conflict_detected']} "
+                f"(confidence: {detection_result['confidence']:.2f})",
+            )
+
+            return detection_result
+
+        except Exception as e:
+            self.logger.exception(f"Error in LLM-based conflict detection: {e}")
+            return {"conflict_detected": False, "error": str(e), "llm_prompt": "", "llm_response": ""}
 
     def assess_resolution_safety(
         self,

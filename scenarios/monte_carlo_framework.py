@@ -642,14 +642,17 @@ class BlueSkyScenarioGenerator:
             hdg_change1 = random.randint(15, 45)
             hdg_change2 = 180 + random.randint(-30, 30)  # Opposite direction
 
-            commands.append(f"{ac1} HDG {hdg_change1}")
-            commands.append(f"{ac2} HDG {hdg_change2}")
+            commands.append(f"HDG {ac1} {hdg_change1}")
+            commands.append(f"HDG {ac2} {hdg_change2}")
 
             # Optional altitude changes for 3D conflicts
             if random.random() < 0.4:
                 alt_change = random.choice([-1000, -500, 500, 1000])
                 target_ac = random.choice([ac1, ac2])
-                commands.append(f"{target_ac} ALT +{alt_change}")
+                # Convert relative change to absolute altitude (assuming cruising altitude ~35000)
+                base_altitude = 35000
+                new_altitude = base_altitude + alt_change
+                commands.append(f"ALT {target_ac} {new_altitude}")
 
         return commands
 

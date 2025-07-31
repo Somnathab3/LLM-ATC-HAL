@@ -129,6 +129,9 @@ class EnhancedConflictDetector:
                 confpairs = traf.cd.confpairs_all
                 if confpairs is not None:
                     for i, (ac1_idx, ac2_idx) in enumerate(confpairs):
+                        # Ensure indices are integers
+                        ac1_idx = int(ac1_idx) if isinstance(ac1_idx, str) else ac1_idx
+                        ac2_idx = int(ac2_idx) if isinstance(ac2_idx, str) else ac2_idx
                         if ac1_idx < len(traf.id) and ac2_idx < len(traf.id):
                             conflict_data = self._analyze_aircraft_pair(
                                 ac1_idx, ac2_idx, "SWARM"
@@ -155,6 +158,9 @@ class EnhancedConflictDetector:
                 confpairs = traf.cd.confpairs_all
                 if confpairs is not None:
                     for i, (ac1_idx, ac2_idx) in enumerate(confpairs):
+                        # Ensure indices are integers
+                        ac1_idx = int(ac1_idx) if isinstance(ac1_idx, str) else ac1_idx
+                        ac2_idx = int(ac2_idx) if isinstance(ac2_idx, str) else ac2_idx
                         if ac1_idx < len(traf.id) and ac2_idx < len(traf.id):
                             conflict_data = self._analyze_aircraft_pair(
                                 ac1_idx, ac2_idx, "STATEBASED"
