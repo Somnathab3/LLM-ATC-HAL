@@ -1,350 +1,547 @@
 # LLM-ATC-HAL: Embodied LLM Air Traffic Controller with Hallucination Detection
 
-![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)
-![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![CI Status](https://github.com/Somnathab3/LLM-ATC-HAL/workflows/CI/badge.svg)](https://github.com/Somnathab3/LLM-ATC-HAL/actions)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 > **Advanced Large Language Model Air Traffic Controller with Comprehensive Hallucination Detection & Monte Carlo Safety Benchmarking**
 
-## 🎯 Project Summary
+## Table of Contents
 
-LLM-ATC-HAL is a cutting-edge research platform for testing Large Language Model (LLM) integration into air traffic control systems. The project focuses on **embodied LLM air traffic controllers** with comprehensive **hallucination detection** and **Monte Carlo safety benchmarking**.
+- [Overview](#overview)
+- [Key Features](#key-features)
+- [Architecture](#architecture)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Usage Examples](#usage-examples)
+- [CLI Reference](#cli-reference)
+- [Fine-tuned Models](#fine-tuned-models)
+- [Testing & Benchmarking](#testing--benchmarking)
+- [Results Analysis](#results-analysis)
+- [Project Structure](#project-structure)
+- [Contributing](#contributing)
+- [Performance Targets](#performance-targets)
+- [Citation](#citation)
+- [License](#license)
 
-### Key Capabilities
+## Overview
 
-- **🛩️ Scenario Generation**: Configurable ATC scenarios (horizontal, vertical, sector conflicts) with distribution shift testing
-- **🤖 LLM Conflict Detection & Resolution**: Multi-model ensemble approach with confidence scoring
-- **🌐 BlueSky Integration**: Industry-standard flight simulation platform integration
-- **📊 Comprehensive Metrics**: False positive/negative analysis, safety margin quantification, ICAO compliance
-- **📈 Visualization**: Real-time monitoring, results analysis, and performance dashboards
-- **🔍 Hallucination Detection**: Multi-layer detection across different conflict resolution methods
-- **⚡ Monte Carlo Benchmarking**: Statistical validation across thousands of scenarios
+LLM-ATC-HAL is a cutting-edge research platform for integrating Large Language Models (LLMs) into air traffic control systems. The project focuses on **embodied LLM air traffic controllers** with comprehensive **hallucination detection** and **Monte Carlo safety benchmarking**.
 
-## � Quick Start
+The system generates realistic air traffic conflict scenarios, feeds them to LLM-based controllers for conflict detection and resolution, then validates the responses through multi-layer hallucination detection and safety analysis.
+
+### Research Focus
+
+- **Safety-Critical AI**: Testing LLM reliability in life-critical aviation scenarios
+- **Hallucination Detection**: Multi-layer detection of AI reasoning errors
+- **Distribution Shift Robustness**: Testing performance across varied operational conditions
+- **Monte Carlo Validation**: Statistical validation across thousands of scenarios
+- **BlueSky Integration**: Industry-standard flight simulation platform integration
+
+## Key Features
+
+### 🛩️ Scenario Generation
+- **Environment-Specific Scenarios**: Horizontal, vertical, and sector conflict scenarios
+- **Configurable Complexity**: Simple to extreme difficulty levels with 2-20 aircraft
+- **Distribution Shift Testing**: In-distribution, moderate, and extreme operational shifts
+- **Ground Truth Labeling**: Precise conflict timing and separation calculations
+
+### 🤖 LLM Integration
+- **Multi-Model Support**: Ollama integration with Llama 3.1, Mistral, CodeLlama
+- **Fine-tuned Models**: Specialized `llama3.1-bsky` model trained on BlueSky Gym scenarios
+- **Ensemble Methods**: Weighted voting across multiple LLM models
+- **Prompt Engineering**: Sophisticated ICAO-compliant prompt templates
+
+### 🔍 Hallucination Detection
+- **Multi-Layer Detection**: Aircraft existence, altitude confusion, protocol violations
+- **Confidence Scoring**: Quantitative assessment of response reliability
+- **Safety Validation**: ICAO compliance checking and separation standard validation
+- **Real-time Monitoring**: Live detection during simulation execution
+
+### 📊 Comprehensive Metrics
+- **Safety Margins**: Horizontal (5nm) and vertical (1000ft) separation analysis
+- **False Positive/Negative**: Detailed classification accuracy metrics
+- **Performance Benchmarking**: Response time, success rate, and efficiency analysis
+- **Statistical Validation**: Monte Carlo analysis across large scenario sets
+
+### 🌐 BlueSky Simulator Integration
+- **Industry Standard**: Integration with BlueSky open-source flight simulator
+- **Real-time Simulation**: Step-by-step conflict evolution and resolution
+- **Mock Mode**: Fallback simulation for development without BlueSky installation
+- **Command Validation**: BlueSky command syntax verification and execution
+
+## Architecture
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│ Scenario        │────│ LLM Prompt      │────│ BlueSky         │
+│ Generator       │    │ Engine          │    │ Simulator       │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         │                       │                       │
+         ▼                       ▼                       ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│ Monte Carlo     │────│ Hallucination   │────│ Safety Metrics  │
+│ Framework       │    │ Detection       │    │ Analysis        │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+**Core Pipeline**: Scenario → LLM → BlueSky → Metrics
+1. **Scenario Generation**: Create conflict scenarios with ground truth
+2. **LLM Processing**: Detect conflicts and generate resolution commands
+3. **Simulation**: Execute commands in BlueSky and monitor results
+4. **Analysis**: Validate safety, detect hallucinations, compute metrics
+
+## Installation
 
 ### Prerequisites
 
-- Python 3.9 or higher
-- [Ollama](https://ollama.ai) for local LLM support
-- Git
+- **Python 3.9+** (tested with 3.9-3.12)
+- **Git** for repository cloning
+- **Ollama** for local LLM support
+- **Optional**: BlueSky simulator for full integration
 
-### Installation
+### Step 1: Environment Setup
 
 ```bash
-# 1. Clone repository
-git clone https://github.com/Somnathab3/LLM-ATC-HAL
+# Clone repository
+git clone https://github.com/Somnathab3/LLM-ATC-HAL.git
 cd LLM-ATC-HAL
 
-# 2. Create virtual environment
+# Create virtual environment
 python -m venv venv
-venv\Scripts\activate  # Windows
-# source venv/bin/activate  # Linux/Mac
 
-# 3. Install dependencies
+# Activate virtual environment
+# Windows:
+venv\Scripts\activate
+# Linux/Mac:
+source venv/bin/activate
+```
+
+### Step 2: Install Dependencies
+
+```bash
+# Install core dependencies
 pip install -r requirements.txt
 
-# 4. Install Ollama models
+# Install development dependencies (optional)
+pip install -e ".[dev]"
+
+# Install BlueSky simulator (optional, for full integration)
+pip install -e ".[bluesky]"
+```
+
+### Step 3: Install LLM Models
+
+```bash
+# Install Ollama (https://ollama.ai)
+# Then pull required models:
+
 ollama pull llama3.1:8b
 ollama pull mistral:7b
 ollama pull codellama:7b
 
-# 5. Validate installation
-python cli.py validate
+# Fine-tuned model (if available)
+ollama pull llama3.1-bsky
 ```
 
-### Example Commands
+### Step 4: Validation
 
 ```bash
-# Run system demo
-python cli.py demo --duration 300 --aircraft 4
+# Validate installation
+python cli.py --help
 
-# Monte Carlo benchmark with enhanced output
-python cli.py monte-carlo-benchmark --enhanced-output --num-horizontal 10 --num-vertical 10 --num-sector 10
-
-# Distribution shift testing
-python cli.py shift-benchmark --tiers in_distribution,moderate_shift,extreme_shift --n 25
-
-# Hallucination detection testing
-python cli.py hallucination-test --models llama3.1:8b,mistral:7b --scenarios 100
-
-# Analyze results
-python cli.py analyze --results-dir experiments/monte_carlo_results
-
-# Quick validation test
-python cli.py quick-test --quick
+# Run system check
+python cli.py demo --duration 60 --aircraft 2
 ```
 
-## 📁 Directory Structure
+## Configuration
 
-```
-LLM-ATC-HAL/
-├── cli.py                               # Main command-line interface
-├── pyproject.toml                       # Project configuration and dependencies
-├── requirements.txt                     # Python package requirements
-├── *.yaml                              # Configuration files for scenarios, shifts, BlueSky
-│
-├── scenarios/                           # Core scenario generation and execution
-│   ├── scenario_generator.py           # Environment-specific scenario creation (Horizontal/Vertical/Sector)
-│   ├── monte_carlo_framework.py        # BlueSky-integrated scenario generation framework
-│   └── monte_carlo_runner.py           # Main benchmark orchestration pipeline
-│
-├── llm_atc/                            # Core LLM-ATC components
-│   ├── agents/                         # Multi-agent LLM coordination
-│   ├── tools/                          # BlueSky tools and LLM prompt engines
-│   ├── metrics/                        # Performance analysis and safety metrics
-│   ├── experiments/                    # Experiment runners and configurations
-│   └── baseline_models/                # Traditional ATC conflict detection
-│
-├── llm_interface/                       # LLM client and ensemble management
-│   ├── llm_client.py                   # Ollama and external LLM integration
-│   ├── ensemble.py                     # Multi-model ensemble coordination
-│   └── filter_sort.py                  # Response filtering and ranking
-│
-├── bluesky_sim/                        # BlueSky simulator integration
-│   ├── scenarios.py                    # BlueSky scenario loading
-│   └── simulation_runner.py            # Simulation execution engine
-│
-├── analysis/                           # Results analysis and visualization
-│   ├── enhanced_hallucination_detection.py  # Advanced hallucination detection algorithms
-│   ├── metrics.py                      # Statistical analysis and performance metrics
-│   └── visualisation.py                # Results plotting and dashboard generation
-│
-├── solver/                             # Conflict resolution algorithms
-│   └── conflict_solver.py              # Mathematical conflict resolution methods
-│
-├── experiments/                        # Test results and experiment data
-├── visualizations/                     # Generated plots and analysis outputs
-├── logs/                               # System logs and debug information
-└── data/                               # Scenario data and cached results
+The system uses YAML configuration files for flexible scenario generation and testing:
+
+### Core Configuration Files
+
+| File | Purpose | Key Settings |
+|------|---------|--------------|
+| `scenario_ranges.yaml` | Scenario parameters | Aircraft counts, speeds, altitudes, airspace regions |
+| `distribution_shift_levels.yaml` | Distribution shift testing | In-distribution, moderate, extreme operational conditions |
+| `bluesky_config.yaml` | BlueSky integration | Connection settings, simulation parameters |
+
+### Example: Scenario Configuration
+
+```yaml
+# scenario_ranges.yaml
+aircraft:
+  count:
+    simple: [2, 3]
+    moderate: [4, 6] 
+    complex: [8, 12]
+    extreme: [18, 20]
+
+geography:
+  airspace_regions:
+    EHAM_TMA:  # Amsterdam
+      center: [52.3086, 4.7639]
+      radius_nm: [40, 60]
 ```
 
-## 🔧 Core Components
+### Example: Distribution Shift Configuration
 
-### scenarios/
-- **`scenario_generator.py`**: Environment-specific scenario creation with precise ground truth conflict labeling
-- **`monte_carlo_framework.py`**: BlueSky-integrated range-based scenario generation with distribution shift support
-- **`monte_carlo_runner.py`**: Three-stage pipeline orchestrator (detection → resolution → verification)
+```yaml
+# distribution_shift_levels.yaml
+in_distribution:
+  traffic_density_multiplier: 1.0
+  weather:
+    wind:
+      speed_shift_kts: [0, 0]
 
-### llm_atc/
-- **`agents/`**: Multi-agent LLM coordination for complex conflict resolution
-- **`tools/`**: BlueSky command generation, LLM prompt engines, and simulation interfaces
-- **`metrics/`**: Comprehensive performance analysis including false positive/negative detection
-- **`experiments/`**: Distribution shift testing and specialized experiment runners
-- **`baseline_models/`**: Traditional ATC conflict detection for comparison benchmarking
+extreme_shift:
+  traffic_density_multiplier: 2.5
+  weather:
+    wind:
+      speed_shift_kts: [30, 50]
+```
 
-### llm_interface/
-- **`llm_client.py`**: Unified interface for Ollama local models and external LLM APIs
-- **`ensemble.py`**: Multi-model ensemble coordination with weighted voting
-- **`filter_sort.py`**: Response quality filtering and confidence-based ranking
+## Usage Examples
 
-### bluesky_sim/
-- **`scenarios.py`**: BlueSky scenario loading and validation
-- **`simulation_runner.py`**: BlueSky simulation execution with real-time monitoring
+### Basic Scenario Execution
 
-### analysis/
-- **`enhanced_hallucination_detection.py`**: Advanced multi-layer hallucination detection
-- **`metrics.py`**: Statistical analysis, ICAO compliance checking, safety margin calculation
-- **`visualisation.py`**: Performance dashboards, conflict visualization, trend analysis
-
-### solver/
-- **`conflict_solver.py`**: Mathematical conflict resolution algorithms and optimization
-
-## ⚙️ Configuration Files
-
-| File | Purpose |
-|------|---------|
-| `scenario_ranges.yaml` | Defines parameter ranges for scenario generation (aircraft counts, speeds, altitudes) |
-| `distribution_shift_levels.yaml` | Three-tier distribution shift configuration (in-distribution, moderate, extreme) |
-| `bluesky_config.yaml` | BlueSky simulator connection settings and simulation parameters |
-| `comprehensive_test_config.yaml` | Comprehensive testing campaign configuration with model and performance settings |
-
-## 🎮 Usage Examples
-
-### Basic Demo
 ```bash
-# Run minimal demo scenario
+# Run a simple demo
 python cli.py demo --duration 300 --aircraft 4
+
+# Generate and analyze a specific scenario
+python cli.py run-scenario data/scenarios/example.yaml --output results/
 ```
 
 ### Monte Carlo Benchmarking
-```bash
-# Standard benchmark with enhanced output
-python cli.py monte-carlo-benchmark --enhanced-output
 
-# Custom scenario counts with specific complexities
+```bash
+# Quick test (2 scenarios per type)
+python cli.py quick-test --quick
+
+# Medium test (15 scenarios per type)
+python cli.py quick-test --medium
+
+# Full benchmark with custom parameters
 python cli.py monte-carlo-benchmark \
     --num-horizontal 25 \
     --num-vertical 25 \
     --num-sector 25 \
     --complexities simple,moderate,complex \
     --shift-levels in_distribution,moderate_shift \
-    --horizon 5 \
-    --max-interventions 5 \
-    --step-size 10.0 \
     --enhanced-output
-
-# Quick test for development
-python cli.py quick-test --quick
 ```
 
 ### Distribution Shift Testing
+
 ```bash
-# Test robustness across distribution shifts
+# Test robustness across operational conditions
 python cli.py shift-benchmark \
     --tiers in_distribution,moderate_shift,extreme_shift \
     --n 50 \
     --output experiments/shift_analysis
 ```
 
-### Hallucination Detection
+### Hallucination Detection Testing
+
 ```bash
 # Multi-model hallucination testing
 python cli.py hallucination-test \
-    --models llama3.1:8b,mistral:7b,codellama:7b \
+    --models llama3.1:8b,mistral:7b,llama3.1-bsky \
     --scenarios 200
 ```
 
-### Analysis and Reporting
+### Model Performance Comparison
+
 ```bash
-# Analyze specific experiment results
-python cli.py analyze --results-dir experiments/monte_carlo_results
-
-# Analyze specific log file
-python cli.py analyze --log-file experiments/results/benchmark_abc123.json
-
-# System validation
-python cli.py validate
+# Compare base vs fine-tuned model
+python compare_model_performance.py \
+    --base-model llama3.1:8b \
+    --fine-tuned llama3.1-bsky \
+    --scenarios 100
 ```
 
-## 📊 Metrics & Reporting
+## CLI Reference
+
+| Command | Description | Key Options |
+|---------|-------------|-------------|
+| `demo` | Run minimal demo scenario | `--duration`, `--aircraft` |
+| `quick-test` | Fast validation tests | `--quick`, `--medium` |
+| `monte-carlo-benchmark` | Full statistical benchmark | `--num-*`, `--complexities`, `--enhanced-output` |
+| `shift-benchmark` | Distribution shift testing | `--tiers`, `--n`, `--output` |
+| `hallucination-test` | Hallucination detection tests | `--models`, `--scenarios` |
+| `run-scenario` | Execute specific scenario file | `--output` |
+| `analyze` | Analyze test results | `--results-dir`, `--log-file` |
+
+### Advanced CLI Examples
+
+```bash
+# Comprehensive benchmark with analysis
+python cli.py monte-carlo-benchmark \
+    --num-horizontal 100 \
+    --num-vertical 100 \
+    --num-sector 100 \
+    --horizon 10 \
+    --max-interventions 5 \
+    --auto-analyze \
+    --analysis-format comprehensive
+
+# Strict BlueSky mode (require real simulator)
+python cli.py monte-carlo-benchmark \
+    --strict-bluesky \
+    --num-horizontal 10
+
+# Mock simulation mode (development)
+python cli.py monte-carlo-benchmark \
+    --mock-simulation \
+    --enhanced-output
+```
+
+## Fine-tuned Models
+
+The project includes fine-tuned models specialized for air traffic control:
+
+### llama3.1-bsky Model
+
+- **Base Model**: Llama 3.1 8B
+- **Training Data**: 510 BlueSky Gym RL scenarios
+- **Environments**: HorizontalCREnv, VerticalCREnv, SectorCREnv
+- **Performance**: Enhanced accuracy on aviation-specific tasks
+
+### Using Fine-tuned Models
+
+```python
+# Direct usage
+import ollama
+client = ollama.Client()
+response = client.chat(
+    model="llama3.1-bsky",
+    messages=[{"role": "user", "content": "Analyze conflict scenario..."}]
+)
+
+# Ensemble integration
+from llm_interface.ensemble import OllamaEnsembleClient
+ensemble = OllamaEnsembleClient()
+ensemble.add_model("llama3.1-bsky", weight=0.6, role="primary")
+```
+
+## Testing & Benchmarking
+
+### Quick Validation Tests
+
+```bash
+# Fast development testing
+python cli.py quick-test --quick          # 2 scenarios per type
+python cli.py quick-test --medium         # 15 scenarios per type
+```
+
+### Comprehensive Benchmarking
+
+```bash
+# Statistical validation benchmark
+python cli.py monte-carlo-benchmark \
+    --num-horizontal 200 \
+    --num-vertical 200 \
+    --num-sector 200 \
+    --complexities simple,moderate,complex \
+    --shift-levels in_distribution,moderate_shift,extreme_shift
+```
+
+### Performance Analysis
+
+```bash
+# PowerShell script for comprehensive testing
+.\run_comprehensive_benchmark_and_analyze.ps1
+
+# Python analysis tools
+python analysis/metrics.py --input experiments/results/
+python analysis/visualisation.py --data experiments/results/detection_comparison.csv
+```
+
+## Results Analysis
 
 ### Output Locations
-- **Detection Comparison**: `experiments/monte_carlo_results/detection_comparison.csv`
-- **Results Summary**: `experiments/monte_carlo_results/results_summary.json`
-- **Detailed Logs**: `experiments/monte_carlo_results/logs/`
-- **Visualizations**: `visualizations/` and `experiments/*/plots/`
+
+| Type | Location | Description |
+|------|----------|-------------|
+| Detection Results | `experiments/*/detection_comparison.csv` | Per-scenario detection accuracy |
+| Summary Metrics | `experiments/*/results_summary.json` | Aggregated performance metrics |
+| Detailed Logs | `experiments/*/logs/` | Full execution logs |
+| Visualizations | `visualizations/` | Generated plots and charts |
 
 ### Loading Results in Python
+
 ```python
 import pandas as pd
 import json
 
 # Load detection comparison data
 df = pd.read_csv('experiments/monte_carlo_results/detection_comparison.csv')
-print(df.groupby(['scenario_type', 'complexity'])['accuracy'].mean())
 
-# Load results summary
+# Analyze accuracy by scenario type
+accuracy_by_type = df.groupby(['scenario_type', 'complexity'])['accuracy'].mean()
+print(accuracy_by_type)
+
+# Load summary metrics
 with open('experiments/monte_carlo_results/results_summary.json') as f:
     summary = json.load(f)
-    print(f"Overall accuracy: {summary['overall_metrics']['detection_accuracy']:.3f}")
+    overall_accuracy = summary['overall_metrics']['detection_accuracy']
+    print(f"Overall Detection Accuracy: {overall_accuracy:.3f}")
 ```
 
-### Automated Reporting
-```bash
-# Generate comprehensive analysis report
-python cli.py monte-carlo-benchmark --auto-analyze --analysis-format comprehensive
+### Key Metrics
 
-# Custom analysis on existing results
-python analysis/metrics.py --input experiments/monte_carlo_results --output reports/
+- **Detection Accuracy**: Conflict detection true positive rate
+- **False Positive Rate**: Incorrect conflict alerts
+- **False Negative Rate**: Missed actual conflicts
+- **Safety Margins**: Separation distance analysis
+- **Response Time**: LLM processing time per scenario
+- **ICAO Compliance**: Standard adherence percentage
+
+## Project Structure
+
+```
+LLM-ATC-HAL/
+├── cli.py                                 # Main command-line interface
+├── pyproject.toml                         # Project configuration
+├── requirements.txt                       # Dependencies
+├── *.yaml                                # Configuration files
+│
+├── scenarios/                            # Scenario generation & execution
+│   ├── scenario_generator.py            # Environment-specific scenarios
+│   ├── monte_carlo_framework.py         # BlueSky integration framework
+│   └── monte_carlo_runner.py            # Main benchmark orchestration
+│
+├── llm_atc/                             # Core LLM-ATC components
+│   ├── agents/                          # Multi-agent coordination
+│   ├── tools/                           # BlueSky tools & prompt engines
+│   ├── metrics/                         # Performance analysis
+│   ├── baseline_models/                 # Traditional ATC methods
+│   └── memory/                          # Experience replay system
+│
+├── llm_interface/                        # LLM client management
+│   ├── llm_client.py                    # Ollama integration
+│   ├── ensemble.py                      # Multi-model coordination
+│   └── filter_sort.py                   # Response filtering
+│
+├── bluesky_sim/                         # BlueSky simulator integration
+│   ├── scenarios.py                     # Scenario loading
+│   └── simulation_runner.py             # Simulation execution
+│
+├── analysis/                            # Results analysis & visualization
+│   ├── enhanced_hallucination_detection.py  # Hallucination detection
+│   ├── metrics.py                       # Statistical analysis
+│   └── visualisation.py                 # Plotting & dashboards
+│
+├── solver/                              # Conflict resolution algorithms
+├── BSKY_GYM_LLM/                       # Fine-tuning pipeline
+├── Bsky_gym_Trained/                    # Pre-trained RL models
+├── experiments/                         # Test results & benchmarks
+└── docs/                               # Documentation
 ```
 
-## 🧪 Testing & CI
+### Core Modules
 
-### Running Tests
-```bash
-# Run all unit tests
-pytest tests/ -v
+#### scenarios/
+- **`scenario_generator.py`**: Environment-specific scenario creation (Horizontal/Vertical/Sector)
+- **`monte_carlo_framework.py`**: BlueSky-integrated scenario generation with distribution shift
+- **`monte_carlo_runner.py`**: Three-stage pipeline (detection → resolution → verification)
 
-# Run with coverage
-pytest tests/ --cov=llm_atc --cov-report=html
+#### llm_atc/
+- **`tools/llm_prompt_engine.py`**: Sophisticated ICAO-compliant prompt templates
+- **`tools/bluesky_tools.py`**: BlueSky command generation and simulation interface
+- **`metrics/monte_carlo_analysis.py`**: Comprehensive performance analysis
+- **`agents/`**: Multi-agent LLM coordination (Planner, Executor, Verifier, Scratchpad)
 
-# Run specific test categories
-pytest tests/test_scenario_generation.py
-pytest tests/test_llm_prompt_engine.py
-pytest tests/test_metrics.py
-```
+#### analysis/
+- **`enhanced_hallucination_detection.py`**: Multi-layer hallucination detection
+- **`metrics.py`**: Statistical analysis and ICAO compliance checking
+- **`visualisation.py`**: Performance dashboards and trend analysis
 
-### Code Quality
-```bash
-# Linting and formatting
-ruff check .
-black . --check
-
-# Type checking
-mypy llm_atc/
-
-# System validation
-python cli.py validate
-```
-
-### Test Coverage
-Tests are located in `tests/` and cover:
-- **Scenario Generation**: Parameter sampling, conflict injection, ground truth calculation
-- **LLM Integration**: Prompt formatting, response parsing, ensemble coordination
-- **BlueSky Tools**: Command generation, simulation execution, state monitoring
-- **Metrics Analysis**: False positive/negative detection, safety margin calculation
-- **End-to-End Pipeline**: Full workflow from scenario generation to results analysis
-
-## 🚦 Performance Targets
-
-- **Detection Accuracy**: >85% AUROC for hallucination detection
-- **Response Time**: <2s mean response time for conflict resolution
-- **Safety Compliance**: 95% ICAO standard compliance
-- **Horizontal Separation**: 5.0 nautical miles minimum
-- **Vertical Separation**: 1000 feet minimum
-
-## 🤝 Contributing
+## Contributing
 
 ### Development Setup
+
 ```bash
-# Install development dependencies
+# Install with development dependencies
 pip install -e ".[dev]"
 
 # Install pre-commit hooks
 pre-commit install
 
-# Run development test suite
-pytest tests/ --disable-warnings
+# Run linting and formatting
+ruff check .
+black . --check
+
+# Run type checking
+mypy llm_atc/
 ```
 
 ### Code Style Guidelines
+
 - **Python 3.9+** with PEP 8 compliance
-- **Type hints** on all public functions and dataclasses
-- **Docstrings** in Google or NumPy style
+- **Type hints** on all public functions
+- **Docstrings** in Google/NumPy style
 - **Absolute imports** rooted at project package
 - **Module-level logging** with `logger = logging.getLogger(__name__)`
 
+### Testing
+
+Currently, the project focuses on integration testing through CLI commands. Unit test framework setup is planned for future releases.
+
+```bash
+# System validation
+python cli.py demo --duration 60 --aircraft 2
+
+# Quick integration test
+python cli.py quick-test --quick
+```
+
 ### Submitting Changes
+
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes following the coding guidelines
-4. Add tests for new functionality
-5. Run the test suite (`pytest tests/`)
-6. Submit a pull request
+3. Follow coding guidelines and add documentation
+4. Test your changes with CLI validation
+5. Submit a pull request
 
-## � License
+## Performance Targets
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+| Metric | Target | Current |
+|--------|--------|---------|
+| Detection Accuracy | >85% AUROC | Benchmarking |
+| Response Time | <2s mean | <1.5s |
+| Safety Compliance | 95% ICAO standards | Monitoring |
+| Horizontal Separation | 5.0 nm minimum | Validated |
+| Vertical Separation | 1000 ft minimum | Validated |
 
-## 🔗 Links
+## Citation
 
-- **Homepage**: [GitHub Repository](https://github.com/Somnathab3/LLM-ATC-HAL)
-- **Documentation**: [Project Wiki](https://github.com/Somnathab3/LLM-ATC-HAL/wiki)
-- **Issues**: [Bug Reports & Feature Requests](https://github.com/Somnathab3/LLM-ATC-HAL/issues)
-- **PyPI Package**: `pip install llm-atc`
-
-## � Research & Citation
-
-This project supports academic research in LLM safety and aviation systems. If you use LLM-ATC-HAL in your research, please cite:
+If you use LLM-ATC-HAL in your research, please cite:
 
 ```bibtex
-@software{llm_atc_hal,
+@software{llm_atc_hal_2025,
   title={LLM-ATC-HAL: Embodied LLM Air Traffic Controller with Hallucination Detection},
-  author={Somnath},
+  author={Somnath, Abhishek},
   year={2025},
-  url={https://github.com/Somnathab3/LLM-ATC-HAL}
+  url={https://github.com/Somnathab3/LLM-ATC-HAL},
+  note={Advanced Large Language Model Air Traffic Controller with Monte Carlo Safety Benchmarking}
 }
 ```
 
+## License
+
+This project is licensed under the MIT License. See the LICENSE file for details.
+
 ---
 
-**Status**: Production-ready alpha version with comprehensive testing and documentation.
+## Links
+
+- **Repository**: [GitHub](https://github.com/Somnathab3/LLM-ATC-HAL)
+- **Issues**: [Bug Reports & Feature Requests](https://github.com/Somnathab3/LLM-ATC-HAL/issues)
+- **Documentation**: [Project Wiki](https://github.com/Somnathab3/LLM-ATC-HAL/wiki)
+- **CI/CD**: [GitHub Actions](https://github.com/Somnathab3/LLM-ATC-HAL/actions)
+
+**Status**: Active development - Production-ready alpha with comprehensive testing framework.
