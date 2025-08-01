@@ -67,13 +67,39 @@ class OllamaEnsembleClient:
 
         models = {}
 
+        # Fine-tuned BlueSky Gym model (if available)
+        if (
+            "llama3.1-bsky:latest" in available_models
+            or "llama3.1-bsky" in available_models
+        ):
+            model_id = (
+                "llama3.1-bsky:latest"
+                if "llama3.1-bsky:latest" in available_models
+                else "llama3.1-bsky"
+            )
+            models["fine_tuned_bsky"] = ModelConfig(
+                name="fine_tuned_bsky",
+                model_id=model_id,
+                role=ModelRole.PRIMARY,
+                weight=0.5,  # High weight for fine-tuned model
+                temperature=0.1,  # Low temperature for consistency
+                max_tokens=500,
+                timeout=15.0,
+            )
+
         # Primary model - Main decision maker
         if "llama3.1:8b" in available_models:
+            # Adjust weight if fine-tuned model is available
+            has_fine_tuned = (
+                "llama3.1-bsky:latest" in available_models
+                or "llama3.1-bsky" in available_models
+            )
+            weight = 0.3 if has_fine_tuned else 0.4
             models["primary"] = ModelConfig(
                 name="primary",
                 model_id="llama3.1:8b",
                 role=ModelRole.PRIMARY,
-                weight=0.4,
+                weight=weight,
                 temperature=0.1,  # Low temperature for consistency
                 max_tokens=500,
                 timeout=10.0,
@@ -135,7 +161,9 @@ class OllamaEnsembleClient:
             timeout=5.0,
         )
 
-        logging.info(f"Initialized ensemble with {len(models)} models: {list(models.keys())}")
+        logging.info(
+            f"Initialized ensemble with {len(models)} models: {list(models.keys())}"
+        )
         return models
 
     def _get_available_models(self) -> list[str]:
@@ -199,7 +227,11 @@ class OllamaEnsembleClient:
             return fallback_models
 
     def query_ensemble(
-        self, prompt: str, context: dict, require_json: bool = True, timeout: float = 30.0,
+        self,
+        prompt: str,
+        context: dict,
+        require_json: bool = True,
+        timeout: float = 30.0,
     ) -> EnsembleResponse:
         """Query ensemble of models and return consensus response"""
 
@@ -239,12 +271,16 @@ class OllamaEnsembleClient:
             safety_flags = self._analyze_safety_flags(individual_responses)
 
             # Calculate consensus
-            consensus_decision, confidence_score, agreement_level = self._calculate_consensus(
-                individual_responses,
+            consensus_decision, confidence_score, agreement_level = (
+                self._calculate_consensus(
+                    individual_responses,
+                )
             )
 
             # Calculate uncertainty metrics
-            uncertainty_metrics = self._calculate_uncertainty_metrics(individual_responses)
+            uncertainty_metrics = self._calculate_uncertainty_metrics(
+                individual_responses
+            )
 
             response_time = time.time() - start_time
 
@@ -269,7 +305,9 @@ class OllamaEnsembleClient:
             return self._create_error_response(str(e), time.time() - start_time)
 
     def _create_role_specific_prompts(
-        self, base_prompt: str, context: dict,
+        self,
+        base_prompt: str,
+        context: dict,
     ) -> dict[ModelRole, str]:
         """Create role-specific prompts for different models"""
 
@@ -329,7 +367,10 @@ class OllamaEnsembleClient:
         return role_prompts
 
     def _query_single_model(
-        self, model_config: ModelConfig, prompt: str, require_json: bool,
+        self,
+        model_config: ModelConfig,
+        prompt: str,
+        require_json: bool,
     ) -> dict:
         """Query a single model in the ensemble"""
 
@@ -361,7 +402,9 @@ class OllamaEnsembleClient:
                         json_match = re.search(r"\{.*\}", content, re.DOTALL)
                         if json_match:
                             try:
-                                cleaned_match = self._clean_json_response(json_match.group())
+                                cleaned_match = self._clean_json_response(
+                                    json_match.group()
+                                )
                                 return json.loads(cleaned_match)
                             except json.JSONDecodeError:
                                 pass
@@ -386,25 +429,48 @@ class OllamaEnsembleClient:
 
             # Check for safety indicators
             safety_score = response.get("safety_score", 0.5)
+            # Ensure safety_score is a number
+            try:
+                safety_score = float(safety_score) if safety_score is not None else 0.5
+            except (ValueError, TypeError):
+                safety_score = 0.5
+
             if safety_score < 0.3:
-                safety_flags.append(f"Low safety score from {model_name}: {safety_score}")
+                safety_flags.append(
+                    f"Low safety score from {model_name}: {safety_score}"
+                )
 
             # Check for concerning content
             content_str = json.dumps(response).lower()
-            concerning_terms = ["emergency", "critical", "unsafe", "violation", "danger"]
+            concerning_terms = [
+                "emergency",
+                "critical",
+                "unsafe",
+                "violation",
+                "danger",
+            ]
 
             for term in concerning_terms:
                 if term in content_str:
-                    safety_flags.append(f"Safety concern from {model_name}: {term} mentioned")
+                    safety_flags.append(
+                        f"Safety concern from {model_name}: {term} mentioned"
+                    )
 
             # Check for invalid recommendations
             action = response.get("action", "")
-            if "invalid" in action.lower() or "error" in action.lower():
+            # Ensure action is a string
+            if isinstance(action, dict):
+                action = str(action)
+            elif action is None:
+                action = ""
+            if "invalid" in str(action).lower() or "error" in str(action).lower():
                 safety_flags.append(f"Invalid action from {model_name}: {action}")
 
         return safety_flags
 
-    def _calculate_consensus(self, responses: dict[str, dict]) -> tuple[dict, float, float]:
+    def _calculate_consensus(
+        self, responses: dict[str, dict]
+    ) -> tuple[dict, float, float]:
         """Calculate consensus decision from ensemble responses"""
 
         valid_responses = {k: v for k, v in responses.items() if "error" not in v}
@@ -423,8 +489,22 @@ class OllamaEnsembleClient:
             if not model_config:
                 continue
 
-            actions.append(response.get("action", ""))
-            types.append(response.get("type", ""))
+            # Handle action field properly
+            action = response.get("action", "")
+            if isinstance(action, dict):
+                action = str(action)
+            elif action is None:
+                action = ""
+
+            # Handle type field properly
+            action_type = response.get("type", "")
+            if isinstance(action_type, dict):
+                action_type = str(action_type)
+            elif action_type is None:
+                action_type = ""
+
+            actions.append(str(action))
+            types.append(str(action_type))
             safety_scores.append(response.get("safety_score", 0.5))
             weights.append(model_config.weight)
 
@@ -447,7 +527,9 @@ class OllamaEnsembleClient:
             type_scores[action_type] = type_scores.get(action_type, 0) + weights[i]
 
         # Select consensus action and type
-        consensus_action = max(action_scores, key=action_scores.get) if action_scores else ""
+        consensus_action = (
+            max(action_scores, key=action_scores.get) if action_scores else ""
+        )
         consensus_type = max(type_scores, key=type_scores.get) if type_scores else ""
 
         # Calculate agreement level
@@ -457,7 +539,9 @@ class OllamaEnsembleClient:
 
         # Calculate confidence based on agreement and safety scores
         safety_variance = float(np.var(safety_scores))
-        confidence_score = agreement_level * (1 - safety_variance) * consensus_safety_score
+        confidence_score = (
+            agreement_level * (1 - safety_variance) * consensus_safety_score
+        )
 
         consensus_decision = {
             "action": consensus_action,
@@ -469,7 +553,9 @@ class OllamaEnsembleClient:
 
         return consensus_decision, confidence_score, agreement_level
 
-    def _calculate_uncertainty_metrics(self, responses: dict[str, dict]) -> dict[str, float]:
+    def _calculate_uncertainty_metrics(
+        self, responses: dict[str, dict]
+    ) -> dict[str, float]:
         """Calculate uncertainty metrics from ensemble responses"""
 
         valid_responses = {k: v for k, v in responses.items() if "error" not in v}
@@ -500,7 +586,9 @@ class OllamaEnsembleClient:
             "model_count": len(valid_responses),
         }
 
-    def _create_error_response(self, error_msg: str, response_time: float) -> EnsembleResponse:
+    def _create_error_response(
+        self, error_msg: str, response_time: float
+    ) -> EnsembleResponse:
         """Create error response when ensemble fails"""
 
         return EnsembleResponse(
@@ -604,11 +692,15 @@ class OllamaEnsembleClient:
         if action_match:
             result["action"] = action_match.group(1)
 
-        reasoning_match = re.search(r'"reasoning":\s*"([^"]*)"', raw_content, re.IGNORECASE)
+        reasoning_match = re.search(
+            r'"reasoning":\s*"([^"]*)"', raw_content, re.IGNORECASE
+        )
         if reasoning_match:
             result["reasoning"] = reasoning_match.group(1)
 
-        confidence_match = re.search(r'"confidence":\s*([0-9.]+)', raw_content, re.IGNORECASE)
+        confidence_match = re.search(
+            r'"confidence":\s*([0-9.]+)', raw_content, re.IGNORECASE
+        )
         if confidence_match:
             with contextlib.suppress(ValueError):
                 result["confidence"] = float(confidence_match.group(1))
@@ -688,7 +780,9 @@ class RAGValidator:
             # Validate maneuver type
             maneuver_type = response.get("type", "")
             if maneuver_type not in self.knowledge_base["maneuver_types"]:
-                validation_result["violations"].append(f"Invalid maneuver type: {maneuver_type}")
+                validation_result["violations"].append(
+                    f"Invalid maneuver type: {maneuver_type}"
+                )
                 validation_result["valid"] = False
                 validation_result["knowledge_score"] -= 0.3
 
@@ -721,7 +815,8 @@ class RAGValidator:
 
                 # Check altitude constraints
                 target_altitude = context.get("altitude", 35000) + response.get(
-                    "altitude_change", 0,
+                    "altitude_change",
+                    0,
                 )
                 if target_altitude > constraints["service_ceiling"]:
                     validation_result["violations"].append(
@@ -733,7 +828,9 @@ class RAGValidator:
             # Validate safety margins
             safety_score = response.get("safety_score", 0.5)
             if safety_score < 0.3:
-                validation_result["warnings"].append(f"Low safety score: {safety_score}")
+                validation_result["warnings"].append(
+                    f"Low safety score: {safety_score}"
+                )
                 validation_result["knowledge_score"] -= 0.2
 
         except Exception as e:
@@ -774,7 +871,9 @@ if __name__ == "__main__":
 
     # Test RAG validator
     rag_validator = RAGValidator()
-    validation = rag_validator.validate_response(response.consensus_response, test_context)
+    validation = rag_validator.validate_response(
+        response.consensus_response, test_context
+    )
 
     if validation["violations"]:
         pass

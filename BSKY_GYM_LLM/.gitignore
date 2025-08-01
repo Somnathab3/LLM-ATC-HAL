@@ -1,0 +1,1 @@
+\n# BlueSky Gym LLM Fine-tuning\nBSKY_GYM_LLM/data/gym_distill.jsonl\nBSKY_GYM_LLM/data/processed/\nBSKY_GYM_LLM/models/\nBSKY_GYM_LLM/logs/\nBSKY_GYM_LLM/__pycache__/\nBSKY_GYM_LLM/temp_*\n\n# Original trained models\nBSKY_GYM_LLM/original_trained_models/\n\n

@@ -28,7 +28,9 @@ class ResolutionManeuver:
 
     aircraft_id: str
     maneuver_type: ManeuverType
-    parameters: dict[str, float]  # e.g., {'altitude_change': 1000, 'heading_change': 20}
+    parameters: dict[
+        str, float
+    ]  # e.g., {'altitude_change': 1000, 'heading_change': 20}
     priority: int  # 1=high, 2=medium, 3=low
     safety_score: float  # 0.0-1.0
     estimated_delay: float  # seconds
@@ -62,7 +64,9 @@ class BaselineConflictResolver:
             ManeuverType.HOLD,
         ]
 
-    def resolve_conflicts(self, conflict_scenario: dict[str, Any]) -> list[ResolutionManeuver]:
+    def resolve_conflicts(
+        self, conflict_scenario: dict[str, Any]
+    ) -> list[ResolutionManeuver]:
         """
         Generate conflict resolution maneuvers using rule-based approach.
 
@@ -117,7 +121,9 @@ class BaselineConflictResolver:
         ac2_data = next((ac for ac in aircraft_list if ac.get("id") == ac2_id), None)
 
         if not ac1_data or not ac2_data:
-            self.logger.warning("Aircraft data not found for conflict %s-%s", ac1_id, ac2_id)
+            self.logger.warning(
+                "Aircraft data not found for conflict %s-%s", ac1_id, ac2_id
+            )
             return []
 
         # Analyze conflict geometry
@@ -363,7 +369,9 @@ class BaselineConflictResolver:
             fuel_penalty=fuel_penalty,
         )
 
-    def _analyze_conflict_geometry(self, ac1: dict, ac2: dict, conflict: dict) -> dict[str, float]:
+    def _analyze_conflict_geometry(
+        self, ac1: dict, ac2: dict, conflict: dict
+    ) -> dict[str, float]:
         """Analyze geometric relationship between conflicting aircraft"""
 
         # Calculate bearing between aircraft

@@ -1,0 +1,26 @@
+# BlueSky Gym LLM Fine-tuning Requirements
+
+# Core dependencies
+ollama>=0.1.7
+pyyaml>=6.0
+numpy>=1.24.0
+pandas>=2.0.0
+
+# Data processing
+jsonlines>=3.1.0
+datasets>=2.12.0
+
+# Optional: For advanced fine-tuning (if using HuggingFace)
+transformers>=4.30.0
+torch>=2.0.0
+accelerate>=0.20.0
+peft>=0.4.0  # For LoRA fine-tuning
+
+# Evaluation and metrics
+scikit-learn>=1.3.0
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# Utilities
+tqdm>=4.65.0
+click>=8.1.0

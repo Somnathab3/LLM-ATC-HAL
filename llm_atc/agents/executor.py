@@ -60,7 +60,9 @@ class Executor:
             ExecutionResult with execution status and details
         """
         try:
-            self.logger.info("Executing plan %s for conflict %s", plan.plan_id, plan.conflict_id)
+            self.logger.info(
+                "Executing plan %s for conflict %s", plan.plan_id, plan.conflict_id
+            )
 
             # Generate execution ID
             execution_id = f"exec_{int(time.time() * 1000)}"
@@ -99,9 +101,7 @@ class Executor:
                         successful_commands += 1
                         self.logger.info("Command executed successfully: %s", command)
                     else:
-                        error_msg = (
-                            f"Command failed: {command} - {response.get('error', 'Unknown error')}"
-                        )
+                        error_msg = f"Command failed: {command} - {response.get('error', 'Unknown error')}"
                         result.error_messages.append(error_msg)
                         self.logger.error(error_msg)
 
@@ -114,13 +114,17 @@ class Executor:
                     self.logger.exception("Exception executing command")
 
             # Calculate execution metrics
-            result.success_rate = successful_commands / len(plan.commands) if plan.commands else 0.0
+            result.success_rate = (
+                successful_commands / len(plan.commands) if plan.commands else 0.0
+            )
             result.execution_time = time.time() - start_time
 
             # Determine final status
             if result.success_rate == 1.0:
                 result.status = ExecutionStatus.COMPLETED
-                self.logger.info("Plan execution completed successfully: %s", execution_id)
+                self.logger.info(
+                    "Plan execution completed successfully: %s", execution_id
+                )
             elif result.success_rate > PARTIAL_SUCCESS_THRESHOLD:
                 # Partial success still considered completed
                 result.status = ExecutionStatus.COMPLETED
@@ -147,7 +151,9 @@ class Executor:
                 commands_sent=[],
                 responses=[],
                 success_rate=0.0,
-                execution_time=time.time() - start_time if "start_time" in locals() else 0.0,
+                execution_time=(
+                    time.time() - start_time if "start_time" in locals() else 0.0
+                ),
                 error_messages=[str(e)],
                 created_at=time.time(),
             )
@@ -292,7 +298,11 @@ class Executor:
 
         total_executions = len(self.execution_history)
         successful_executions = len(
-            [r for r in self.execution_history if r.status == ExecutionStatus.COMPLETED],
+            [
+                r
+                for r in self.execution_history
+                if r.status == ExecutionStatus.COMPLETED
+            ],
         )
         total_execution_time = sum(r.execution_time for r in self.execution_history)
         total_commands = sum(len(r.commands_sent) for r in self.execution_history)

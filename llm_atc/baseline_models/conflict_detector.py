@@ -149,7 +149,9 @@ class BaselineConflictDetector:
         # Derived features
         horizontal_distance = np.sqrt(lat_diff**2 + lon_diff**2)
         relative_speed = np.sqrt(speed_diff**2 + vspeed_diff**2)
-        approach_rate = horizontal_distance / max(relative_speed, 1.0)  # Avoid division by zero
+        approach_rate = horizontal_distance / max(
+            relative_speed, 1.0
+        )  # Avoid division by zero
 
         features.extend([horizontal_distance, relative_speed, approach_rate])
 
@@ -172,7 +174,9 @@ class BaselineConflictDetector:
 
         return np.array(features, dtype=np.float32)
 
-    def train(self, training_data: list[dict[str, Any]], labels: list[bool]) -> dict[str, float]:
+    def train(
+        self, training_data: list[dict[str, Any]], labels: list[bool]
+    ) -> dict[str, float]:
         """
         Train the baseline model.
 
@@ -349,14 +353,18 @@ class BaselineConflictDetector:
         }
         return phase_mapping.get(flight_phase.lower(), 3.0)  # Default to cruise
 
-    def _estimate_time_to_conflict(self, scenario: dict[str, Any], features: np.ndarray) -> float:
+    def _estimate_time_to_conflict(
+        self, scenario: dict[str, Any], features: np.ndarray
+    ) -> float:
         """Estimate time to conflict based on features"""
         # Simplified calculation based on approach rate
         approach_rate = features[12] if len(features) > 12 else 1.0
         horizontal_distance = features[10] if len(features) > 10 else 10.0
 
         if approach_rate > 0:
-            return max(0.0, horizontal_distance / approach_rate * 60)  # Convert to seconds
+            return max(
+                0.0, horizontal_distance / approach_rate * 60
+            )  # Convert to seconds
         return 600.0  # Default 10 minutes
 
     def _analyze_risk_factors(self, features: np.ndarray) -> dict[str, float]:
@@ -368,9 +376,15 @@ class BaselineConflictDetector:
                 features[10] / 10.0,
                 1.0,
             )  # Horizontal distance
-            risk_factors["altitude_risk"] = min(features[6] / 1000.0, 1.0)  # Altitude difference
-            risk_factors["speed_risk"] = min(features[7] / 100.0, 1.0)  # Speed difference
-            risk_factors["approach_risk"] = 1.0 - min(features[12] / 10.0, 1.0)  # Approach rate
+            risk_factors["altitude_risk"] = min(
+                features[6] / 1000.0, 1.0
+            )  # Altitude difference
+            risk_factors["speed_risk"] = min(
+                features[7] / 100.0, 1.0
+            )  # Speed difference
+            risk_factors["approach_risk"] = 1.0 - min(
+                features[12] / 10.0, 1.0
+            )  # Approach rate
             risk_factors["traffic_density"] = features[2] if features[2] <= 1.0 else 1.0
 
         return risk_factors

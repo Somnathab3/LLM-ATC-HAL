@@ -58,39 +58,42 @@ try:
     MONTE_CARLO_ANALYSIS_AVAILABLE = True
 except ImportError:
     MONTE_CARLO_ANALYSIS_AVAILABLE = False
-    logging.warning("Monte Carlo analysis module not available - limited summary functionality")
+    logging.warning(
+        "Monte Carlo analysis module not available - limited summary functionality"
+    )
 
 
 @dataclass
 class DetectionComparison:
     """Enhanced comparison record for detection analysis"""
+
     scenario_id: str
     scenario_type: str
     complexity_tier: str
     shift_level: str
-    
+
     # Ground truth data
     ground_truth_conflicts: int
     ground_truth_pairs: str  # JSON string of pairs
-    
+
     # BlueSky detection results
     bluesky_conflicts: int
     bluesky_pairs: str  # JSON string of pairs
     bluesky_confidence: float
-    
+
     # LLM detection results
     llm_prompt: str
     llm_response: str
     llm_conflicts: int
     llm_pairs: str  # JSON string of pairs
     llm_confidence: float
-    
+
     # Resolution data
     resolution_prompt: str
     resolution_response: str
     resolution_commands: str  # JSON string of commands
     bluesky_commands_executed: str  # JSON string of executed commands
-    
+
     # Final results
     final_separation_status: str
     detection_accuracy: str  # TP, FP, TN, FN
@@ -147,13 +150,19 @@ class BenchmarkConfiguration:
                 ComplexityTier.COMPLEX,
             ]
         if self.distribution_shift_levels is None:
-            self.distribution_shift_levels = ["in_distribution", "moderate_shift", "extreme_shift"]
+            self.distribution_shift_levels = [
+                "in_distribution",
+                "moderate_shift",
+                "extreme_shift",
+            ]
 
         # Initialize scenario_counts if not provided
         if self.scenario_counts is None:
             self.scenario_counts = {
                 (
-                    scenario_type.value if hasattr(scenario_type, "value") else scenario_type
+                    scenario_type.value
+                    if hasattr(scenario_type, "value")
+                    else scenario_type
                 ): self.num_scenarios_per_type
                 for scenario_type in self.scenario_types
             }
@@ -271,10 +280,10 @@ class MonteCarloBenchmark:
         self.results: list[ScenarioResult] = []
         self.benchmark_start_time: Optional[datetime] = None
         self.benchmark_id = str(uuid.uuid4())[:8]
-        
+
         # Enhanced logging storage
         self.detection_comparisons: List[DetectionComparison] = []
-        
+
         # Current scenario LLM interaction data
         self.current_llm_prompt: str = ""
         self.current_llm_response: str = ""
@@ -286,7 +295,7 @@ class MonteCarloBenchmark:
 
         # Initialize logging
         self._setup_logging()
-        
+
         # Setup enhanced logging components
         self._setup_enhanced_logging()
 
@@ -334,14 +343,14 @@ class MonteCarloBenchmark:
         """Setup enhanced logging with separate loggers for different components"""
         if not self.config.detailed_logging:
             return
-            
+
         # Create specialized loggers
         self.llm_logger = logging.getLogger(f"{__name__}.llm")
         self.debug_logger = logging.getLogger(f"{__name__}.debug")
-        
+
         # LLM interactions log
         llm_log_file = self.output_dir / "logs" / "llm_interactions.log"
-        llm_handler = logging.FileHandler(llm_log_file, encoding='utf-8')
+        llm_handler = logging.FileHandler(llm_log_file, encoding="utf-8")
         llm_handler.setLevel(logging.INFO)
         llm_formatter = logging.Formatter(
             "%(asctime)s - SCENARIO:%(scenario_id)s - %(levelname)s - %(message)s"
@@ -349,10 +358,10 @@ class MonteCarloBenchmark:
         llm_handler.setFormatter(llm_formatter)
         self.llm_logger.addHandler(llm_handler)
         self.llm_logger.setLevel(logging.INFO)
-        
+
         # Debug log
-        debug_log_file = self.output_dir / "logs" / "debug.log" 
-        debug_handler = logging.FileHandler(debug_log_file, encoding='utf-8')
+        debug_log_file = self.output_dir / "logs" / "debug.log"
+        debug_handler = logging.FileHandler(debug_log_file, encoding="utf-8")
         debug_handler.setLevel(logging.DEBUG)
         debug_formatter = logging.Formatter(
             "%(asctime)s - SCENARIO:%(scenario_id)s - %(levelname)s - %(message)s"
@@ -360,7 +369,7 @@ class MonteCarloBenchmark:
         debug_handler.setFormatter(debug_formatter)
         self.debug_logger.addHandler(debug_handler)
         self.debug_logger.setLevel(logging.DEBUG)
-        
+
         # CSV output for detection comparison
         self.csv_path = self.output_dir / "detection_comparison.csv"
         self._init_csv_file()
@@ -368,17 +377,34 @@ class MonteCarloBenchmark:
     def _init_csv_file(self) -> None:
         """Initialize CSV file with headers"""
         try:
-            with open(self.csv_path, 'w', newline='', encoding='utf-8') as f:
+            with open(self.csv_path, "w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
-                writer.writerow([
-                    'scenario_id', 'scenario_type', 'complexity_tier', 'shift_level',
-                    'ground_truth_conflicts', 'ground_truth_pairs',
-                    'bluesky_conflicts', 'bluesky_pairs', 'bluesky_confidence',
-                    'llm_prompt', 'llm_response', 'llm_conflicts', 'llm_pairs', 'llm_confidence',
-                    'resolution_prompt', 'resolution_response', 'resolution_commands',
-                    'bluesky_commands_executed', 'final_separation_status',
-                    'detection_accuracy', 'resolution_success', 'execution_time_ms'
-                ])
+                writer.writerow(
+                    [
+                        "scenario_id",
+                        "scenario_type",
+                        "complexity_tier",
+                        "shift_level",
+                        "ground_truth_conflicts",
+                        "ground_truth_pairs",
+                        "bluesky_conflicts",
+                        "bluesky_pairs",
+                        "bluesky_confidence",
+                        "llm_prompt",
+                        "llm_response",
+                        "llm_conflicts",
+                        "llm_pairs",
+                        "llm_confidence",
+                        "resolution_prompt",
+                        "resolution_response",
+                        "resolution_commands",
+                        "bluesky_commands_executed",
+                        "final_separation_status",
+                        "detection_accuracy",
+                        "resolution_success",
+                        "execution_time_ms",
+                    ]
+                )
         except Exception as e:
             self.logger.error(f"Failed to initialize CSV file: {e}")
 
@@ -432,15 +458,19 @@ class MonteCarloBenchmark:
         for scenario_type in self.config.scenario_types:
             # Try to get scenario count using different key formats
             scenario_count = 0
-            
+
             # Try enum object as key first
             if scenario_type in self.config.scenario_counts:
                 scenario_count = self.config.scenario_counts[scenario_type]
             else:
                 # Try string value as key
-                scenario_key = scenario_type.value if hasattr(scenario_type, "value") else str(scenario_type)
+                scenario_key = (
+                    scenario_type.value
+                    if hasattr(scenario_type, "value")
+                    else str(scenario_type)
+                )
                 scenario_count = self.config.scenario_counts.get(scenario_key, 0)
-            
+
             total += (
                 scenario_count
                 * len(self.config.complexity_tiers)
@@ -449,7 +479,10 @@ class MonteCarloBenchmark:
         return total
 
     def _run_scenario_batch(
-        self, scenario_type: ScenarioType, complexity_tier: ComplexityTier, shift_level: str,
+        self,
+        scenario_type: ScenarioType,
+        complexity_tier: ComplexityTier,
+        shift_level: str,
     ) -> int:
         """
         Execute a batch of scenarios for given parameters.
@@ -472,7 +505,11 @@ class MonteCarloBenchmark:
         if scenario_type in self.config.scenario_counts:
             num_scenarios = self.config.scenario_counts[scenario_type]
         else:
-            scenario_key = scenario_type.value if hasattr(scenario_type, "value") else str(scenario_type)
+            scenario_key = (
+                scenario_type.value
+                if hasattr(scenario_type, "value")
+                else str(scenario_type)
+            )
             num_scenarios = self.config.scenario_counts.get(scenario_key, 0)
 
         for i in range(num_scenarios):
@@ -496,14 +533,20 @@ class MonteCarloBenchmark:
                     successful_scenarios += 1
 
                 if (i + 1) % 10 == 0:
-                    self.logger.info(f"Batch {batch_id}: completed {i+1}/{num_scenarios}")
+                    self.logger.info(
+                        f"Batch {batch_id}: completed {i+1}/{num_scenarios}"
+                    )
 
             except Exception as e:
                 self.logger.exception(f"Failed to execute scenario {scenario_id}: {e}")
 
                 # Create error result
                 error_result = self._create_error_result(
-                    scenario_id, scenario_type, complexity_tier, shift_level, str(e),
+                    scenario_id,
+                    scenario_type,
+                    complexity_tier,
+                    shift_level,
+                    str(e),
                 )
                 self.results.append(error_result)
 
@@ -544,7 +587,9 @@ class MonteCarloBenchmark:
         msg = f"Unknown scenario type: {scenario_type}"
         raise ValueError(msg)
 
-    def _get_aircraft_count_for_complexity(self, complexity_tier: ComplexityTier) -> int:
+    def _get_aircraft_count_for_complexity(
+        self, complexity_tier: ComplexityTier
+    ) -> int:
         """Get appropriate aircraft count for complexity level"""
         counts = {
             ComplexityTier.SIMPLE: 2,
@@ -587,7 +632,9 @@ class MonteCarloBenchmark:
             has_critical_errors = len(result.errors) > 0
 
             # Success if no unresolved conflicts and no critical errors
-            success = not (has_unresolved_conflicts or has_parse_errors or has_critical_errors)
+            success = not (
+                has_unresolved_conflicts or has_parse_errors or has_critical_errors
+            )
 
             # Update the result with success flag
             result.success = success
@@ -602,7 +649,9 @@ class MonteCarloBenchmark:
                     reasons.append("parse errors")
                 if has_critical_errors:
                     reasons.append("execution errors")
-                self.logger.warning(f"Scenario {scenario_id} failed: {', '.join(reasons)}")
+                self.logger.warning(
+                    f"Scenario {scenario_id} failed: {', '.join(reasons)}"
+                )
 
             return result
 
@@ -614,8 +663,12 @@ class MonteCarloBenchmark:
 
             # Extract basic scenario information for error result
             scenario_type = getattr(scenario, "scenario_type", ScenarioType.HORIZONTAL)
-            complexity_tier = getattr(scenario, "complexity_tier", ComplexityTier.MODERATE)
-            shift_level = getattr(scenario, "distribution_shift_tier", "in_distribution")
+            complexity_tier = getattr(
+                scenario, "complexity_tier", ComplexityTier.MODERATE
+            )
+            shift_level = getattr(
+                scenario, "distribution_shift_tier", "in_distribution"
+            )
 
             return self._create_error_result(
                 scenario_id,
@@ -625,7 +678,9 @@ class MonteCarloBenchmark:
                 error_message,
             )
 
-    def _execute_scenario_pipeline(self, scenario: Any, scenario_id: str) -> ScenarioResult:
+    def _execute_scenario_pipeline(
+        self, scenario: Any, scenario_id: str
+    ) -> ScenarioResult:
         """
         Execute the three-stage pipeline for a single scenario.
 
@@ -673,7 +728,8 @@ class MonteCarloBenchmark:
 
             # Extract BlueSky-specific conflicts from detected conflicts
             bluesky_conflicts = [
-                conflict for conflict in detected_conflicts 
+                conflict
+                for conflict in detected_conflicts
                 if conflict.get("source", "").startswith(("enhanced", "bluesky"))
             ]
 
@@ -685,13 +741,21 @@ class MonteCarloBenchmark:
                     if hasattr(scenario, "scenario_type")
                     else "unknown"
                 ),
-                complexity_tier=getattr(scenario, "complexity_tier", ComplexityTier.MODERATE).value,
+                complexity_tier=getattr(
+                    scenario, "complexity_tier", ComplexityTier.MODERATE
+                ).value,
                 distribution_shift_tier=getattr(
-                    scenario, "distribution_shift_tier", "in_distribution",
+                    scenario,
+                    "distribution_shift_tier",
+                    "in_distribution",
                 ),
-                aircraft_count=getattr(scenario, "aircraft_count", len(scenario.initial_states)),
+                aircraft_count=getattr(
+                    scenario, "aircraft_count", len(scenario.initial_states)
+                ),
                 duration_minutes=getattr(
-                    scenario, "duration_minutes", self.config.time_horizon_minutes,
+                    scenario,
+                    "duration_minutes",
+                    self.config.time_horizon_minutes,
                 ),
                 # Ground truth
                 true_conflicts=ground_truth_conflicts,
@@ -699,16 +763,22 @@ class MonteCarloBenchmark:
                 # Detection
                 predicted_conflicts=detected_conflicts,
                 num_predicted_conflicts=len(detected_conflicts),
-                detection_method="hybrid" if self.config.enable_llm_detection else "ground_truth",
+                detection_method=(
+                    "hybrid" if self.config.enable_llm_detection else "ground_truth"
+                ),
                 # BlueSky specific conflicts
                 bluesky_conflicts=bluesky_conflicts,
                 # Resolution
                 llm_commands=[r.get("command", "") for r in resolutions],
-                resolution_success=verification_results.get("resolution_success", False),
+                resolution_success=verification_results.get(
+                    "resolution_success", False
+                ),
                 num_interventions=len(resolutions),
                 # Safety metrics
                 min_separation_nm=verification_results.get("min_separation_nm", 999.0),
-                min_separation_ft=verification_results.get("min_separation_ft", 999999.0),
+                min_separation_ft=verification_results.get(
+                    "min_separation_ft", 999999.0
+                ),
                 separation_violations=verification_results.get("violations", 0),
                 safety_margin_hz=max(
                     0,
@@ -734,13 +804,16 @@ class MonteCarloBenchmark:
                 timestamp=datetime.now().isoformat(),
                 # Environmental factors
                 wind_speed_kts=getattr(scenario, "environmental_conditions", {}).get(
-                    "wind_speed_kts", 0,
+                    "wind_speed_kts",
+                    0,
                 ),
                 visibility_nm=getattr(scenario, "environmental_conditions", {}).get(
-                    "visibility_nm", 10,
+                    "visibility_nm",
+                    10,
                 ),
                 turbulence_level=getattr(scenario, "environmental_conditions", {}).get(
-                    "turbulence_intensity", 0,
+                    "turbulence_intensity",
+                    0,
                 ),
                 # LLM interaction logs for detailed analysis
                 llm_prompt=self.current_llm_prompt,
@@ -815,7 +888,9 @@ class MonteCarloBenchmark:
         """Extract ground truth conflicts from scenario"""
         try:
             if hasattr(scenario, "ground_truth_conflicts"):
-                return [asdict(conflict) for conflict in scenario.ground_truth_conflicts]
+                return [
+                    asdict(conflict) for conflict in scenario.ground_truth_conflicts
+                ]
             # Create mock ground truth for testing
             return [
                 {
@@ -837,12 +912,14 @@ class MonteCarloBenchmark:
 
         try:
             # Import enhanced conflict detector
-            from llm_atc.tools.enhanced_conflict_detector import EnhancedConflictDetector
-            
+            from llm_atc.tools.enhanced_conflict_detector import (
+                EnhancedConflictDetector,
+            )
+
             # Use enhanced detection with multiple methods (SWARM, STATEBASED, ENHANCED)
             enhanced_detector = EnhancedConflictDetector()
             comprehensive_conflicts = enhanced_detector.detect_conflicts_comprehensive()
-            
+
             for conflict in comprehensive_conflicts:
                 detected_conflicts.append(
                     {
@@ -859,7 +936,8 @@ class MonteCarloBenchmark:
                         "severity": conflict.severity,
                         "detection_method": conflict.detection_method,
                         "confidence": conflict.confidence,
-                        "conflict_within_300s": conflict.time_to_cpa <= 300.0,  # Key improvement
+                        "conflict_within_300s": conflict.time_to_cpa
+                        <= 300.0,  # Key improvement
                     },
                 )
 
@@ -876,41 +954,44 @@ class MonteCarloBenchmark:
                             "vertical_separation": conflict["vertical_separation"],
                             "time_to_cpa": conflict.get("time_to_cpa", 999),
                             "severity": conflict["severity"],
-                            "conflict_within_300s": conflict.get("time_to_cpa", 999) <= 300.0,
+                            "conflict_within_300s": conflict.get("time_to_cpa", 999)
+                            <= 300.0,
                         },
                     )
 
             # Method 2: LLM-based detection (if enabled) with enhanced validation
             if self.config.enable_llm_detection:
                 aircraft_states = self._get_aircraft_states_for_llm()
-                
+
                 # Generate enhanced prompt with CPA data
                 cpa_data = {}
                 if comprehensive_conflicts:
                     # Use data from first conflict for context
                     first_conflict = comprehensive_conflicts[0]
                     cpa_data = {
-                        'time_to_cpa': first_conflict.time_to_cpa,
-                        'min_horizontal_separation': first_conflict.min_horizontal_separation,
-                        'min_vertical_separation': first_conflict.min_vertical_separation,
-                        'current_horizontal_separation': first_conflict.current_horizontal_separation,
-                        'current_vertical_separation': first_conflict.current_vertical_separation,
-                        'violates_icao_separation': first_conflict.violates_icao_separation,
-                        'severity': first_conflict.severity
+                        "time_to_cpa": first_conflict.time_to_cpa,
+                        "min_horizontal_separation": first_conflict.min_horizontal_separation,
+                        "min_vertical_separation": first_conflict.min_vertical_separation,
+                        "current_horizontal_separation": first_conflict.current_horizontal_separation,
+                        "current_vertical_separation": first_conflict.current_vertical_separation,
+                        "violates_icao_separation": first_conflict.violates_icao_separation,
+                        "severity": first_conflict.severity,
                     }
 
                 llm_detection = self.llm_engine.detect_conflict_via_llm_with_prompts(
                     aircraft_states,
                     self.config.time_horizon_minutes,
-                    cpa_data=cpa_data  # Enhanced with CPA data
+                    cpa_data=cpa_data,  # Enhanced with CPA data
                 )
-                
+
                 # Store LLM prompt and response for CSV output
                 self.current_llm_prompt = llm_detection.get("llm_prompt", "")
                 self.current_llm_response = llm_detection.get("llm_response", "")
 
                 # Validate LLM detection response
-                if self.config.validate_llm_responses and not isinstance(llm_detection, dict):
+                if self.config.validate_llm_responses and not isinstance(
+                    llm_detection, dict
+                ):
                     error_msg = f"LLM conflict detection returned invalid response type: {type(llm_detection)}"
                     self.logger.error(error_msg)
                     if self.config.strict_mode:
@@ -919,13 +1000,17 @@ class MonteCarloBenchmark:
                 if llm_detection and llm_detection.get("conflict_detected", False):
                     aircraft_pairs = llm_detection.get("aircraft_pairs", [])
                     if self.config.validate_llm_responses and not aircraft_pairs:
-                        error_msg = "LLM detected conflict but provided no aircraft pairs"
+                        error_msg = (
+                            "LLM detected conflict but provided no aircraft pairs"
+                        )
                         self.logger.warning(error_msg)
                         if self.config.strict_mode:
                             raise Exception(error_msg)
 
                     # Cross-validate LLM conflicts with enhanced detector
-                    validated_pairs = enhanced_detector.validate_llm_conflicts(aircraft_pairs)
+                    validated_pairs = enhanced_detector.validate_llm_conflicts(
+                        aircraft_pairs
+                    )
 
                     for pair_data in validated_pairs:
                         ac1, ac2, confidence = pair_data
@@ -978,7 +1063,9 @@ class MonteCarloBenchmark:
             aircraft_info = bluesky_tools.get_all_aircraft_info()
 
             # Validate aircraft info exists in strict mode
-            if self.config.strict_mode and (not aircraft_info or not aircraft_info.get("aircraft")):
+            if self.config.strict_mode and (
+                not aircraft_info or not aircraft_info.get("aircraft")
+            ):
                 msg = "No aircraft data available in strict mode"
                 raise Exception(msg)
 
@@ -1006,28 +1093,26 @@ class MonteCarloBenchmark:
             return []
 
     def _validate_llm_conflicts_with_bluesky(
-        self, 
-        llm_pairs: list[tuple[str, str]], 
-        bluesky_conflicts: list[dict[str, Any]]
+        self, llm_pairs: list[tuple[str, str]], bluesky_conflicts: list[dict[str, Any]]
     ) -> list[tuple[str, str]]:
         """
         Validate LLM-detected conflicts against BlueSky ground truth
         to eliminate false positives.
-        
+
         Args:
             llm_pairs: Aircraft pairs detected by LLM
             bluesky_conflicts: Conflicts detected by BlueSky
-            
+
         Returns:
             Validated aircraft pairs confirmed by BlueSky
         """
         if not self.config.validate_llm_responses:
             # If validation disabled, return all LLM pairs
             return llm_pairs
-        
+
         validated_pairs = []
         false_positives = 0
-        
+
         for llm_pair in llm_pairs:
             # Normalize pair format
             if isinstance(llm_pair, (list, tuple)) and len(llm_pair) >= 2:
@@ -1035,32 +1120,38 @@ class MonteCarloBenchmark:
             else:
                 self.logger.warning(f"Invalid LLM pair format: {llm_pair}")
                 continue
-            
+
             # Check if this pair matches any BlueSky conflict
             bluesky_confirmed = False
             for bs_conflict in bluesky_conflicts:
                 bs_ac1 = bs_conflict.get("aircraft_1", "")
                 bs_ac2 = bs_conflict.get("aircraft_2", "")
-                
+
                 # Check both orderings of the pair
-                if (ac1 == bs_ac1 and ac2 == bs_ac2) or (ac1 == bs_ac2 and ac2 == bs_ac1):
+                if (ac1 == bs_ac1 and ac2 == bs_ac2) or (
+                    ac1 == bs_ac2 and ac2 == bs_ac1
+                ):
                     bluesky_confirmed = True
                     break
-            
+
             if bluesky_confirmed:
                 validated_pairs.append((ac1, ac2))
                 self.logger.info(f"LLM conflict validated by BlueSky: {ac1}-{ac2}")
             else:
                 false_positives += 1
                 self.logger.warning(f"LLM false positive filtered out: {ac1}-{ac2}")
-        
+
         if false_positives > 0:
-            self.logger.info(f"Prevented {false_positives} LLM false positives using BlueSky validation")
-        
+            self.logger.info(
+                f"Prevented {false_positives} LLM false positives using BlueSky validation"
+            )
+
         return validated_pairs
 
     def _resolve_conflicts(
-        self, conflicts: list[dict[str, Any]], scenario: Any,
+        self,
+        conflicts: list[dict[str, Any]],
+        scenario: Any,
     ) -> list[dict[str, Any]]:
         """Generate LLM-based conflict resolutions"""
         resolutions = []
@@ -1071,27 +1162,42 @@ class MonteCarloBenchmark:
                 conflict_info = self._format_conflict_for_llm(conflict, scenario)
 
                 # Get LLM resolution with prompts
-                resolution_data = self.llm_engine.get_conflict_resolution_with_prompts(conflict_info)
+                resolution_data = self.llm_engine.get_conflict_resolution_with_prompts(
+                    conflict_info
+                )
                 resolution_command = resolution_data.get("command")
-                
+
                 # Store resolution prompt and response for CSV output (only for first conflict)
-                if not self.current_resolution_prompt:  # Only store first resolution's data
-                    self.current_resolution_prompt = resolution_data.get("resolution_prompt", "")
-                    self.current_resolution_response = resolution_data.get("resolution_response", "")
+                if (
+                    not self.current_resolution_prompt
+                ):  # Only store first resolution's data
+                    self.current_resolution_prompt = resolution_data.get(
+                        "resolution_prompt", ""
+                    )
+                    self.current_resolution_response = resolution_data.get(
+                        "resolution_response", ""
+                    )
 
                 # Validate LLM response if strict mode enabled
                 if self.config.validate_llm_responses and not resolution_command:
-                    error_msg = f"LLM failed to generate resolution for conflict {conflict}"
+                    error_msg = (
+                        f"LLM failed to generate resolution for conflict {conflict}"
+                    )
                     self.logger.error(error_msg)
                     if self.config.strict_mode:
                         raise Exception(error_msg)
 
                 if resolution_command:
                     # Validate command format
-                    if self.config.validate_llm_responses and not self._is_valid_bluesky_command(
-                        resolution_command,
+                    if (
+                        self.config.validate_llm_responses
+                        and not self._is_valid_bluesky_command(
+                            resolution_command,
+                        )
                     ):
-                        error_msg = f"LLM generated invalid command: {resolution_command}"
+                        error_msg = (
+                            f"LLM generated invalid command: {resolution_command}"
+                        )
                         self.logger.error(error_msg)
                         if self.config.strict_mode:
                             raise Exception(error_msg)
@@ -1127,7 +1233,17 @@ class MonteCarloBenchmark:
             return False
 
         # Check for common BlueSky command patterns
-        valid_commands = ["HDG", "ALT", "SPD", "CRE", "DEL", "MOVE", "TURN", "CLIMB", "DESCEND"]
+        valid_commands = [
+            "HDG",
+            "ALT",
+            "SPD",
+            "CRE",
+            "DEL",
+            "MOVE",
+            "TURN",
+            "CLIMB",
+            "DESCEND",
+        ]
         command_parts = command.split()
 
         if len(command_parts) < 2:  # Need at least command and aircraft ID
@@ -1136,7 +1252,9 @@ class MonteCarloBenchmark:
         command_type = command_parts[0].upper()
         return command_type in valid_commands
 
-    def _format_conflict_for_llm(self, conflict: dict[str, Any], scenario: Any) -> dict[str, Any]:
+    def _format_conflict_for_llm(
+        self, conflict: dict[str, Any], scenario: Any
+    ) -> dict[str, Any]:
         """Format conflict data for LLM prompt engine"""
         try:
             # Get aircraft information
@@ -1157,7 +1275,9 @@ class MonteCarloBenchmark:
                 "urgency_level": conflict.get("severity", "medium"),
                 "aircraft_1": ac1_info,
                 "aircraft_2": ac2_info,
-                "environmental_conditions": getattr(scenario, "environmental_conditions", {}),
+                "environmental_conditions": getattr(
+                    scenario, "environmental_conditions", {}
+                ),
             }
 
         except Exception as e:
@@ -1165,7 +1285,9 @@ class MonteCarloBenchmark:
             return {}
 
     def _verify_resolutions(
-        self, scenario: Any, resolutions: list[dict[str, Any]],
+        self,
+        scenario: Any,
+        resolutions: list[dict[str, Any]],
     ) -> dict[str, Any]:
         """Verify resolution effectiveness by stepping simulation with adaptive time stepping"""
         verification_results = {
@@ -1236,19 +1358,29 @@ class MonteCarloBenchmark:
                 )
 
                 # Resolution is successful if no violations occurred
-                verification_results["resolution_success"] = verification_results["violations"] == 0
+                verification_results["resolution_success"] = (
+                    verification_results["violations"] == 0
+                )
 
                 # Calculate efficiency metrics (simplified)
-                verification_results["extra_distance_nm"] = len(resolutions) * 5.0  # Estimate
-                verification_results["total_delay"] = len(resolutions) * 30.0  # Estimate in seconds
-                verification_results["fuel_penalty"] = len(resolutions) * 2.0  # Estimate percentage
+                verification_results["extra_distance_nm"] = (
+                    len(resolutions) * 5.0
+                )  # Estimate
+                verification_results["total_delay"] = (
+                    len(resolutions) * 30.0
+                )  # Estimate in seconds
+                verification_results["fuel_penalty"] = (
+                    len(resolutions) * 2.0
+                )  # Estimate percentage
 
         except Exception as e:
             self.logger.exception(f"Verification failed: {e}")
 
         return verification_results
 
-    def _calculate_all_separations(self, aircraft_info: dict[str, Any]) -> list[dict[str, Any]]:
+    def _calculate_all_separations(
+        self, aircraft_info: dict[str, Any]
+    ) -> list[dict[str, Any]]:
         """Calculate separations between all aircraft pairs"""
         separations = []
 
@@ -1263,7 +1395,9 @@ class MonteCarloBenchmark:
                     # Calculate horizontal separation (simplified)
                     lat_diff = ac1["lat"] - ac2["lat"]
                     lon_diff = ac1["lon"] - ac2["lon"]
-                    horizontal_nm = ((lat_diff**2 + lon_diff**2) ** 0.5) * 60  # Rough conversion
+                    horizontal_nm = (
+                        (lat_diff**2 + lon_diff**2) ** 0.5
+                    ) * 60  # Rough conversion
 
                     # Calculate vertical separation
                     vertical_ft = abs(ac1["alt"] - ac2["alt"])
@@ -1336,9 +1470,15 @@ class MonteCarloBenchmark:
         """Create error result for failed scenarios"""
         return ScenarioResult(
             scenario_id=scenario_id,
-            scenario_type=scenario_type.value if hasattr(scenario_type, "value") else scenario_type,
+            scenario_type=(
+                scenario_type.value
+                if hasattr(scenario_type, "value")
+                else scenario_type
+            ),
             complexity_tier=(
-                complexity_tier.value if hasattr(complexity_tier, "value") else complexity_tier
+                complexity_tier.value
+                if hasattr(complexity_tier, "value")
+                else complexity_tier
             ),
             distribution_shift_tier=shift_level,
             aircraft_count=0,
@@ -1424,7 +1564,9 @@ class MonteCarloBenchmark:
                 if not multi_group_summary.empty:
                     raw_dict = multi_group_summary.to_dict("index")
                     # Convert tuple keys to string keys for JSON serialization
-                    multi_group_summary = {str(key): value for key, value in raw_dict.items()}
+                    multi_group_summary = {
+                        str(key): value for key, value in raw_dict.items()
+                    }
             except Exception as e:
                 self.logger.warning(f"Failed to compute multi-group success rates: {e}")
                 multi_group_summary = {}
@@ -1472,32 +1614,34 @@ class MonteCarloBenchmark:
     def _get_serializable_config(self) -> dict[str, Any]:
         """Get configuration as JSON-serializable dictionary with enum conversion"""
         config_dict = asdict(self.config)
-        
+
         # Convert enum objects to their string values for JSON serialization
-        if 'scenario_types' in config_dict:
-            config_dict['scenario_types'] = [
-                st.value if hasattr(st, 'value') else str(st) 
-                for st in config_dict['scenario_types']
+        if "scenario_types" in config_dict:
+            config_dict["scenario_types"] = [
+                st.value if hasattr(st, "value") else str(st)
+                for st in config_dict["scenario_types"]
             ]
-        if 'complexity_tiers' in config_dict:
-            config_dict['complexity_tiers'] = [
-                ct.value if hasattr(ct, 'value') else str(ct) 
-                for ct in config_dict['complexity_tiers']
+        if "complexity_tiers" in config_dict:
+            config_dict["complexity_tiers"] = [
+                ct.value if hasattr(ct, "value") else str(ct)
+                for ct in config_dict["complexity_tiers"]
             ]
         # Convert scenario_counts dictionary keys from enum to string
-        if 'scenario_counts' in config_dict and config_dict['scenario_counts']:
+        if "scenario_counts" in config_dict and config_dict["scenario_counts"]:
             new_scenario_counts = {}
-            for key, value in config_dict['scenario_counts'].items():
-                if hasattr(key, 'value'):
+            for key, value in config_dict["scenario_counts"].items():
+                if hasattr(key, "value"):
                     new_scenario_counts[key.value] = value
                 else:
                     new_scenario_counts[str(key)] = value
-            config_dict['scenario_counts'] = new_scenario_counts
-            
+            config_dict["scenario_counts"] = new_scenario_counts
+
         return config_dict
 
     def _generate_summary_by_group(
-        self, df: pd.DataFrame, group_column: str,
+        self,
+        df: pd.DataFrame,
+        group_column: str,
     ) -> dict[str, dict[str, Any]]:
         """Generate success rate and metrics summary by a specific grouping column"""
         summary = {}
@@ -1512,7 +1656,9 @@ class MonteCarloBenchmark:
                 "total_scenarios": total_in_group,
                 "successful_scenarios": successful_in_group,
                 "failed_scenarios": total_in_group - successful_in_group,
-                "success_rate": successful_in_group / total_in_group if total_in_group > 0 else 0.0,
+                "success_rate": (
+                    successful_in_group / total_in_group if total_in_group > 0 else 0.0
+                ),
                 "avg_detection_accuracy": group_data["detection_accuracy"].mean(),
                 "avg_precision": group_data["precision"].mean(),
                 "avg_recall": group_data["recall"].mean(),
@@ -1549,8 +1695,12 @@ class MonteCarloBenchmark:
                         "total_scenarios": total,
                         "successful_scenarios": successful,
                         "success_rate": successful / total if total > 0 else 0.0,
-                        "avg_detection_accuracy": shift_data["detection_accuracy"].mean(),
-                        "avg_separation_violations": shift_data["separation_violations"].mean(),
+                        "avg_detection_accuracy": shift_data[
+                            "detection_accuracy"
+                        ].mean(),
+                        "avg_separation_violations": shift_data[
+                            "separation_violations"
+                        ].mean(),
                     }
 
         return combined_analysis
@@ -1608,14 +1758,20 @@ class MonteCarloBenchmark:
 
         self.logger.info("Visualizations generated successfully")
 
-    def _plot_detection_performance(self, df: pd.DataFrame, fig_size: tuple[int, int]) -> None:
+    def _plot_detection_performance(
+        self, df: pd.DataFrame, fig_size: tuple[int, int]
+    ) -> None:
         """Plot detection performance metrics"""
         fig, axes = plt.subplots(2, 2, figsize=fig_size)
         fig.suptitle("Conflict Detection Performance", fontsize=16, fontweight="bold")
 
         # Accuracy histogram
         axes[0, 0].hist(
-            df["detection_accuracy"], bins=20, alpha=0.7, color="blue", edgecolor="black",
+            df["detection_accuracy"],
+            bins=20,
+            alpha=0.7,
+            color="blue",
+            edgecolor="black",
         )
         axes[0, 0].set_xlabel("Detection Accuracy")
         axes[0, 0].set_ylabel("Frequency")
@@ -1637,7 +1793,9 @@ class MonteCarloBenchmark:
 
         # False Positives vs False Negatives
         fp_fn_data = (
-            df.groupby(["false_positives", "false_negatives"]).size().reset_index(name="count")
+            df.groupby(["false_positives", "false_negatives"])
+            .size()
+            .reset_index(name="count")
         )
         axes[1, 0].scatter(
             fp_fn_data["false_positives"],
@@ -1652,9 +1810,14 @@ class MonteCarloBenchmark:
         axes[1, 0].grid(True, alpha=0.3)
 
         # Success rate by complexity
-        success_by_complexity = df.groupby("complexity_tier")["resolution_success"].mean()
+        success_by_complexity = df.groupby("complexity_tier")[
+            "resolution_success"
+        ].mean()
         axes[1, 1].bar(
-            success_by_complexity.index, success_by_complexity.values, color="purple", alpha=0.7,
+            success_by_complexity.index,
+            success_by_complexity.values,
+            color="purple",
+            alpha=0.7,
         )
         axes[1, 1].set_xlabel("Complexity Tier")
         axes[1, 1].set_ylabel("Resolution Success Rate")
@@ -1676,7 +1839,11 @@ class MonteCarloBenchmark:
 
         # Horizontal separation distribution
         axes[0, 0].hist(
-            df["min_separation_nm"], bins=30, alpha=0.7, color="blue", edgecolor="black",
+            df["min_separation_nm"],
+            bins=30,
+            alpha=0.7,
+            color="blue",
+            edgecolor="black",
         )
         axes[0, 0].axvline(
             self.config.min_separation_nm,
@@ -1691,7 +1858,11 @@ class MonteCarloBenchmark:
 
         # Vertical separation distribution
         axes[0, 1].hist(
-            df["min_separation_ft"], bins=30, alpha=0.7, color="green", edgecolor="black",
+            df["min_separation_ft"],
+            bins=30,
+            alpha=0.7,
+            color="green",
+            edgecolor="black",
         )
         axes[0, 1].axvline(
             self.config.min_separation_ft,
@@ -1706,7 +1877,9 @@ class MonteCarloBenchmark:
 
         # Violations by scenario type
         violations_by_type = df.groupby("scenario_type")["separation_violations"].sum()
-        axes[1, 0].bar(violations_by_type.index, violations_by_type.values, color="red", alpha=0.7)
+        axes[1, 0].bar(
+            violations_by_type.index, violations_by_type.values, color="red", alpha=0.7
+        )
         axes[1, 0].set_xlabel("Scenario Type")
         axes[1, 0].set_ylabel("Total Violations")
         axes[1, 0].set_title("Separation Violations by Type")
@@ -1714,7 +1887,10 @@ class MonteCarloBenchmark:
 
         # Safety margin correlation
         axes[1, 1].scatter(
-            df["safety_margin_hz"], df["safety_margin_vt"], alpha=0.6, color="purple",
+            df["safety_margin_hz"],
+            df["safety_margin_vt"],
+            alpha=0.6,
+            color="purple",
         )
         axes[1, 1].set_xlabel("Horizontal Safety Margin (NM)")
         axes[1, 1].set_ylabel("Vertical Safety Margin (ft)")
@@ -1723,18 +1899,26 @@ class MonteCarloBenchmark:
 
         plt.tight_layout()
         plt.savefig(
-            self.output_dir / "visualizations" / "safety_margins.png", dpi=300, bbox_inches="tight",
+            self.output_dir / "visualizations" / "safety_margins.png",
+            dpi=300,
+            bbox_inches="tight",
         )
         plt.close()
 
-    def _plot_efficiency_metrics(self, df: pd.DataFrame, fig_size: tuple[int, int]) -> None:
+    def _plot_efficiency_metrics(
+        self, df: pd.DataFrame, fig_size: tuple[int, int]
+    ) -> None:
         """Plot efficiency and cost metrics"""
         fig, axes = plt.subplots(2, 2, figsize=fig_size)
         fig.suptitle("Efficiency Metrics", fontsize=16, fontweight="bold")
 
         # Extra distance distribution
         axes[0, 0].hist(
-            df["extra_distance_nm"], bins=20, alpha=0.7, color="orange", edgecolor="black",
+            df["extra_distance_nm"],
+            bins=20,
+            alpha=0.7,
+            color="orange",
+            edgecolor="black",
         )
         axes[0, 0].set_xlabel("Extra Distance (NM)")
         axes[0, 0].set_ylabel("Frequency")
@@ -1742,7 +1926,11 @@ class MonteCarloBenchmark:
 
         # Delay distribution
         axes[0, 1].hist(
-            df["total_delay_seconds"], bins=20, alpha=0.7, color="red", edgecolor="black",
+            df["total_delay_seconds"],
+            bins=20,
+            alpha=0.7,
+            color="red",
+            edgecolor="black",
         )
         axes[0, 1].set_xlabel("Total Delay (seconds)")
         axes[0, 1].set_ylabel("Frequency")
@@ -1750,7 +1938,10 @@ class MonteCarloBenchmark:
 
         # Interventions vs Efficiency
         axes[1, 0].scatter(
-            df["num_interventions"], df["extra_distance_nm"], alpha=0.6, color="blue",
+            df["num_interventions"],
+            df["extra_distance_nm"],
+            alpha=0.6,
+            color="blue",
         )
         axes[1, 0].set_xlabel("Number of Interventions")
         axes[1, 0].set_ylabel("Extra Distance (NM)")
@@ -1758,9 +1949,14 @@ class MonteCarloBenchmark:
         axes[1, 0].grid(True, alpha=0.3)
 
         # Fuel penalty by complexity
-        fuel_by_complexity = df.groupby("complexity_tier")["fuel_penalty_percent"].mean()
+        fuel_by_complexity = df.groupby("complexity_tier")[
+            "fuel_penalty_percent"
+        ].mean()
         axes[1, 1].bar(
-            fuel_by_complexity.index, fuel_by_complexity.values, color="green", alpha=0.7,
+            fuel_by_complexity.index,
+            fuel_by_complexity.values,
+            color="green",
+            alpha=0.7,
         )
         axes[1, 1].set_xlabel("Complexity Tier")
         axes[1, 1].set_ylabel("Fuel Penalty (%)")
@@ -1775,7 +1971,9 @@ class MonteCarloBenchmark:
         )
         plt.close()
 
-    def _plot_performance_by_type(self, df: pd.DataFrame, fig_size: tuple[int, int]) -> None:
+    def _plot_performance_by_type(
+        self, df: pd.DataFrame, fig_size: tuple[int, int]
+    ) -> None:
         """Plot performance metrics by scenario type"""
         fig, axes = plt.subplots(2, 2, figsize=fig_size)
         fig.suptitle("Performance by Scenario Type", fontsize=16, fontweight="bold")
@@ -1790,7 +1988,9 @@ class MonteCarloBenchmark:
 
         # Execution time by type
         time_by_type = df.groupby("scenario_type")["execution_time_seconds"].mean()
-        axes[0, 1].bar(time_by_type.index, time_by_type.values, color="green", alpha=0.7)
+        axes[0, 1].bar(
+            time_by_type.index, time_by_type.values, color="green", alpha=0.7
+        )
         axes[0, 1].set_xlabel("Scenario Type")
         axes[0, 1].set_ylabel("Execution Time (s)")
         axes[0, 1].set_title("Execution Time by Type")
@@ -1809,7 +2009,9 @@ class MonteCarloBenchmark:
 
         # Success rate comparison
         success_by_type = df.groupby("scenario_type")["resolution_success"].mean()
-        axes[1, 1].bar(success_by_type.index, success_by_type.values, color="purple", alpha=0.7)
+        axes[1, 1].bar(
+            success_by_type.index, success_by_type.values, color="purple", alpha=0.7
+        )
         axes[1, 1].set_xlabel("Scenario Type")
         axes[1, 1].set_ylabel("Resolution Success Rate")
         axes[1, 1].set_title("Resolution Success by Type")
@@ -1823,16 +2025,23 @@ class MonteCarloBenchmark:
         )
         plt.close()
 
-    def _plot_distribution_shift_impact(self, df: pd.DataFrame, fig_size: tuple[int, int]) -> None:
+    def _plot_distribution_shift_impact(
+        self, df: pd.DataFrame, fig_size: tuple[int, int]
+    ) -> None:
         """Plot impact of distribution shift on performance"""
         fig, axes = plt.subplots(2, 2, figsize=fig_size)
         fig.suptitle("Distribution Shift Impact", fontsize=16, fontweight="bold")
 
         # Accuracy across shifts
-        acc_by_shift = df.groupby("distribution_shift_tier")["detection_accuracy"].mean()
+        acc_by_shift = df.groupby("distribution_shift_tier")[
+            "detection_accuracy"
+        ].mean()
         colors = ["green", "orange", "red"]
         axes[0, 0].bar(
-            acc_by_shift.index, acc_by_shift.values, color=colors[: len(acc_by_shift)], alpha=0.7,
+            acc_by_shift.index,
+            acc_by_shift.values,
+            color=colors[: len(acc_by_shift)],
+            alpha=0.7,
         )
         axes[0, 0].set_xlabel("Distribution Shift Level")
         axes[0, 0].set_ylabel("Detection Accuracy")
@@ -1868,16 +2077,24 @@ class MonteCarloBenchmark:
         axes[0, 1].legend()
 
         # Safety margin degradation
-        safety_by_shift = df.groupby("distribution_shift_tier")["safety_margin_hz"].mean()
-        axes[1, 0].bar(safety_by_shift.index, safety_by_shift.values, color="purple", alpha=0.7)
+        safety_by_shift = df.groupby("distribution_shift_tier")[
+            "safety_margin_hz"
+        ].mean()
+        axes[1, 0].bar(
+            safety_by_shift.index, safety_by_shift.values, color="purple", alpha=0.7
+        )
         axes[1, 0].set_xlabel("Distribution Shift Level")
         axes[1, 0].set_ylabel("Average Safety Margin (NM)")
         axes[1, 0].set_title("Safety Margin vs Distribution Shift")
         axes[1, 0].tick_params(axis="x", rotation=45)
 
         # Execution time impact
-        time_by_shift = df.groupby("distribution_shift_tier")["execution_time_seconds"].mean()
-        axes[1, 1].bar(time_by_shift.index, time_by_shift.values, color="orange", alpha=0.7)
+        time_by_shift = df.groupby("distribution_shift_tier")[
+            "execution_time_seconds"
+        ].mean()
+        axes[1, 1].bar(
+            time_by_shift.index, time_by_shift.values, color="orange", alpha=0.7
+        )
         axes[1, 1].set_xlabel("Distribution Shift Level")
         axes[1, 1].set_ylabel("Execution Time (s)")
         axes[1, 1].set_title("Execution Time vs Distribution Shift")
@@ -1912,26 +2129,26 @@ class MonteCarloBenchmark:
         with open(self.output_dir / "summaries" / "configuration.json", "w") as f:
             config_dict = asdict(self.config)
             # Convert enum objects to their string values for JSON serialization
-            if 'scenario_types' in config_dict:
-                config_dict['scenario_types'] = [
-                    st.value if hasattr(st, 'value') else str(st) 
-                    for st in config_dict['scenario_types']
+            if "scenario_types" in config_dict:
+                config_dict["scenario_types"] = [
+                    st.value if hasattr(st, "value") else str(st)
+                    for st in config_dict["scenario_types"]
                 ]
-            if 'complexity_tiers' in config_dict:
-                config_dict['complexity_tiers'] = [
-                    ct.value if hasattr(ct, 'value') else str(ct) 
-                    for ct in config_dict['complexity_tiers']
+            if "complexity_tiers" in config_dict:
+                config_dict["complexity_tiers"] = [
+                    ct.value if hasattr(ct, "value") else str(ct)
+                    for ct in config_dict["complexity_tiers"]
                 ]
             # Convert scenario_counts dictionary keys from enum to string
-            if 'scenario_counts' in config_dict and config_dict['scenario_counts']:
+            if "scenario_counts" in config_dict and config_dict["scenario_counts"]:
                 new_scenario_counts = {}
-                for key, value in config_dict['scenario_counts'].items():
-                    if hasattr(key, 'value'):
+                for key, value in config_dict["scenario_counts"].items():
+                    if hasattr(key, "value"):
                         new_scenario_counts[key.value] = value
                     else:
                         new_scenario_counts[str(key)] = value
-                config_dict['scenario_counts'] = new_scenario_counts
-                
+                config_dict["scenario_counts"] = new_scenario_counts
+
             json.dump(config_dict, f, indent=2)
 
         self.logger.info(f"Results saved to {self.output_dir}")
@@ -1942,52 +2159,63 @@ class MonteCarloBenchmark:
     def _run_enhanced_scenario(self, scenario: Any, scenario_id: str) -> ScenarioResult:
         """Enhanced scenario execution with detailed logging"""
         start_time = time.time()
-        
+
         try:
-            self.debug_logger.info("=== ENHANCED SCENARIO EXECUTION ===", extra={'scenario_id': scenario_id})
-            
+            self.debug_logger.info(
+                "=== ENHANCED SCENARIO EXECUTION ===",
+                extra={"scenario_id": scenario_id},
+            )
+
             # Run base scenario execution
             result = self._run_single_scenario(scenario, scenario_id)
-            
+
             # Create enhanced comparison record
             execution_time = (time.time() - start_time) * 1000  # Convert to ms
-            comparison = self._create_detection_comparison(scenario, scenario_id, result, execution_time)
-            
+            comparison = self._create_detection_comparison(
+                scenario, scenario_id, result, execution_time
+            )
+
             # Store comparison
             self.detection_comparisons.append(comparison)
             self._write_csv_row(comparison)
-            
+
             return result
-            
+
         except Exception as e:
-            self.debug_logger.exception("Enhanced scenario execution failed", extra={'scenario_id': scenario_id})
+            self.debug_logger.exception(
+                "Enhanced scenario execution failed", extra={"scenario_id": scenario_id}
+            )
             raise
 
     def _create_detection_comparison(
-        self, scenario: Any, scenario_id: str, result: ScenarioResult, execution_time: float
+        self,
+        scenario: Any,
+        scenario_id: str,
+        result: ScenarioResult,
+        execution_time: float,
     ) -> DetectionComparison:
         """Create detection comparison record"""
-        
+
         # Extract components from scenario_id
-        parts = scenario_id.split('_')
-        scenario_type = parts[0] if len(parts) > 0 else 'unknown'
-        complexity_tier = parts[1] if len(parts) > 1 else 'unknown'
-        shift_level = parts[2] if len(parts) > 2 else 'unknown'
-        
+        parts = scenario_id.split("_")
+        scenario_type = parts[0] if len(parts) > 0 else "unknown"
+        complexity_tier = parts[1] if len(parts) > 1 else "unknown"
+        shift_level = parts[2] if len(parts) > 2 else "unknown"
+
         # Get metadata from result attributes
         metadata = {
-            'llm_prompt': getattr(result, 'llm_prompt', ''),
-            'llm_response': getattr(result, 'llm_response', ''),
-            'resolution_prompt': getattr(result, 'resolution_prompt', ''),
-            'resolution_response': getattr(result, 'resolution_response', ''),
-            'commands_executed': getattr(result, 'llm_commands', []),
-            'bluesky_conflicts': getattr(result, 'bluesky_conflicts', [])
+            "llm_prompt": getattr(result, "llm_prompt", ""),
+            "llm_response": getattr(result, "llm_response", ""),
+            "resolution_prompt": getattr(result, "resolution_prompt", ""),
+            "resolution_response": getattr(result, "resolution_response", ""),
+            "commands_executed": getattr(result, "llm_commands", []),
+            "bluesky_conflicts": getattr(result, "bluesky_conflicts", []),
         }
-        
+
         # Determine detection accuracy
-        gt_conflicts = getattr(result, 'num_true_conflicts', 0)
-        llm_conflicts = getattr(result, 'num_predicted_conflicts', 0)
-        
+        gt_conflicts = getattr(result, "num_true_conflicts", 0)
+        llm_conflicts = getattr(result, "num_predicted_conflicts", 0)
+
         if gt_conflicts > 0 and llm_conflicts > 0:
             accuracy = "TP"  # True Positive
         elif gt_conflicts > 0 and llm_conflicts == 0:
@@ -1996,7 +2224,7 @@ class MonteCarloBenchmark:
             accuracy = "FP"  # False Positive
         else:
             accuracy = "TN"  # True Negative
-        
+
         return DetectionComparison(
             scenario_id=scenario_id,
             scenario_type=scenario_type,
@@ -2004,40 +2232,57 @@ class MonteCarloBenchmark:
             shift_level=shift_level,
             ground_truth_conflicts=gt_conflicts,
             ground_truth_pairs=json.dumps([]),  # TODO: Extract actual pairs
-            bluesky_conflicts=len(result.bluesky_conflicts) if result.bluesky_conflicts else 0,
+            bluesky_conflicts=(
+                len(result.bluesky_conflicts) if result.bluesky_conflicts else 0
+            ),
             bluesky_pairs=json.dumps([]),
             bluesky_confidence=0.9,  # Default confidence
-            llm_prompt=metadata.get('llm_prompt', ''),
-            llm_response=metadata.get('llm_response', ''),
+            llm_prompt=metadata.get("llm_prompt", ""),
+            llm_response=metadata.get("llm_response", ""),
             llm_conflicts=llm_conflicts,
             llm_pairs=json.dumps([]),
             llm_confidence=0.8,  # Default confidence
-            resolution_prompt=metadata.get('resolution_prompt', ''),
-            resolution_response=metadata.get('resolution_response', ''),
-            resolution_commands=json.dumps(metadata.get('commands_executed', [])),
-            bluesky_commands_executed=json.dumps(metadata.get('commands_executed', [])),
+            resolution_prompt=metadata.get("resolution_prompt", ""),
+            resolution_response=metadata.get("resolution_response", ""),
+            resolution_commands=json.dumps(metadata.get("commands_executed", [])),
+            bluesky_commands_executed=json.dumps(metadata.get("commands_executed", [])),
             final_separation_status="OK" if result.success else "CONFLICT",
             detection_accuracy=accuracy,
             resolution_success=result.success,
-            execution_time_ms=execution_time
+            execution_time_ms=execution_time,
         )
-    
+
     def _write_csv_row(self, comparison: DetectionComparison) -> None:
         """Write detection comparison to CSV"""
         try:
-            with open(self.csv_path, 'a', newline='', encoding='utf-8') as f:
+            with open(self.csv_path, "a", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
-                writer.writerow([
-                    comparison.scenario_id, comparison.scenario_type, 
-                    comparison.complexity_tier, comparison.shift_level,
-                    comparison.ground_truth_conflicts, comparison.ground_truth_pairs,
-                    comparison.bluesky_conflicts, comparison.bluesky_pairs, comparison.bluesky_confidence,
-                    comparison.llm_prompt, comparison.llm_response, 
-                    comparison.llm_conflicts, comparison.llm_pairs, comparison.llm_confidence,
-                    comparison.resolution_prompt, comparison.resolution_response, comparison.resolution_commands,
-                    comparison.bluesky_commands_executed, comparison.final_separation_status,
-                    comparison.detection_accuracy, comparison.resolution_success, comparison.execution_time_ms
-                ])
+                writer.writerow(
+                    [
+                        comparison.scenario_id,
+                        comparison.scenario_type,
+                        comparison.complexity_tier,
+                        comparison.shift_level,
+                        comparison.ground_truth_conflicts,
+                        comparison.ground_truth_pairs,
+                        comparison.bluesky_conflicts,
+                        comparison.bluesky_pairs,
+                        comparison.bluesky_confidence,
+                        comparison.llm_prompt,
+                        comparison.llm_response,
+                        comparison.llm_conflicts,
+                        comparison.llm_pairs,
+                        comparison.llm_confidence,
+                        comparison.resolution_prompt,
+                        comparison.resolution_response,
+                        comparison.resolution_commands,
+                        comparison.bluesky_commands_executed,
+                        comparison.final_separation_status,
+                        comparison.detection_accuracy,
+                        comparison.resolution_success,
+                        comparison.execution_time_ms,
+                    ]
+                )
         except Exception as e:
             self.logger.error(f"Failed to write CSV row: {e}")
 
@@ -2046,38 +2291,44 @@ class MonteCarloBenchmark:
         try:
             if not self.detection_comparisons:
                 return
-                
+
             # Create DataFrame for analysis
             df = pd.DataFrame([asdict(comp) for comp in self.detection_comparisons])
-            
+
             # Generate analysis summary
             analysis = {
-                'total_scenarios': len(df),
-                'detection_accuracy': {
-                    'true_positives': len(df[df['detection_accuracy'] == 'TP']),
-                    'false_positives': len(df[df['detection_accuracy'] == 'FP']),
-                    'true_negatives': len(df[df['detection_accuracy'] == 'TN']),
-                    'false_negatives': len(df[df['detection_accuracy'] == 'FN'])
+                "total_scenarios": len(df),
+                "detection_accuracy": {
+                    "true_positives": len(df[df["detection_accuracy"] == "TP"]),
+                    "false_positives": len(df[df["detection_accuracy"] == "FP"]),
+                    "true_negatives": len(df[df["detection_accuracy"] == "TN"]),
+                    "false_negatives": len(df[df["detection_accuracy"] == "FN"]),
                 },
-                'success_rates': {
-                    'overall': df['resolution_success'].mean(),
-                    'by_scenario_type': df.groupby('scenario_type')['resolution_success'].mean().to_dict(),
-                    'by_complexity': df.groupby('complexity_tier')['resolution_success'].mean().to_dict()
+                "success_rates": {
+                    "overall": df["resolution_success"].mean(),
+                    "by_scenario_type": df.groupby("scenario_type")[
+                        "resolution_success"
+                    ]
+                    .mean()
+                    .to_dict(),
+                    "by_complexity": df.groupby("complexity_tier")["resolution_success"]
+                    .mean()
+                    .to_dict(),
                 },
-                'execution_times': {
-                    'mean': df['execution_time_ms'].mean(),
-                    'median': df['execution_time_ms'].median(),
-                    'std': df['execution_time_ms'].std()
-                }
+                "execution_times": {
+                    "mean": df["execution_time_ms"].mean(),
+                    "median": df["execution_time_ms"].median(),
+                    "std": df["execution_time_ms"].std(),
+                },
             }
-            
+
             # Save analysis
             analysis_path = self.output_dir / "detection_analysis.json"
-            with open(analysis_path, 'w') as f:
+            with open(analysis_path, "w") as f:
                 json.dump(analysis, f, indent=2)
-                
+
             self.logger.info(f"Detection analysis saved to {analysis_path}")
-            
+
         except Exception as e:
             self.logger.error(f"Failed to save detection analysis: {e}")
 
@@ -2100,7 +2351,9 @@ def run_benchmark_with_config(config_path: Optional[str] = None) -> dict[str, An
 
         # Convert string enums back to objects
         if "scenario_types" in config_dict:
-            config_dict["scenario_types"] = [ScenarioType(t) for t in config_dict["scenario_types"]]
+            config_dict["scenario_types"] = [
+                ScenarioType(t) for t in config_dict["scenario_types"]
+            ]
         if "complexity_tiers" in config_dict:
             config_dict["complexity_tiers"] = [
                 ComplexityTier(t) for t in config_dict["complexity_tiers"]
@@ -2119,15 +2372,26 @@ def main():
     """Main entry point for standalone execution"""
     import argparse
 
-    parser = argparse.ArgumentParser(description="Monte Carlo Benchmark Runner for LLM-ATC-HAL")
+    parser = argparse.ArgumentParser(
+        description="Monte Carlo Benchmark Runner for LLM-ATC-HAL"
+    )
     parser.add_argument("--config", "-c", help="Configuration file path")
     parser.add_argument(
-        "--scenarios", "-n", type=int, default=10, help="Number of scenarios per type (default: 10)",
+        "--scenarios",
+        "-n",
+        type=int,
+        default=10,
+        help="Number of scenarios per type (default: 10)",
     )
     parser.add_argument(
-        "--output", "-o", default="output/monte_carlo_benchmark", help="Output directory",
+        "--output",
+        "-o",
+        default="output/monte_carlo_benchmark",
+        help="Output directory",
     )
-    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
+    parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Enable verbose logging"
+    )
 
     # NEW: Expose simulation parameters
     parser.add_argument(
@@ -2143,7 +2407,10 @@ def main():
         help="Simulation step size in seconds (default: 10.0)",
     )
     parser.add_argument(
-        "--time-horizon", type=float, default=10.0, help="Time horizon in minutes (default: 10.0)",
+        "--time-horizon",
+        type=float,
+        default=10.0,
+        help="Time horizon in minutes (default: 10.0)",
     )
 
     args = parser.parse_args()

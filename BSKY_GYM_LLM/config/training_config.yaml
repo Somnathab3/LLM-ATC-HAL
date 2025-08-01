@@ -1,0 +1,72 @@
+# BlueSky Gym LLM Fine-tuning Configuration
+
+# Model Configuration
+model:
+  base_model: "llama3.1:8b"
+  output_name: "llama3.1-bsky"
+  context_length: 4096
+  
+# Training Configuration
+training:
+  learning_rate: 1e-5
+  batch_size: 4
+  epochs: 3
+  gradient_accumulation_steps: 4
+  warmup_steps: 100
+  save_steps: 500
+  eval_steps: 250
+  logging_steps: 50
+  
+# Data Configuration
+data:
+  train_split: 0.8
+  validation_split: 0.15
+  test_split: 0.05
+  max_sequence_length: 2048
+  include_environments:
+    - "HorizontalCREnv-v0"
+    - "VerticalCREnv-v0" 
+    - "SectorCREnv-v0"
+    - "MergeEnv-v0"
+  include_algorithms:
+    - "DDPG"
+    - "PPO"
+    - "SAC"
+    - "TD3"
+
+# LoRA Configuration (for efficient fine-tuning)
+lora:
+  enabled: true
+  rank: 16
+  alpha: 32
+  dropout: 0.1
+  target_modules:
+    - "q_proj"
+    - "v_proj"
+    - "k_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+
+# Evaluation Configuration
+evaluation:
+  metrics:
+    - "perplexity"
+    - "bleu"
+    - "rouge"
+    - "safety_score"
+  benchmark_scenarios: 100
+  
+# Output Configuration
+output:
+  model_dir: "models/fine_tuned"
+  checkpoint_dir: "models/checkpoints"
+  logs_dir: "logs"
+  
+# Hardware Configuration
+hardware:
+  device: "auto"  # auto, cpu, cuda
+  fp16: true
+  gradient_checkpointing: true
+  dataloader_num_workers: 4

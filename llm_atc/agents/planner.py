@@ -78,7 +78,9 @@ class Planner:
         self.assessment_history: list[ConflictAssessment] = []
         self.plan_history: list[ActionPlan] = []
 
-    def assess_conflict(self, aircraft_info: dict[str, Any]) -> Optional[ConflictAssessment]:
+    def assess_conflict(
+        self, aircraft_info: dict[str, Any]
+    ) -> Optional[ConflictAssessment]:
         """
         Assess current aircraft situation for potential conflicts
 
@@ -114,14 +116,18 @@ class Planner:
             # Store in history
             self.assessment_history.append(assessment)
 
-            self.logger.info("Conflict assessment completed: %s", assessment.conflict_id)
+            self.logger.info(
+                "Conflict assessment completed: %s", assessment.conflict_id
+            )
             return assessment
 
         except Exception:
             self.logger.exception("Error in conflict assessment")
             return None
 
-    def generate_action_plan(self, assessment: ConflictAssessment) -> Optional[ActionPlan]:
+    def generate_action_plan(
+        self, assessment: ConflictAssessment
+    ) -> Optional[ActionPlan]:
         """
         Generate detailed action plan based on conflict assessment
 
@@ -132,7 +138,9 @@ class Planner:
             ActionPlan with specific commands and expected outcomes
         """
         try:
-            self.logger.info("Generating action plan for conflict %s", assessment.conflict_id)
+            self.logger.info(
+                "Generating action plan for conflict %s", assessment.conflict_id
+            )
 
             # Generate plan ID
             plan_id = f"plan_{int(time.time() * 1000)}"
@@ -167,7 +175,9 @@ class Planner:
             self.logger.exception("Error generating action plan")
             return None
 
-    def _detect_proximity_conflicts(self, aircraft_data: dict[str, Any]) -> list[dict[str, Any]]:
+    def _detect_proximity_conflicts(
+        self, aircraft_data: dict[str, Any]
+    ) -> list[dict[str, Any]]:
         """Detect proximity-based conflicts between aircraft"""
         conflicts = []
         aircraft_list = list(aircraft_data.keys())
@@ -194,7 +204,9 @@ class Planner:
                             "aircraft": [ac1_id, ac2_id],
                             "separation": separation,
                             "severity": self._assess_severity(separation),
-                            "time_to_conflict": self._estimate_time_to_conflict(ac1_data, ac2_data),
+                            "time_to_conflict": self._estimate_time_to_conflict(
+                                ac1_data, ac2_data
+                            ),
                         },
                     )
 
@@ -203,11 +215,21 @@ class Planner:
     def _calculate_separation(self, ac1_data: dict, ac2_data: dict) -> dict[str, float]:
         """Calculate horizontal and vertical separation between aircraft"""
         # Simplified calculation - in real implementation would use proper geodetic calculations
-        lat1, lon1, alt1 = ac1_data.get("lat", 0), ac1_data.get("lon", 0), ac1_data.get("alt", 0)
-        lat2, lon2, alt2 = ac2_data.get("lat", 0), ac2_data.get("lon", 0), ac2_data.get("alt", 0)
+        lat1, lon1, alt1 = (
+            ac1_data.get("lat", 0),
+            ac1_data.get("lon", 0),
+            ac1_data.get("alt", 0),
+        )
+        lat2, lon2, alt2 = (
+            ac2_data.get("lat", 0),
+            ac2_data.get("lon", 0),
+            ac2_data.get("alt", 0),
+        )
 
         # Horizontal distance in nautical miles (simplified)
-        horizontal_nm = ((lat2 - lat1) ** 2 + (lon2 - lon1) ** 2) ** 0.5 * DEGREES_TO_NM_FACTOR
+        horizontal_nm = (
+            (lat2 - lat1) ** 2 + (lon2 - lon1) ** 2
+        ) ** 0.5 * DEGREES_TO_NM_FACTOR
 
         # Vertical separation in feet
         vertical_ft = abs(alt2 - alt1)
@@ -258,7 +280,9 @@ class Planner:
             ),
         )
 
-    def _generate_assessment(self, conflict: dict, aircraft_data: dict) -> ConflictAssessment:
+    def _generate_assessment(
+        self, conflict: dict, aircraft_data: dict
+    ) -> ConflictAssessment:
         """Generate comprehensive conflict assessment"""
         conflict_id = f"conflict_{int(time.time() * 1000)}"
 
@@ -282,7 +306,9 @@ class Planner:
             },
         )
 
-    def _determine_recommended_action(self, conflict: dict, _aircraft_data: dict) -> PlanType:
+    def _determine_recommended_action(
+        self, conflict: dict, _aircraft_data: dict
+    ) -> PlanType:
         """Determine the most appropriate action type for conflict resolution"""
         severity = conflict["severity"]
 

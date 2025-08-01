@@ -48,7 +48,9 @@ class BlueSkyConfig:
             "bluesky_config.yaml",
             "config/bluesky_config.yaml",
             os.path.join(os.path.dirname(__file__), "..", "..", "bluesky_config.yaml"),
-            os.path.join(os.path.dirname(__file__), "..", "..", "..", "bluesky_config.yaml"),
+            os.path.join(
+                os.path.dirname(__file__), "..", "..", "..", "bluesky_config.yaml"
+            ),
         ]
 
         for path in possible_paths:
@@ -227,13 +229,19 @@ class BlueSkyInterface:
                 bs.stack.stack(area_cmd)
 
                 # 3. Set conflict detection method
-                cd_method = _config.get("bluesky.simulation.conflict_detection_method", "SWARM")
+                cd_method = _config.get(
+                    "bluesky.simulation.conflict_detection_method", "SWARM"
+                )
                 logging.info(f"Setting conflict detection method: {cd_method}")
                 bs.stack.stack(f"CDMETHOD {cd_method}")
 
                 # 4. Set separation standards
-                h_sep = _config.get("bluesky.simulation.separation_standards.horizontal_nm", 5.0)
-                v_sep = _config.get("bluesky.simulation.separation_standards.vertical_ft", 1000.0)
+                h_sep = _config.get(
+                    "bluesky.simulation.separation_standards.horizontal_nm", 5.0
+                )
+                v_sep = _config.get(
+                    "bluesky.simulation.separation_standards.vertical_ft", 1000.0
+                )
                 logging.info(
                     f"Setting separation standards: {h_sep}nm horizontal, {v_sep}ft vertical",
                 )
@@ -305,11 +313,27 @@ class BlueSkyInterface:
                                 "id": acid,
                                 "lat": float(traffic.lat[i]),
                                 "lon": float(traffic.lon[i]),
-                                "alt": float(traffic.alt[i]) if i < len(traffic.alt) else 35000.0,
-                                "hdg": float(traffic.hdg[i]) if i < len(traffic.hdg) else 0.0,
-                                "spd": float(traffic.tas[i]) if i < len(traffic.tas) else 250.0,
-                                "vs": float(traffic.vs[i]) if i < len(traffic.vs) else 0.0,
-                                "type": traffic.type[i] if i < len(traffic.type) else "B738",
+                                "alt": (
+                                    float(traffic.alt[i])
+                                    if i < len(traffic.alt)
+                                    else 35000.0
+                                ),
+                                "hdg": (
+                                    float(traffic.hdg[i])
+                                    if i < len(traffic.hdg)
+                                    else 0.0
+                                ),
+                                "spd": (
+                                    float(traffic.tas[i])
+                                    if i < len(traffic.tas)
+                                    else 250.0
+                                ),
+                                "vs": (
+                                    float(traffic.vs[i]) if i < len(traffic.vs) else 0.0
+                                ),
+                                "type": (
+                                    traffic.type[i] if i < len(traffic.type) else "B738"
+                                ),
                                 "callsign": acid,
                             }
 
@@ -328,7 +352,9 @@ class BlueSkyInterface:
                 "timestamp": time.time(),
                 "total_aircraft": len(aircraft_dict),
                 "simulation_time": (
-                    getattr(sim, "simt", time.time()) if hasattr(sim, "simt") else time.time()
+                    getattr(sim, "simt", time.time())
+                    if hasattr(sim, "simt")
+                    else time.time()
                 ),
                 "source": "bluesky_real",
             }
@@ -376,9 +402,17 @@ class BlueSkyInterface:
                                 "horizontal_separation": h_sep,
                                 "vertical_separation": v_sep,
                                 "time_to_cpa": 120,  # Would need to calculate from BlueSky data
-                                "severity": self._assess_conflict_severity(h_sep, v_sep),
-                                "predicted_cpa_lat": (traf.lat[ac1_idx] + traf.lat[ac2_idx]) / 2,
-                                "predicted_cpa_lon": (traf.lon[ac1_idx] + traf.lon[ac2_idx]) / 2,
+                                "severity": self._assess_conflict_severity(
+                                    h_sep, v_sep
+                                ),
+                                "predicted_cpa_lat": (
+                                    traf.lat[ac1_idx] + traf.lat[ac2_idx]
+                                )
+                                / 2,
+                                "predicted_cpa_lon": (
+                                    traf.lon[ac1_idx] + traf.lon[ac2_idx]
+                                )
+                                / 2,
                                 "predicted_cpa_time": time.time() + 120,
                             },
                         )
@@ -387,11 +421,15 @@ class BlueSkyInterface:
                 "conflicts": conflicts,
                 "total_conflicts": len(conflicts),
                 "timestamp": time.time(),
-                "high_priority_conflicts": len([c for c in conflicts if c["severity"] == "high"]),
+                "high_priority_conflicts": len(
+                    [c for c in conflicts if c["severity"] == "high"]
+                ),
                 "medium_priority_conflicts": len(
                     [c for c in conflicts if c["severity"] == "medium"],
                 ),
-                "low_priority_conflicts": len([c for c in conflicts if c["severity"] == "low"]),
+                "low_priority_conflicts": len(
+                    [c for c in conflicts if c["severity"] == "low"]
+                ),
                 "source": "bluesky_real",
             }
 
@@ -420,8 +458,12 @@ class BlueSkyInterface:
 
     def _assess_conflict_severity(self, h_sep: float, v_sep: float) -> str:
         """Assess conflict severity based on separation"""
-        h_min = _config.get("bluesky.simulation.separation_standards.horizontal_nm", 5.0)
-        v_min = _config.get("bluesky.simulation.separation_standards.vertical_ft", 1000.0)
+        h_min = _config.get(
+            "bluesky.simulation.separation_standards.horizontal_nm", 5.0
+        )
+        v_min = _config.get(
+            "bluesky.simulation.separation_standards.vertical_ft", 1000.0
+        )
 
         if h_sep < h_min * 0.6 and v_sep < v_min * 0.6:
             return "high"
@@ -459,7 +501,9 @@ class BlueSkyInterface:
                 "status": "executed",
                 "success": success,
                 "timestamp": time.time(),
-                "response": result if result else f"{command.split()[0]} command acknowledged",
+                "response": (
+                    result if result else f"{command.split()[0]} command acknowledged"
+                ),
                 "source": "bluesky_real",
             }
 
@@ -474,7 +518,9 @@ class BlueSkyInterface:
                 "source": "bluesky_real",
             }
 
-    def step_simulation_real(self, minutes: float, dtmult: float = 1.0) -> dict[str, Any]:
+    def step_simulation_real(
+        self, minutes: float, dtmult: float = 1.0
+    ) -> dict[str, Any]:
         """Step the real BlueSky simulation forward"""
         if not self.is_available():
             return self._simulate_step(minutes, dtmult)
@@ -497,7 +543,9 @@ class BlueSkyInterface:
                 "seconds_advanced": minutes * 60,
                 "dtmult": dtmult,
                 "simulation_time": (
-                    getattr(sim, "simt", time.time()) if hasattr(sim, "simt") else time.time()
+                    getattr(sim, "simt", time.time())
+                    if hasattr(sim, "simt")
+                    else time.time()
                 ),
                 "command_result": cmd_result,
                 "status": "completed" if cmd_result.get("success") else "failed",
@@ -541,7 +589,13 @@ class BlueSkyInterface:
                 "success": reset_result.get("success", False),
                 "status": "completed" if reset_result.get("success") else "failed",
                 "source": "bluesky_real",
-                "setup_commands": ["IC", "AREA EHAM", "CDMETHOD SWARM", "CDSEP 5.0 1000", "OP"],
+                "setup_commands": [
+                    "IC",
+                    "AREA EHAM",
+                    "CDMETHOD SWARM",
+                    "CDSEP 5.0 1000",
+                    "OP",
+                ],
             }
 
         except Exception as e:
@@ -754,7 +808,10 @@ def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     # Haversine formula
     dlat = lat2_rad - lat1_rad
     dlon = lon2_rad - lon1_rad
-    a = math.sin(dlat / 2) ** 2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2) ** 2
+    a = (
+        math.sin(dlat / 2) ** 2
+        + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2) ** 2
+    )
     c = 2 * math.asin(math.sqrt(a))
 
     # Earth's radius in nautical miles
@@ -904,7 +961,9 @@ def send_command(command: str) -> dict[str, Any]:
         if "affected_aircraft" not in result and len(command_parts) > 1:
             result["affected_aircraft"] = command_parts[1]
 
-        logging.info("Command executed: %s -> %s", command, result.get("status", "unknown"))
+        logging.info(
+            "Command executed: %s -> %s", command, result.get("status", "unknown")
+        )
         return result
 
     except Exception as e:
@@ -993,7 +1052,9 @@ def search_experience_library(
         raise BlueSkyToolsError(msg) from e
 
 
-def get_weather_info(lat: float | None = None, lon: float | None = None) -> dict[str, Any]:
+def get_weather_info(
+    lat: float | None = None, lon: float | None = None
+) -> dict[str, Any]:
     """
     Get weather information for specified location or current area
 
@@ -1198,7 +1259,10 @@ def _haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> f
     # Haversine formula
     dlat = lat2_rad - lat1_rad
     dlon = lon2_rad - lon1_rad
-    a = math.sin(dlat / 2) ** 2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2) ** 2
+    a = (
+        math.sin(dlat / 2) ** 2
+        + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2) ** 2
+    )
     c = 2 * math.asin(math.sqrt(a))
 
     # Earth's radius in nautical miles
@@ -1219,7 +1283,9 @@ def step_simulation(minutes: float, dtmult: float = 1.0) -> dict[str, Any]:
         Status dictionary with simulation step information
     """
     try:
-        logging.info("Stepping simulation forward by %.2f minutes (dtmult=%.1f)", minutes, dtmult)
+        logging.info(
+            "Stepping simulation forward by %.2f minutes (dtmult=%.1f)", minutes, dtmult
+        )
 
         # Use BlueSky interface to step the simulation
         result = _bluesky_interface.step_simulation_real(minutes, dtmult)
@@ -1269,7 +1335,9 @@ def reset_simulation() -> dict[str, Any]:
                 "OP",
             ]
 
-        logging.info("Simulation reset completed (source: %s)", result.get("source", "unknown"))
+        logging.info(
+            "Simulation reset completed (source: %s)", result.get("source", "unknown")
+        )
         return result
 
     except Exception as e:

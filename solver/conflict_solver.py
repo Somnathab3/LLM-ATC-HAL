@@ -31,7 +31,9 @@ class ConflictSolver:
                 bluesky_solutions = self._get_bluesky_solutions(conflict)
                 if bluesky_solutions:
                     candidates.extend(bluesky_solutions)
-                    logging.info(f"Generated {len(bluesky_solutions)} BlueSky solutions")
+                    logging.info(
+                        f"Generated {len(bluesky_solutions)} BlueSky solutions"
+                    )
             except Exception as e:
                 logging.warning(f"BlueSky resolution failed: {e}")
 
@@ -63,7 +65,9 @@ class ConflictSolver:
                             "aircraft": ac1_id if i % 2 == 0 else ac2_id,
                             "action": f"BlueSky resolution {i+1}",
                             "bluesky_data": solution,
-                            "safety_score": self._calculate_safety_score("bluesky_resolution", 1.0),
+                            "safety_score": self._calculate_safety_score(
+                                "bluesky_resolution", 1.0
+                            ),
                         }
                         solutions.append(formatted_solution)
 
@@ -93,7 +97,9 @@ class ConflictSolver:
                     "aircraft": ac1_id,
                     "action": f"turn {heading_change} degrees",
                     "heading_change": heading_change,
-                    "safety_score": self._calculate_safety_score("heading", abs(heading_change)),
+                    "safety_score": self._calculate_safety_score(
+                        "heading", abs(heading_change)
+                    ),
                 },
             )
 
@@ -105,7 +111,9 @@ class ConflictSolver:
                     "aircraft": ac1_id,
                     "action": f'{"climb" if alt_change > 0 else "descend"} {abs(alt_change)} ft',
                     "altitude_change": alt_change,
-                    "safety_score": self._calculate_safety_score("altitude", abs(alt_change)),
+                    "safety_score": self._calculate_safety_score(
+                        "altitude", abs(alt_change)
+                    ),
                 },
             )
 
@@ -117,7 +125,9 @@ class ConflictSolver:
                     "aircraft": ac1_id,
                     "action": f'{"accelerate" if speed_change > 0 else "decelerate"} {abs(speed_change)} knots',
                     "speed_change": speed_change,
-                    "safety_score": self._calculate_safety_score("speed", abs(speed_change)),
+                    "safety_score": self._calculate_safety_score(
+                        "speed", abs(speed_change)
+                    ),
                 },
             )
 

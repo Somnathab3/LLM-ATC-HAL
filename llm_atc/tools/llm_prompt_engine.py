@@ -79,7 +79,7 @@ class LLMPromptEngine:
         self.llm_client = LLMClient(
             model=model,
             enable_streaming=enable_streaming,
-            enable_caching=enable_caching
+            enable_caching=enable_caching,
         )
         self.enable_function_calls = enable_function_calls
         self.aircraft_id_regex = aircraft_id_regex
@@ -95,7 +95,7 @@ class LLMPromptEngine:
             "min_aircraft_for_sector": 3,
             "sector_detection_threshold_nm": 4.0,  # Stricter for sectors
             "sector_confidence_boost": 0.15,
-            "multi_aircraft_complexity_factor": 0.1
+            "multi_aircraft_complexity_factor": 0.1,
         }
 
         # Prompt templates
@@ -333,10 +333,12 @@ RECOMMENDATION: APPROVE
         try:
             # Use optimized version if enabled
             if self.enable_optimized_prompts:
-                system_prompt, user_prompt = self.format_conflict_resolution_prompt_optimized(conflict_info)
+                system_prompt, user_prompt = (
+                    self.format_conflict_resolution_prompt_optimized(conflict_info)
+                )
                 # For backward compatibility, combine system and user prompts
                 return f"{system_prompt}\n\n{user_prompt}"
-            
+
             # Original implementation
             # Extract aircraft information
             ac1_id = conflict_info.get("aircraft_1_id", "AC001")
@@ -352,7 +354,9 @@ RECOMMENDATION: APPROVE
                 aircraft_1_id=ac1_id,
                 aircraft_2_id=ac2_id,
                 time_to_conflict=conflict_info.get("time_to_conflict", 120.0),
-                closest_approach_distance=conflict_info.get("closest_approach_distance", 3.5),
+                closest_approach_distance=conflict_info.get(
+                    "closest_approach_distance", 3.5
+                ),
                 conflict_type=conflict_info.get("conflict_type", "convergent"),
                 urgency_level=conflict_info.get("urgency_level", "medium"),
                 # Aircraft 1 details
@@ -399,8 +403,10 @@ RECOMMENDATION: APPROVE
         """
         # Determine if this is a sector scenario
         num_aircraft = len(aircraft_states)
-        is_sector_scenario = num_aircraft >= self.sector_config["min_aircraft_for_sector"]
-        
+        is_sector_scenario = (
+            num_aircraft >= self.sector_config["min_aircraft_for_sector"]
+        )
+
         # Format aircraft list with enhanced data for sector scenarios
         aircraft_list = []
         for i, aircraft in enumerate(aircraft_states):
@@ -429,8 +435,10 @@ Aircraft {aircraft.get("id", f"AC{i + 1:03d}")}:
         # Build the base prompt using the appropriate template
         if self.enable_optimized_prompts:
             # Use optimized format with sector enhancements
-            system_prompt, user_prompt = self.format_conflict_detection_prompt_optimized(
-                aircraft_states, time_horizon
+            system_prompt, user_prompt = (
+                self.format_conflict_detection_prompt_optimized(
+                    aircraft_states, time_horizon
+                )
             )
             base_prompt = f"{system_prompt}\n\n{user_prompt}"
         else:
@@ -439,7 +447,7 @@ Aircraft {aircraft.get("id", f"AC{i + 1:03d}")}:
                 aircraft_list="\n".join(aircraft_list),
                 time_horizon=time_horizon,
             )
-        
+
         # Add sector-specific enhancements
         if is_sector_scenario:
             sector_enhancement = f"""
@@ -459,7 +467,7 @@ REQUIRED ANALYSIS STEPS:
 5. Prioritize by severity and time to conflict
 """
             base_prompt += sector_enhancement
-        
+
         # Enhance with CPA data if available
         if cpa_data:
             cpa_enhancement = f"""
@@ -476,10 +484,12 @@ ADDITIONAL CONTEXT FROM PRIOR ANALYSIS:
 Use this precise data to validate your mathematical calculations and improve detection accuracy.
 """
             base_prompt += cpa_enhancement
-        
+
         return base_prompt
 
-    def parse_resolution_response(self, response_text: str) -> Optional[ResolutionResponse]:
+    def parse_resolution_response(
+        self, response_text: str
+    ) -> Optional[ResolutionResponse]:
         """
         Extract BlueSky command from LLM response.
 
@@ -491,15 +501,24 @@ Use this precise data to validate your mathematical calculations and improve det
         """
         try:
             # Handle function call responses
-            if isinstance(response_text, dict) and response_text.get("type") == "function_call":
+            if (
+                isinstance(response_text, dict)
+                and response_text.get("type") == "function_call"
+            ):
                 return self._parse_function_call_response(response_text)
 
             # Parse structured text response using the new format
-            command_match = re.search(r"COMMAND:\s*([^\n]+)", response_text, re.IGNORECASE)
+            command_match = re.search(
+                r"COMMAND:\s*([^\n]+)", response_text, re.IGNORECASE
+            )
             re.search(r"AIRCRAFT:\s*([^\n]+)", response_text, re.IGNORECASE)
             re.search(r"MANEUVER:\s*([^\n]+)", response_text, re.IGNORECASE)
-            rationale_match = re.search(r"RATIONALE:\s*([^\n]+)", response_text, re.IGNORECASE)
-            confidence_match = re.search(r"CONFIDENCE:\s*([\d.]+)", response_text, re.IGNORECASE)
+            rationale_match = re.search(
+                r"RATIONALE:\s*([^\n]+)", response_text, re.IGNORECASE
+            )
+            confidence_match = re.search(
+                r"CONFIDENCE:\s*([\d.]+)", response_text, re.IGNORECASE
+            )
 
             command = None
             if command_match:
@@ -509,11 +528,15 @@ Use this precise data to validate your mathematical calculations and improve det
                 if normalized_command:
                     command = normalized_command
                 else:
-                    self.logger.warning(f"Could not normalize structured command: {command}")
+                    self.logger.warning(
+                        f"Could not normalize structured command: {command}"
+                    )
                     return None
             else:
                 # Fallback to legacy parsing if structured format not found
-                self.logger.warning("Structured format not found, trying legacy parsing")
+                self.logger.warning(
+                    "Structured format not found, trying legacy parsing"
+                )
                 command = self._extract_bluesky_command(response_text)
 
                 if not command:
@@ -536,7 +559,9 @@ Use this precise data to validate your mathematical calculations and improve det
                                         command = f"HDG {match.group(1).upper()} {match.group(2)}"
                                     break
                             elif "altitude" in pattern:
-                                command = f"ALT {match.group(2).upper()} {match.group(1)}"
+                                command = (
+                                    f"ALT {match.group(2).upper()} {match.group(1)}"
+                                )
                                 break
 
             if not command:
@@ -556,9 +581,13 @@ Use this precise data to validate your mathematical calculations and improve det
                 aircraft_id=aircraft_id,
                 maneuver_type=maneuver_type,
                 rationale=(
-                    rationale_match.group(1).strip() if rationale_match else "No rationale provided"
+                    rationale_match.group(1).strip()
+                    if rationale_match
+                    else "No rationale provided"
                 ),
-                confidence=float(confidence_match.group(1)) if confidence_match else 0.5,
+                confidence=(
+                    float(confidence_match.group(1)) if confidence_match else 0.5
+                ),
                 safety_assessment="Pending verification",
             )
 
@@ -586,10 +615,14 @@ Use this precise data to validate your mathematical calculations and improve det
             "analysis": "No analysis provided",
             "scenario_type": "unknown",
             "validation_status": "pending",
-            "validation_errors": []
+            "validation_errors": [],
         }
 
         try:
+            # Check if this is a distilled model response first (simple format)
+            if self._is_distilled_model_response(response_text):
+                return self._parse_distilled_model_response(response_text)
+
             # Extract JSON from response
             json_text = self._extract_json_from_response(response_text)
             if not json_text:
@@ -601,14 +634,24 @@ Use this precise data to validate your mathematical calculations and improve det
             # Enhanced validation for sector scenarios
             validation_errors = self._validate_detector_response(json_data)
             result["validation_errors"] = validation_errors
-            result["validation_status"] = "valid" if not validation_errors else "invalid"
+            result["validation_status"] = (
+                "valid" if not validation_errors else "invalid"
+            )
 
             # Extract fields with enhanced validation
-            result["conflict_detected"] = bool(json_data.get("conflict_detected", False))
-            result["aircraft_pairs"] = self._validate_aircraft_pairs(json_data.get("aircraft_pairs", []))
+            result["conflict_detected"] = bool(
+                json_data.get("conflict_detected", False)
+            )
+            result["aircraft_pairs"] = self._validate_aircraft_pairs(
+                json_data.get("aircraft_pairs", [])
+            )
             result["time_to_conflict"] = json_data.get("time_to_conflict", [])
-            result["confidence"] = self._validate_confidence(json_data.get("confidence", 0.5))
-            result["priority"] = self._validate_priority(json_data.get("priority", "low"))
+            result["confidence"] = self._validate_confidence(
+                json_data.get("confidence", 0.5)
+            )
+            result["priority"] = self._validate_priority(
+                json_data.get("priority", "low")
+            )
             result["analysis"] = json_data.get("analysis", "No analysis provided")
             result["scenario_type"] = json_data.get("scenario_type", "unknown")
 
@@ -619,7 +662,9 @@ Use this precise data to validate your mathematical calculations and improve det
             # Validate calculation details if present
             if "calculation_details" in json_data:
                 result["calculation_details"] = json_data["calculation_details"]
-                calc_errors = self._validate_calculation_details(json_data["calculation_details"])
+                calc_errors = self._validate_calculation_details(
+                    json_data["calculation_details"]
+                )
                 result["validation_errors"].extend(calc_errors)
 
             # Convert aircraft pairs to tuples if they're strings
@@ -648,6 +693,93 @@ Use this precise data to validate your mathematical calculations and improve det
             result["validation_errors"].append(f"Parsing error: {e}")
             return result
 
+    def _is_distilled_model_response(self, response_text: str) -> bool:
+        """Check if this is a response from the distilled BlueSky Gym model"""
+        # Look for specific patterns from the distilled model training data
+        patterns = [
+            r"Action:\s*(Turn|Climb|Descend|Maintain)",
+            r"Explanation:\s*",
+            r"Priority:\s*Conflict resolution required",
+            r"URGENT:\s*Safety separation compromised",
+        ]
+
+        text_lower = response_text.lower()
+        return any(
+            re.search(pattern, response_text, re.IGNORECASE) for pattern in patterns
+        )
+
+    def _parse_distilled_model_response(self, response_text: str) -> dict[str, Any]:
+        """Parse response from the fine-tuned BlueSky Gym distilled model"""
+        result = {
+            "conflict_detected": False,
+            "aircraft_pairs": [],
+            "time_to_conflict": [],
+            "confidence": 0.7,  # Default higher confidence for distilled model
+            "priority": "low",
+            "analysis": response_text.strip(),
+            "scenario_type": "distilled_model",
+            "validation_status": "distilled_format",
+            "validation_errors": [],
+        }
+
+        try:
+            # Extract action
+            action_match = re.search(
+                r"Action:\s*(.*?)(?:\n|$)", response_text, re.IGNORECASE
+            )
+            if action_match:
+                action = action_match.group(1).strip()
+                result["action"] = action
+
+                # Detect conflicts based on action keywords
+                conflict_keywords = [
+                    "conflict",
+                    "turn",
+                    "climb",
+                    "descend",
+                    "separation",
+                    "urgent",
+                ]
+                if any(keyword in action.lower() for keyword in conflict_keywords):
+                    result["conflict_detected"] = True
+                    result["priority"] = "high"
+
+            # Extract explanation
+            explanation_match = re.search(
+                r"Explanation:\s*(.*?)(?:\n|$)", response_text, re.IGNORECASE
+            )
+            if explanation_match:
+                explanation = explanation_match.group(1).strip()
+                result["analysis"] = explanation
+
+                # Check for urgency indicators
+                if "urgent" in explanation.lower() or "safety" in explanation.lower():
+                    result["conflict_detected"] = True
+                    result["priority"] = "critical"
+                    result["confidence"] = 0.9
+
+                # Check for conflict resolution
+                if "conflict resolution required" in explanation.lower():
+                    result["conflict_detected"] = True
+                    result["priority"] = "high"
+
+            # Parse turn/maneuver commands to extract aircraft pairs
+            if result["conflict_detected"]:
+                # Look for aircraft IDs in the action/explanation
+                aircraft_pattern = r"\b([A-Z]{2,4}\d{2,4}[A-Z]?)\b"
+                aircraft_matches = re.findall(aircraft_pattern, response_text)
+                if len(aircraft_matches) >= 2:
+                    result["aircraft_pairs"] = [
+                        (aircraft_matches[0], aircraft_matches[1])
+                    ]
+
+            return result
+
+        except Exception as e:
+            self.logger.exception(f"Error parsing distilled model response: {e}")
+            result["validation_errors"].append(f"Distilled parsing error: {e}")
+            return result
+
     def _parse_detector_response_legacy(self, response_text: str) -> dict[str, Any]:
         """Legacy text-based parsing for detector responses"""
         result = {
@@ -659,7 +791,7 @@ Use this precise data to validate your mathematical calculations and improve det
             "analysis": "Legacy parsing used",
             "validation_status": "legacy",
             "validation_errors": ["Non-JSON response processed with legacy parser"],
-            "scenario_type": "unknown"
+            "scenario_type": "unknown",
         }
 
         try:
@@ -690,15 +822,21 @@ Use this precise data to validate your mathematical calculations and improve det
                 re.IGNORECASE,
             )
             if time_match:
-                result["time_to_conflict"] = self._parse_time_values(time_match.group(1))
+                result["time_to_conflict"] = self._parse_time_values(
+                    time_match.group(1)
+                )
 
             # Parse confidence
-            confidence_match = re.search(r"Confidence:\s*([\d.]+)", response_text, re.IGNORECASE)
+            confidence_match = re.search(
+                r"Confidence:\s*([\d.]+)", response_text, re.IGNORECASE
+            )
             if confidence_match:
                 result["confidence"] = float(confidence_match.group(1))
 
             # Parse priority
-            priority_match = re.search(r"Priority:\s*(\w+)", response_text, re.IGNORECASE)
+            priority_match = re.search(
+                r"Priority:\s*(\w+)", response_text, re.IGNORECASE
+            )
             if priority_match:
                 result["priority"] = priority_match.group(1).lower()
 
@@ -720,7 +858,9 @@ Use this precise data to validate your mathematical calculations and improve det
                 errors.append(f"Missing required field: {field}")
 
         # Validate conflict_detected type
-        if "conflict_detected" in json_data and not isinstance(json_data["conflict_detected"], bool):
+        if "conflict_detected" in json_data and not isinstance(
+            json_data["conflict_detected"], bool
+        ):
             errors.append("conflict_detected must be boolean")
 
         # Validate aircraft_pairs format
@@ -732,10 +872,14 @@ Use this precise data to validate your mathematical calculations and improve det
                 for i, pair in enumerate(pairs):
                     if isinstance(pair, str):
                         if "-" not in pair:
-                            errors.append(f"aircraft_pairs[{i}]: string format must contain '-'")
+                            errors.append(
+                                f"aircraft_pairs[{i}]: string format must contain '-'"
+                            )
                     elif isinstance(pair, list):
                         if len(pair) < 2:
-                            errors.append(f"aircraft_pairs[{i}]: list format must have at least 2 elements")
+                            errors.append(
+                                f"aircraft_pairs[{i}]: list format must have at least 2 elements"
+                            )
                     else:
                         errors.append(f"aircraft_pairs[{i}]: invalid format")
 
@@ -744,16 +888,18 @@ Use this precise data to validate your mathematical calculations and improve det
     def _validate_aircraft_pairs(self, pairs: list) -> list:
         """Validate and normalize aircraft pairs"""
         validated_pairs = []
-        
+
         for pair in pairs:
             if isinstance(pair, str) and "-" in pair:
                 parts = pair.split("-", 1)
-                if len(parts) == 2 and all(re.match(self.aircraft_id_regex, p.strip()) for p in parts):
+                if len(parts) == 2 and all(
+                    re.match(self.aircraft_id_regex, p.strip()) for p in parts
+                ):
                     validated_pairs.append(pair)
             elif isinstance(pair, (list, tuple)) and len(pair) >= 2:
                 if all(re.match(self.aircraft_id_regex, str(p)) for p in pair[:2]):
                     validated_pairs.append(f"{pair[0]}-{pair[1]}")
-                    
+
         return validated_pairs
 
     def _validate_confidence(self, confidence: Any) -> float:
@@ -778,7 +924,7 @@ Use this precise data to validate your mathematical calculations and improve det
         """Additional validation for sector scenarios"""
         sector_validation = {
             "sector_validation_status": "passed",
-            "sector_validation_warnings": []
+            "sector_validation_warnings": [],
         }
 
         warnings = []
@@ -786,7 +932,9 @@ Use this precise data to validate your mathematical calculations and improve det
         # Check for comprehensive pair analysis
         aircraft_pairs = json_data.get("aircraft_pairs", [])
         if len(aircraft_pairs) > 3:
-            warnings.append("High number of conflicts detected - verify all pairs analyzed")
+            warnings.append(
+                "High number of conflicts detected - verify all pairs analyzed"
+            )
 
         # Check for proper calculation details in complex scenarios
         if "calculation_details" not in json_data and len(aircraft_pairs) > 1:
@@ -807,7 +955,11 @@ Use this precise data to validate your mathematical calculations and improve det
         """Validate calculation details for mathematical accuracy"""
         errors = []
 
-        required_calc_fields = ["current_horizontal_nm", "current_vertical_ft", "meets_separation_standards"]
+        required_calc_fields = [
+            "current_horizontal_nm",
+            "current_vertical_ft",
+            "meets_separation_standards",
+        ]
         for field in required_calc_fields:
             if field not in calc_details:
                 errors.append(f"Missing calculation field: {field}")
@@ -828,7 +980,7 @@ Use this precise data to validate your mathematical calculations and improve det
     def _extract_json_from_response(self, response_text: str) -> Optional[str]:
         """Extract JSON object from response text"""
         # Look for JSON object in response
-        json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+        json_match = re.search(r"\{.*\}", response_text, re.DOTALL)
         if json_match:
             return json_match.group(0)
         return None
@@ -851,21 +1003,25 @@ Use this precise data to validate your mathematical calculations and improve det
         try:
             # Use optimized version if enabled
             if self.enable_optimized_prompts:
-                resolution = self.get_conflict_resolution_optimized(conflict_info, priority="normal")
+                resolution = self.get_conflict_resolution_optimized(
+                    conflict_info, priority="normal"
+                )
                 if resolution:
                     self.logger.info(
                         f"Generated resolution (optimized): {resolution.command} (confidence: {resolution.confidence:.2f})",
                     )
                     return resolution.command
                 return None
-            
+
             # Original implementation
             # Format the prompt
             prompt = self.format_conflict_prompt(conflict_info)
 
             # Determine function calling setting
             enable_calls = (
-                use_function_calls if use_function_calls is not None else self.enable_function_calls
+                use_function_calls
+                if use_function_calls is not None
+                else self.enable_function_calls
             )
 
             # Query the LLM
@@ -907,7 +1063,9 @@ Use this precise data to validate your mathematical calculations and improve det
 
             # Determine function calling setting
             enable_calls = (
-                use_function_calls if use_function_calls is not None else self.enable_function_calls
+                use_function_calls
+                if use_function_calls is not None
+                else self.enable_function_calls
             )
 
             # Query the LLM
@@ -925,7 +1083,7 @@ Use this precise data to validate your mathematical calculations and improve det
                     "resolution_prompt": prompt,
                     "resolution_response": response,
                     "confidence": resolution.confidence,
-                    "success": True
+                    "success": True,
                 }
             else:
                 self.logger.warning("Failed to parse resolution from LLM response")
@@ -934,7 +1092,7 @@ Use this precise data to validate your mathematical calculations and improve det
                     "resolution_prompt": prompt,
                     "resolution_response": response,
                     "confidence": 0.0,
-                    "success": False
+                    "success": False,
                 }
 
         except Exception as e:
@@ -945,7 +1103,7 @@ Use this precise data to validate your mathematical calculations and improve det
                 "resolution_response": "",
                 "confidence": 0.0,
                 "success": False,
-                "error": str(e)
+                "error": str(e),
             }
 
     def detect_conflict_via_llm(
@@ -968,7 +1126,9 @@ Use this precise data to validate your mathematical calculations and improve det
         """
         try:
             # Format the detection prompt
-            prompt = self.format_detector_prompt(aircraft_states, time_horizon, cpa_data)
+            prompt = self.format_detector_prompt(
+                aircraft_states, time_horizon, cpa_data
+            )
 
             # Query the LLM
             response = self.llm_client.ask(prompt, enable_function_calls=False)
@@ -1006,7 +1166,9 @@ Use this precise data to validate your mathematical calculations and improve det
         """
         try:
             # Format the detection prompt
-            prompt = self.format_detector_prompt(aircraft_states, time_horizon, cpa_data)
+            prompt = self.format_detector_prompt(
+                aircraft_states, time_horizon, cpa_data
+            )
 
             # Query the LLM
             response = self.llm_client.ask(prompt, enable_function_calls=False)
@@ -1027,7 +1189,12 @@ Use this precise data to validate your mathematical calculations and improve det
 
         except Exception as e:
             self.logger.exception(f"Error in LLM-based conflict detection: {e}")
-            return {"conflict_detected": False, "error": str(e), "llm_prompt": "", "llm_response": ""}
+            return {
+                "conflict_detected": False,
+                "error": str(e),
+                "llm_prompt": "",
+                "llm_response": "",
+            }
 
     def assess_resolution_safety(
         self,
@@ -1119,7 +1286,9 @@ Command:
 
         # Clean text: remove degree symbols and other formatting
         cleaned_text = text.replace("°", "").replace("degrees", "").replace("deg", "")
-        cleaned_text = re.sub(r"[^\w\s:]+", " ", cleaned_text)  # Remove special chars except colons
+        cleaned_text = re.sub(
+            r"[^\w\s:]+", " ", cleaned_text
+        )  # Remove special chars except colons
 
         # Check for SendCommand format: **SendCommand("CLB 1000ft", "UAL890")**
         sendcommand_match = re.search(
@@ -1132,7 +1301,9 @@ Command:
             aircraft_part = sendcommand_match.group(2).strip()
 
             # Parse command part like "CLB 1000ft" or "HDG 040"
-            cmd_match = re.search(r"(CLB|HDG|ALT|SPD|VS)\s*(\d+)", command_part, re.IGNORECASE)
+            cmd_match = re.search(
+                r"(CLB|HDG|ALT|SPD|VS)\s*(\d+)", command_part, re.IGNORECASE
+            )
             if cmd_match:
                 cmd_type = cmd_match.group(1).upper()
                 if cmd_type == "CLB":
@@ -1228,10 +1399,14 @@ Command:
 
         # Third pass: Check for multiple commands or extraneous text
         command_count = len(
-            re.findall(r"\b(HDG|ALT|SPD|VS)\s+[A-Z0-9-]+\s+\d+", cleaned_text, re.IGNORECASE),
+            re.findall(
+                r"\b(HDG|ALT|SPD|VS)\s+[A-Z0-9-]+\s+\d+", cleaned_text, re.IGNORECASE
+            ),
         )
         if command_count > 1:
-            self.logger.warning(f"Multiple commands detected in response: {text[:100]}...")
+            self.logger.warning(
+                f"Multiple commands detected in response: {text[:100]}..."
+            )
             # Return the first valid command found
             first_match = re.search(
                 r"\b(HDG|ALT|SPD|VS)\s+([A-Z0-9-]+)\s+(\d+)",
@@ -1252,7 +1427,9 @@ Command:
             return None
 
         # Clean command: remove degree symbols and other formatting
-        cleaned_command = command.replace("°", "").replace("degrees", "").replace("deg", "")
+        cleaned_command = (
+            command.replace("°", "").replace("degrees", "").replace("deg", "")
+        )
         cleaned_command = re.sub(
             r"[^\w\s-]",
             " ",
@@ -1306,11 +1483,17 @@ Command:
 
         for part in parts:
             # Skip command keywords and use configurable aircraft ID pattern
-            if part.upper() not in command_keywords and re.match(self.aircraft_id_regex, part):
+            if part.upper() not in command_keywords and re.match(
+                self.aircraft_id_regex, part
+            ):
                 return part
 
         # Fallback: return second part if it exists (traditional CMD AIRCRAFT VALUE format)
-        return parts[1] if len(parts) > 1 and parts[1].upper() not in command_keywords else ""
+        return (
+            parts[1]
+            if len(parts) > 1 and parts[1].upper() not in command_keywords
+            else ""
+        )
 
     def _determine_maneuver_type(self, command: str) -> str:
         """Determine maneuver type from BlueSky command"""
@@ -1350,7 +1533,9 @@ Command:
             for match in matches:
                 # Validate both aircraft IDs match the full pattern
                 ac1, ac2 = match[0].upper(), match[1].upper()
-                if re.match(self.aircraft_id_regex, ac1) and re.match(self.aircraft_id_regex, ac2):
+                if re.match(self.aircraft_id_regex, ac1) and re.match(
+                    self.aircraft_id_regex, ac2
+                ):
                     pairs.append((ac1, ac2))
 
         return pairs
@@ -1400,7 +1585,9 @@ Command:
                 missing_fields.append("Safety Rating")
 
             # Parse separation (new format)
-            sep_match = re.search(r"SEPARATION_ACHIEVED:\s*([^\n]+)", response_text, re.IGNORECASE)
+            sep_match = re.search(
+                r"SEPARATION_ACHIEVED:\s*([^\n]+)", response_text, re.IGNORECASE
+            )
             if not sep_match:
                 # Fallback to old format
                 sep_match = re.search(
@@ -1434,10 +1621,14 @@ Command:
                 missing_fields.append("ICAO Compliance")
 
             # Parse risk assessment (new format)
-            risk_match = re.search(r"RISK_ASSESSMENT:\s*([^\n]+)", response_text, re.IGNORECASE)
+            risk_match = re.search(
+                r"RISK_ASSESSMENT:\s*([^\n]+)", response_text, re.IGNORECASE
+            )
             if not risk_match:
                 # Fallback to old format
-                risk_match = re.search(r"Risk Assessment:\s*([^\n]+)", response_text, re.IGNORECASE)
+                risk_match = re.search(
+                    r"Risk Assessment:\s*([^\n]+)", response_text, re.IGNORECASE
+                )
 
             if risk_match:
                 result["risk_assessment"] = risk_match.group(1).strip()
@@ -1482,13 +1673,15 @@ Command:
 
     # === OPTIMIZED METHODS ===
 
-    def format_conflict_resolution_prompt_optimized(self, conflict_info: dict[str, Any]) -> tuple[str, str]:
+    def format_conflict_resolution_prompt_optimized(
+        self, conflict_info: dict[str, Any]
+    ) -> tuple[str, str]:
         """
         Create optimized conflict resolution prompt (system + user).
-        
+
         Args:
             conflict_info: Conflict scenario data
-            
+
         Returns:
             Tuple of (system_prompt, user_prompt)
         """
@@ -1496,11 +1689,11 @@ Command:
             # Fall back to original format
             full_prompt = self.format_conflict_prompt(conflict_info)
             return "You are an expert Air Traffic Controller.", full_prompt
-        
+
         try:
             # Extract key data
             ac1_id = conflict_info.get("aircraft_1_id", "AC001")
-            ac2_id = conflict_info.get("aircraft_2_id", "AC002") 
+            ac2_id = conflict_info.get("aircraft_2_id", "AC002")
             ac1_info = conflict_info.get("aircraft_1", {})
             ac2_info = conflict_info.get("aircraft_2", {})
 
@@ -1519,20 +1712,21 @@ Provide resolution command:"""
 
         except Exception as e:
             self.logger.exception(f"Error formatting optimized conflict prompt: {e}")
-            return self.conflict_resolution_system, "CONFLICT: Error in prompt formatting"
+            return (
+                self.conflict_resolution_system,
+                "CONFLICT: Error in prompt formatting",
+            )
 
     def format_conflict_detection_prompt_optimized(
-        self,
-        aircraft_states: list[dict[str, Any]],
-        time_horizon: float = 5.0
+        self, aircraft_states: list[dict[str, Any]], time_horizon: float = 5.0
     ) -> tuple[str, str]:
         """
         Create optimized conflict detection prompt.
-        
+
         Args:
             aircraft_states: List of aircraft data
             time_horizon: Detection time horizon in minutes
-            
+
         Returns:
             Tuple of (system_prompt, user_prompt)
         """
@@ -1540,7 +1734,7 @@ Provide resolution command:"""
             # Fall back to original format
             full_prompt = self.format_detector_prompt(aircraft_states, time_horizon)
             return "You are an expert Air Traffic Controller.", full_prompt
-        
+
         # Compact aircraft representation
         aircraft_lines = []
         for i, aircraft in enumerate(aircraft_states):
@@ -1556,31 +1750,29 @@ Detect conflicts (5NM/1000ft separation):"""
         return self.conflict_detection_system, user_prompt
 
     def get_conflict_resolution_optimized(
-        self,
-        conflict_info: dict[str, Any],
-        priority: str = "normal"
+        self, conflict_info: dict[str, Any], priority: str = "normal"
     ) -> Optional[ResolutionResponse]:
         """
         High-performance conflict resolution API.
-        
+
         Args:
             conflict_info: Conflict scenario data
             priority: Request priority ('low', 'normal', 'high')
-            
+
         Returns:
             ResolutionResponse or None if failed
         """
         try:
             # Get optimized prompts
-            system_prompt, user_prompt = self.format_conflict_resolution_prompt_optimized(conflict_info)
-            
+            system_prompt, user_prompt = (
+                self.format_conflict_resolution_prompt_optimized(conflict_info)
+            )
+
             # Execute optimized request
             response = self.llm_client.ask_optimized(
-                user_prompt=user_prompt,
-                system_prompt=system_prompt,
-                priority=priority
+                user_prompt=user_prompt, system_prompt=system_prompt, priority=priority
             )
-            
+
             # Fast parsing
             resolution = self._parse_resolution_response_fast(response.content)
             if resolution:
@@ -1590,9 +1782,9 @@ Detect conflicts (5NM/1000ft separation):"""
                     maneuver_type=resolution["maneuver_type"],
                     rationale=resolution["rationale"],
                     confidence=resolution["confidence"],
-                    safety_assessment="Pending verification"
+                    safety_assessment="Pending verification",
                 )
-            
+
             return None
 
         except Exception as e:
@@ -1603,33 +1795,35 @@ Detect conflicts (5NM/1000ft separation):"""
         self,
         aircraft_states: list[dict[str, Any]],
         time_horizon: float = 5.0,
-        priority: str = "normal"
+        priority: str = "normal",
     ) -> Optional[dict[str, Any]]:
         """
         High-performance conflict detection API.
-        
+
         Args:
             aircraft_states: List of aircraft data
             time_horizon: Detection time horizon in minutes
             priority: Request priority
-            
+
         Returns:
             Detection results dictionary or None if failed
         """
         try:
             # Get optimized prompts
-            system_prompt, user_prompt = self.format_conflict_detection_prompt_optimized(
-                aircraft_states, time_horizon
+            system_prompt, user_prompt = (
+                self.format_conflict_detection_prompt_optimized(
+                    aircraft_states, time_horizon
+                )
             )
-            
+
             # Execute optimized request
             response = self.llm_client.ask_optimized(
                 user_prompt=user_prompt,
                 system_prompt=system_prompt,
                 expect_json=True,
-                priority=priority
+                priority=priority,
             )
-            
+
             # Fast JSON parsing
             return self._parse_detection_response_fast(response.content)
 
@@ -1637,97 +1831,101 @@ Detect conflicts (5NM/1000ft separation):"""
             self.logger.exception(f"Error in optimized detection: {e}")
             return None
 
-    def _parse_resolution_response_fast(self, response_text: str) -> Optional[dict[str, Any]]:
+    def _parse_resolution_response_fast(
+        self, response_text: str
+    ) -> Optional[dict[str, Any]]:
         """
         Fast resolution response parsing with minimal fallback.
-        
+
         Args:
             response_text: LLM response content
-            
+
         Returns:
             Parsed response dictionary or None
         """
         try:
             # Quick regex extraction (faster than complex parsing)
             patterns = {
-                'command': r'COMMAND:\s*([^\n]+)',
-                'rationale': r'RATIONALE:\s*([^\n]+)', 
-                'confidence': r'CONFIDENCE:\s*([\d.]+)'
+                "command": r"COMMAND:\s*([^\n]+)",
+                "rationale": r"RATIONALE:\s*([^\n]+)",
+                "confidence": r"CONFIDENCE:\s*([\d.]+)",
             }
-            
+
             matches = {}
             for key, pattern in patterns.items():
                 match = re.search(pattern, response_text, re.IGNORECASE)
                 matches[key] = match.group(1).strip() if match else None
-            
-            if not matches['command']:
+
+            if not matches["command"]:
                 return None
-            
+
             # Extract aircraft ID and determine maneuver type
-            command = matches['command']
+            command = matches["command"]
             aircraft_id = self._extract_aircraft_id_fast(command)
             maneuver_type = self._determine_maneuver_type_fast(command)
-            
+
             return {
                 "command": command,
                 "aircraft_id": aircraft_id,
                 "maneuver_type": maneuver_type,
-                "rationale": matches['rationale'] or "No rationale provided",
-                "confidence": float(matches['confidence'] or 0.5)
+                "rationale": matches["rationale"] or "No rationale provided",
+                "confidence": float(matches["confidence"] or 0.5),
             }
 
         except Exception as e:
             self.logger.warning(f"Fast parsing failed: {e}")
             return None
 
-    def _parse_detection_response_fast(self, response_text: str) -> Optional[dict[str, Any]]:
+    def _parse_detection_response_fast(
+        self, response_text: str
+    ) -> Optional[dict[str, Any]]:
         """
         Fast detection response parsing.
-        
+
         Args:
             response_text: LLM response content (expected JSON)
-            
+
         Returns:
             Parsed detection results or None
         """
         try:
             # Quick JSON parse
             return json.loads(response_text)
-        
+
         except json.JSONDecodeError:
             # Fast JSON extraction
-            json_match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', response_text)
+            json_match = re.search(r"\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}", response_text)
             if json_match:
                 try:
                     return json.loads(json_match.group(0))
                 except:
                     pass
-            
+
             # Fast fallback structure
             return {
                 "conflict_detected": False,
                 "aircraft_pairs": [],
                 "confidence": 0.0,
                 "analysis": "Parsing failed",
-                "error": "Invalid response format"
+                "error": "Invalid response format",
             }
 
     def _extract_aircraft_id_fast(self, command: str) -> str:
         """Fast aircraft ID extraction"""
         # Simple regex for common patterns
-        match = re.search(r'\b([A-Z]{2,4}\d{2,4}[A-Z]?)\b', command)
+        match = re.search(r"\b([A-Z]{2,4}\d{2,4}[A-Z]?)\b", command)
         return match.group(1) if match else "UNKNOWN"
 
     def _determine_maneuver_type_fast(self, command: str) -> str:
         """Fast maneuver type determination"""
         cmd_upper = command.upper()
-        if cmd_upper.startswith('HDG'):
+        if cmd_upper.startswith("HDG"):
             return "heading_change"
-        elif cmd_upper.startswith('ALT'):
-            return "altitude_change"  
-        elif cmd_upper.startswith('SPD'):
+        elif cmd_upper.startswith("ALT"):
+            return "altitude_change"
+        elif cmd_upper.startswith("SPD"):
             return "speed_change"
-        elif cmd_upper.startswith('VS'):
+        elif cmd_upper.startswith("VS"):
             return "vertical_speed_change"
         return "unknown"
 
@@ -1750,25 +1948,25 @@ Detect conflicts (5NM/1000ft separation):"""
 # Convenience functions for quick usage
 def quick_resolve_conflict(
     aircraft_1: dict[str, Any],
-    aircraft_2: dict[str, Any], 
+    aircraft_2: dict[str, Any],
     time_to_conflict: float,
-    engine: Optional[LLMPromptEngine] = None
+    engine: Optional[LLMPromptEngine] = None,
 ) -> Optional[ResolutionResponse]:
     """
     Quick conflict resolution with minimal setup.
-    
+
     Args:
         aircraft_1: First aircraft data
         aircraft_2: Second aircraft data
         time_to_conflict: Time to conflict in seconds
         engine: Optional engine instance
-        
+
     Returns:
         ResolutionResponse or None
     """
     if not engine:
         engine = LLMPromptEngine(enable_optimized_prompts=True)
-    
+
     conflict_info = {
         "aircraft_1_id": aircraft_1.get("id", "AC001"),
         "aircraft_2_id": aircraft_2.get("id", "AC002"),
@@ -1777,27 +1975,26 @@ def quick_resolve_conflict(
         "time_to_conflict": time_to_conflict,
         "closest_approach_distance": 3.5,
         "conflict_type": "convergent",
-        "urgency_level": "medium"
+        "urgency_level": "medium",
     }
-    
+
     return engine.get_conflict_resolution_optimized(conflict_info, priority="high")
 
 
 def quick_detect_conflicts(
-    aircraft_states: list[dict[str, Any]],
-    engine: Optional[LLMPromptEngine] = None
+    aircraft_states: list[dict[str, Any]], engine: Optional[LLMPromptEngine] = None
 ) -> Optional[dict[str, Any]]:
     """
     Quick conflict detection with minimal setup.
-    
+
     Args:
         aircraft_states: List of aircraft data
         engine: Optional engine instance
-        
+
     Returns:
         Detection results dictionary or None
     """
     if not engine:
         engine = LLMPromptEngine(enable_optimized_prompts=True)
-    
+
     return engine.get_conflict_detection_optimized(aircraft_states, priority="high")

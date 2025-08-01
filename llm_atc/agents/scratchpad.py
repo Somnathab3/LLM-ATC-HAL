@@ -114,7 +114,9 @@ class Scratchpad:
             self.current_steps.append(step)
 
             # Log the step
-            self.logger.info("Step logged: %s - %s - %s", step_id, step_type.value, description)
+            self.logger.info(
+                "Step logged: %s - %s - %s", step_id, step_type.value, description
+            )
 
             return step_id
 
@@ -218,7 +220,9 @@ class Scratchpad:
         }
         return self.log_step(step_data)
 
-    def log_error_step(self, error_msg: str, error_data: Optional[dict[str, Any]] = None) -> str:
+    def log_error_step(
+        self, error_msg: str, error_data: Optional[dict[str, Any]] = None
+    ) -> str:
         """Log an error step"""
         step_data = {
             "type": "error",
@@ -276,7 +280,9 @@ class Scratchpad:
     def get_recent_steps(self, count: int = 5) -> list[ReasoningStep]:
         """Get the most recent steps"""
         return (
-            self.current_steps[-count:] if count <= len(self.current_steps) else self.current_steps
+            self.current_steps[-count:]
+            if count <= len(self.current_steps)
+            else self.current_steps
         )
 
     def complete_session(
@@ -315,7 +321,9 @@ class Scratchpad:
             self.all_steps_history.extend(self.current_steps)
 
             # Log completion
-            self.logger.info("Session completed: %s - %s", self.session_id, final_status)
+            self.logger.info(
+                "Session completed: %s - %s", self.session_id, final_status
+            )
 
             return summary
 
@@ -373,8 +381,12 @@ class Scratchpad:
             "step_types": step_types,
             "average_confidence": self._calculate_average_confidence(),
             "session_duration": time.time() - self.session_start_time,
-            "first_step": self.current_steps[0].description if self.current_steps else None,
-            "last_step": self.current_steps[-1].description if self.current_steps else None,
+            "first_step": (
+                self.current_steps[0].description if self.current_steps else None
+            ),
+            "last_step": (
+                self.current_steps[-1].description if self.current_steps else None
+            ),
         }
 
     def _calculate_average_confidence(self) -> float:
@@ -391,7 +403,10 @@ class Scratchpad:
 
         # Look for planning and execution steps with high confidence
         for step in self.current_steps:
-            if step.step_type in [StepType.PLANNING, StepType.EXECUTION] and step.confidence > 0.7:
+            if (
+                step.step_type in [StepType.PLANNING, StepType.EXECUTION]
+                and step.confidence > 0.7
+            ):
                 key_decisions.append(f"{step.step_type.value}: {step.description}")
 
         return key_decisions
@@ -406,9 +421,13 @@ class Scratchpad:
             lessons.append(f"Error: {step.reasoning}")
 
         # Look for low-confidence steps
-        low_confidence_steps = [step for step in self.current_steps if step.confidence < 0.5]
+        low_confidence_steps = [
+            step for step in self.current_steps if step.confidence < 0.5
+        ]
         for step in low_confidence_steps:
-            lessons.append(f"Low confidence in {step.step_type.value}: {step.reasoning}")
+            lessons.append(
+                f"Low confidence in {step.step_type.value}: {step.reasoning}"
+            )
 
         return lessons
 
@@ -443,9 +462,12 @@ class Scratchpad:
             "total_steps": len(self.current_steps),
             "average_confidence": self._calculate_average_confidence(),
             "step_types": {
-                step_type.value: len(self.get_steps_by_type(step_type)) for step_type in StepType
+                step_type.value: len(self.get_steps_by_type(step_type))
+                for step_type in StepType
             },
             "error_count": len(self.get_steps_by_type(StepType.ERROR)),
-            "completion_rate": len([s for s in self.current_steps if s.confidence > 0.7])
+            "completion_rate": len(
+                [s for s in self.current_steps if s.confidence > 0.7]
+            )
             / len(self.current_steps),
         }

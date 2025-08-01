@@ -54,7 +54,9 @@ def detect_conflicts():
             # Get conflict pairs from BlueSky
             if hasattr(traf.cd, "confpairs_all") and traf.cd.confpairs_all is not None:
                 confpairs = traf.cd.confpairs_all
-                logger.info(f"Found {len(confpairs) if confpairs else 0} conflict pairs")
+                logger.info(
+                    f"Found {len(confpairs) if confpairs else 0} conflict pairs"
+                )
 
                 for i, pair in enumerate(confpairs or []):
                     ac1_idx, ac2_idx = pair
@@ -76,14 +78,20 @@ def detect_conflicts():
                             "lon1": traf.lon[ac1_idx] if hasattr(traf, "lon") else 4.8,
                             "lat2": traf.lat[ac2_idx] if hasattr(traf, "lat") else 52.4,
                             "lon2": traf.lon[ac2_idx] if hasattr(traf, "lon") else 4.6,
-                            "alt1": traf.alt[ac1_idx] if hasattr(traf, "alt") else 35000,
-                            "alt2": traf.alt[ac2_idx] if hasattr(traf, "alt") else 35000,
+                            "alt1": (
+                                traf.alt[ac1_idx] if hasattr(traf, "alt") else 35000
+                            ),
+                            "alt2": (
+                                traf.alt[ac2_idx] if hasattr(traf, "alt") else 35000
+                            ),
                         }
                         conflicts.append(conflict)
 
         # If no real conflicts detected, create mock conflicts for testing
         if not conflicts:
-            logger.info("No real conflicts detected, creating mock conflicts for testing")
+            logger.info(
+                "No real conflicts detected, creating mock conflicts for testing"
+            )
             conflicts = [
                 {
                     "id1": "AC001",
@@ -180,7 +188,9 @@ def run_simulation():
                     candidates = solver.solve(conflict)
 
                     if not candidates:
-                        logger.warning(f"No candidates generated for conflict {conflict}")
+                        logger.warning(
+                            f"No candidates generated for conflict {conflict}"
+                        )
                         continue
 
                     # Use LLM to select best solution
@@ -243,7 +253,9 @@ def run_simulation():
     # Calculate final metrics
     hallucination_rate = len(hallucination_events) / max(total_resolutions, 1)
     avg_safety_margin_diff = (
-        sum(safety_margin_diffs) / max(len(safety_margin_diffs), 1) if safety_margin_diffs else 0
+        sum(safety_margin_diffs) / max(len(safety_margin_diffs), 1)
+        if safety_margin_diffs
+        else 0
     )
 
     # Generate summary report

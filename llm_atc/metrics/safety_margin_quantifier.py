@@ -47,7 +47,9 @@ class ConflictGeometry:
 
     aircraft1_pos: tuple[float, float, float]  # lat, lon, alt
     aircraft2_pos: tuple[float, float, float]
-    aircraft1_velocity: tuple[float, float, float]  # ground speed, vertical rate, heading
+    aircraft1_velocity: tuple[
+        float, float, float
+    ]  # ground speed, vertical rate, heading
     aircraft2_velocity: tuple[float, float, float]
     time_to_closest_approach: float
     closest_approach_distance: float
@@ -62,7 +64,7 @@ class SafetyMarginQuantifier:
     def __init__(self) -> None:
         # ICAO separation standards - consistent across all modules
         self.separation_standards = {
-            "horizontal": 5.0,  # ICAO standard - Both detection and ground truth  
+            "horizontal": 5.0,  # ICAO standard - Both detection and ground truth
             "vertical": 1000.0,  # ICAO standard - Both detection and ground truth
             "temporal": 60.0,  # ICAO standard - minimum time for corrective action
         }
@@ -106,9 +108,15 @@ class SafetyMarginQuantifier:
 
             # Account for environmental conditions
             if environmental_conditions:
-                horizontal_margin *= 1 - environmental_conditions.get("turbulence_factor", 0)
-                vertical_margin *= 1 - environmental_conditions.get("wind_shear_factor", 0)
-                temporal_margin *= 1 - environmental_conditions.get("response_delay_factor", 0)
+                horizontal_margin *= 1 - environmental_conditions.get(
+                    "turbulence_factor", 0
+                )
+                vertical_margin *= 1 - environmental_conditions.get(
+                    "wind_shear_factor", 0
+                )
+                temporal_margin *= 1 - environmental_conditions.get(
+                    "response_delay_factor", 0
+                )
 
             # Calculate effective margin (weighted combination)
             effective_margin = self._calculate_effective_margin(
@@ -118,7 +126,9 @@ class SafetyMarginQuantifier:
             )
 
             # Calculate margin-to-uncertainty ratio
-            total_uncertainty = self._calculate_total_uncertainty(environmental_conditions)
+            total_uncertainty = self._calculate_total_uncertainty(
+                environmental_conditions
+            )
             margin_uncertainty_ratio = effective_margin / (total_uncertainty + 1e-6)
 
             # Calculate degradation factor compared to baseline
@@ -157,7 +167,9 @@ class SafetyMarginQuantifier:
 
             # Apply maneuver based on type
             maneuver_type = maneuver.get("type", "").lower()
-            target_aircraft = maneuver.get("aircraft_id", geometry.aircraft1_pos)  # Default to AC1
+            target_aircraft = maneuver.get(
+                "aircraft_id", geometry.aircraft1_pos
+            )  # Default to AC1
 
             if maneuver_type == "heading":
                 heading_change = maneuver.get("heading_change", 0)
@@ -171,7 +183,9 @@ class SafetyMarginQuantifier:
                 altitude_change = maneuver.get("altitude_change", 0)
                 if target_aircraft == "AC001":
                     ac1_pos[2] += altitude_change  # Apply altitude change
-                    ac1_vel[1] = altitude_change / 60  # Assume 1 minute to reach new altitude
+                    ac1_vel[1] = (
+                        altitude_change / 60
+                    )  # Assume 1 minute to reach new altitude
 
             elif maneuver_type == "speed":
                 speed_change = maneuver.get("speed_change", 0)
@@ -224,7 +238,9 @@ class SafetyMarginQuantifier:
             distance_m = ground_speed_ms * time
 
             # Convert to lat/lon changes (approximate)
-            lat_change = (distance_m * math.cos(heading_rad)) / 111320  # meters to degrees lat
+            lat_change = (
+                distance_m * math.cos(heading_rad)
+            ) / 111320  # meters to degrees lat
             lon_change = (distance_m * math.sin(heading_rad)) / (
                 111320 * math.cos(math.radians(position[0]))
             )
@@ -256,10 +272,16 @@ class SafetyMarginQuantifier:
             rel_vel = [vel2[i] - vel1[i] for i in range(3)]
 
             # Time to closest approach (dot product calculation)
-            rel_pos_magnitude = math.sqrt(sum(x**2 for x in rel_pos[:2]))  # Horizontal only
-            rel_vel_magnitude = math.sqrt(sum(x**2 for x in rel_vel[:2]))  # Horizontal only
+            rel_pos_magnitude = math.sqrt(
+                sum(x**2 for x in rel_pos[:2])
+            )  # Horizontal only
+            rel_vel_magnitude = math.sqrt(
+                sum(x**2 for x in rel_vel[:2])
+            )  # Horizontal only
 
-            if rel_vel_magnitude < MINIMUM_RELATIVE_VELOCITY:  # Essentially no relative motion
+            if (
+                rel_vel_magnitude < MINIMUM_RELATIVE_VELOCITY
+            ):  # Essentially no relative motion
                 return 999999, rel_pos_magnitude, abs(rel_pos[2])
             # Simplified calculation for time to closest approach
             time_to_ca = max(
@@ -327,16 +349,22 @@ class SafetyMarginQuantifier:
 
         return max(effective, 0)
 
-    def _calculate_total_uncertainty(self, environmental_conditions: Optional[dict]) -> float:
+    def _calculate_total_uncertainty(
+        self, environmental_conditions: Optional[dict]
+    ) -> float:
         """Calculate total uncertainty in the system"""
         base_uncertainty = sum(self.uncertainty_factors.values())
 
         if environmental_conditions:
             # Add environmental uncertainties
             weather_uncertainty = environmental_conditions.get("weather_uncertainty", 0)
-            traffic_density_factor = environmental_conditions.get("traffic_density", 1.0)
+            traffic_density_factor = environmental_conditions.get(
+                "traffic_density", 1.0
+            )
 
-            total_uncertainty = base_uncertainty * traffic_density_factor + weather_uncertainty
+            total_uncertainty = (
+                base_uncertainty * traffic_density_factor + weather_uncertainty
+            )
         else:
             total_uncertainty = base_uncertainty
 
@@ -347,11 +375,13 @@ class SafetyMarginQuantifier:
         # This would be the margin if no action were taken
         baseline_horizontal = max(
             0,
-            geometry.closest_approach_distance - self.separation_standards["horizontal"],
+            geometry.closest_approach_distance
+            - self.separation_standards["horizontal"],
         )
         baseline_vertical = max(
             0,
-            geometry.closest_approach_altitude_diff - self.separation_standards["vertical"],
+            geometry.closest_approach_altitude_diff
+            - self.separation_standards["vertical"],
         )
         baseline_temporal = max(
             0,
@@ -423,8 +453,10 @@ class SafetyMetricsAggregator:
             "timestamp": time.time(),
             "llm_margins": llm_margins,
             "baseline_margins": baseline_margins,
-            "margin_difference": llm_margins.effective_margin - baseline_margins.effective_margin,
-            "safety_degradation": baseline_margins.effective_margin - llm_margins.effective_margin,
+            "margin_difference": llm_margins.effective_margin
+            - baseline_margins.effective_margin,
+            "safety_degradation": baseline_margins.effective_margin
+            - llm_margins.effective_margin,
             "uncertainty_ratio_diff": (
                 llm_margins.margin_to_uncertainty_ratio
                 - baseline_margins.margin_to_uncertainty_ratio
@@ -443,8 +475,12 @@ class SafetyMetricsAggregator:
         # Extract key metrics
         margin_differences = [m["margin_difference"] for m in self.metrics_history]
         safety_degradations = [m["safety_degradation"] for m in self.metrics_history]
-        llm_safety_levels = [m["llm_margins"].safety_level for m in self.metrics_history]
-        baseline_safety_levels = [m["baseline_margins"].safety_level for m in self.metrics_history]
+        llm_safety_levels = [
+            m["llm_margins"].safety_level for m in self.metrics_history
+        ]
+        baseline_safety_levels = [
+            m["baseline_margins"].safety_level for m in self.metrics_history
+        ]
 
         # Calculate statistics
         return {
@@ -453,12 +489,18 @@ class SafetyMetricsAggregator:
             "std_margin_difference": float(np.std(margin_differences)),
             "max_safety_degradation": float(max(safety_degradations)),
             "min_safety_degradation": float(min(safety_degradations)),
-            "llm_critical_cases": sum(1 for level in llm_safety_levels if level == "critical"),
+            "llm_critical_cases": sum(
+                1 for level in llm_safety_levels if level == "critical"
+            ),
             "baseline_critical_cases": sum(
                 1 for level in baseline_safety_levels if level == "critical"
             ),
-            "safety_improvement_cases": sum(1 for diff in margin_differences if diff > 0),
-            "safety_degradation_cases": sum(1 for diff in margin_differences if diff < 0),
+            "safety_improvement_cases": sum(
+                1 for diff in margin_differences if diff > 0
+            ),
+            "safety_degradation_cases": sum(
+                1 for diff in margin_differences if diff < 0
+            ),
             "safety_level_distribution": {
                 "llm": {
                     level: llm_safety_levels.count(level)
@@ -492,14 +534,18 @@ class SafetyMetricsAggregator:
                         "safety_level": metric["llm_margins"].safety_level,
                     },
                     "baseline_margins": {
-                        "horizontal_margin": metric["baseline_margins"].horizontal_margin,
+                        "horizontal_margin": metric[
+                            "baseline_margins"
+                        ].horizontal_margin,
                         "vertical_margin": metric["baseline_margins"].vertical_margin,
                         "temporal_margin": metric["baseline_margins"].temporal_margin,
                         "effective_margin": metric["baseline_margins"].effective_margin,
                         "margin_to_uncertainty_ratio": metric[
                             "baseline_margins"
                         ].margin_to_uncertainty_ratio,
-                        "degradation_factor": metric["baseline_margins"].degradation_factor,
+                        "degradation_factor": metric[
+                            "baseline_margins"
+                        ].degradation_factor,
                         "safety_level": metric["baseline_margins"].safety_level,
                     },
                     "margin_difference": metric["margin_difference"],
@@ -548,8 +594,12 @@ def calc_separation_margin(trajectories: list[dict[str, Any]]) -> dict[str, floa
                     # Only compare points at similar times (±30 seconds)
                     if abs(point1["time"] - point2["time"]) <= TIME_WINDOW_SECONDS:
                         # Calculate horizontal distance in nautical miles
-                        lat1, lon1 = math.radians(point1["lat"]), math.radians(point1["lon"])
-                        lat2, lon2 = math.radians(point2["lat"]), math.radians(point2["lon"])
+                        lat1, lon1 = math.radians(point1["lat"]), math.radians(
+                            point1["lon"]
+                        )
+                        lat2, lon2 = math.radians(point2["lat"]), math.radians(
+                            point2["lon"]
+                        )
 
                         dlat = lat2 - lat1
                         dlon = lon2 - lon1
@@ -599,7 +649,10 @@ def calc_efficiency_penalty(
 
             dlat = lat2 - lat1
             dlon = lon2 - lon1
-            a = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+            a = (
+                math.sin(dlat / 2) ** 2
+                + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+            )
             c = 2 * math.asin(math.sqrt(a))
             distance = 3440.065 * c  # Convert to nautical miles
             total_distance += distance
@@ -653,7 +706,10 @@ def count_interventions(commands: list[dict[str, Any]]) -> int:
             intervention_count += 1
 
         # Also count based on specific fields
-        if any(key in command for key in ["heading_change", "altitude_change", "speed_change"]):
+        if any(
+            key in command
+            for key in ["heading_change", "altitude_change", "speed_change"]
+        ):
             intervention_count += 1
 
     return intervention_count

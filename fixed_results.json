@@ -1,0 +1,22 @@
+{
+  "test_results": {
+    "llama3.1:8b": {
+      "status": "success",
+      "response_format": "valid_json",
+      "conflict_detected": false,
+      "aircraft_pairs": [],
+      "confidence": 1.0,
+      "function_calling": "disabled_but_working"
+    },
+    "llama3.1-bsky:latest": {
+      "status": "success", 
+      "response_format": "valid_json",
+      "conflict_detected": false,
+      "aircraft_pairs": [],
+      "confidence": 1.0,
+      "function_calling": "disabled_but_working"
+    }
+  },
+  "validation_timestamp": "2025-08-01T14:16:00Z",
+  "step_1_status": "PASSED"
+}

@@ -30,11 +30,17 @@ except ImportError:
     logging.warning("Matplotlib/seaborn not available - visualizations disabled")
 
 try:
-    from .safety_margin_quantifier import calc_efficiency_penalty, calc_separation_margin
+    from .safety_margin_quantifier import (
+        calc_efficiency_penalty,
+        calc_separation_margin,
+    )
 except ImportError:
     # Fallback for standalone execution
     try:
-        from safety_margin_quantifier import calc_efficiency_penalty, calc_separation_margin
+        from safety_margin_quantifier import (
+            calc_efficiency_penalty,
+            calc_separation_margin,
+        )
     except ImportError:
         # Mock functions for testing
         def calc_separation_margin(trajectories):
@@ -106,7 +112,9 @@ class MonteCarloResultsAnalyzer:
             self.logger.exception(f"Error reading JSON results: {e}")
             raise
 
-    def compute_false_positive_negative_rates(self, results_df: pd.DataFrame) -> dict[str, float]:
+    def compute_false_positive_negative_rates(
+        self, results_df: pd.DataFrame
+    ) -> dict[str, float]:
         """
         Compute false positive and false negative rates from results.
 
@@ -207,7 +215,9 @@ class MonteCarloResultsAnalyzer:
                 successful = scenario_data["conflicts_resolved"].sum()
             else:
                 # Default: no conflicts detected = success
-                successful = (scenario_data.get("predicted_conflicts", []).apply(len) == 0).sum()
+                successful = (
+                    scenario_data.get("predicted_conflicts", []).apply(len) == 0
+                ).sum()
 
             success_rate = successful / max(1, total_scenarios)
 
@@ -245,7 +255,9 @@ class MonteCarloResultsAnalyzer:
             return pd.DataFrame()
 
         if "success" not in results_df.columns:
-            self.logger.warning("'success' column not found - using alternative success criteria")
+            self.logger.warning(
+                "'success' column not found - using alternative success criteria"
+            )
             # Try to determine success from other columns
             if "errors" in results_df.columns:
                 results_df = results_df.copy()
@@ -294,11 +306,15 @@ class MonteCarloResultsAnalyzer:
         )
 
         # Add failure scenarios
-        grouped["failed_scenarios"] = grouped["total_scenarios"] - grouped["successful_scenarios"]
+        grouped["failed_scenarios"] = (
+            grouped["total_scenarios"] - grouped["successful_scenarios"]
+        )
 
         return grouped
 
-    def compute_average_separation_margins(self, results_df: pd.DataFrame) -> dict[str, float]:
+    def compute_average_separation_margins(
+        self, results_df: pd.DataFrame
+    ) -> dict[str, float]:
         """
         Compute average separation margins from results.
 
@@ -330,17 +346,29 @@ class MonteCarloResultsAnalyzer:
                     if margins["vt"] != float("inf"):
                         vertical_margins.append(margins["vt"])
                 except Exception as e:
-                    self.logger.warning(f"Failed to calculate margins from trajectories: {e}")
+                    self.logger.warning(
+                        f"Failed to calculate margins from trajectories: {e}"
+                    )
 
         return {
-            "avg_horizontal_margin": np.mean(horizontal_margins) if horizontal_margins else 0.0,
-            "avg_vertical_margin": np.mean(vertical_margins) if vertical_margins else 0.0,
-            "std_horizontal_margin": np.std(horizontal_margins) if horizontal_margins else 0.0,
-            "std_vertical_margin": np.std(vertical_margins) if vertical_margins else 0.0,
+            "avg_horizontal_margin": (
+                np.mean(horizontal_margins) if horizontal_margins else 0.0
+            ),
+            "avg_vertical_margin": (
+                np.mean(vertical_margins) if vertical_margins else 0.0
+            ),
+            "std_horizontal_margin": (
+                np.std(horizontal_margins) if horizontal_margins else 0.0
+            ),
+            "std_vertical_margin": (
+                np.std(vertical_margins) if vertical_margins else 0.0
+            ),
             "num_margin_samples": len(horizontal_margins),
         }
 
-    def compute_efficiency_penalties(self, results_df: pd.DataFrame) -> dict[str, float]:
+    def compute_efficiency_penalties(
+        self, results_df: pd.DataFrame
+    ) -> dict[str, float]:
         """
         Compute efficiency penalties from trajectory comparisons.
 
@@ -362,8 +390,12 @@ class MonteCarloResultsAnalyzer:
                 continue
 
             # Calculate from trajectory data
-            planned_path = row.get("planned_trajectory") or row.get("original_trajectory")
-            executed_path = row.get("executed_trajectory") or row.get("actual_trajectory")
+            planned_path = row.get("planned_trajectory") or row.get(
+                "original_trajectory"
+            )
+            executed_path = row.get("executed_trajectory") or row.get(
+                "actual_trajectory"
+            )
 
             if planned_path and executed_path:
                 try:
@@ -410,7 +442,9 @@ class MonteCarloResultsAnalyzer:
         if "distribution_shift_level" in results_df.columns:
             group_cols.append("distribution_shift_level")
 
-        grouped_success_rates = self.compute_success_rates_by_group(results_df, group_cols)
+        grouped_success_rates = self.compute_success_rates_by_group(
+            results_df, group_cols
+        )
 
         # Build the markdown report
         report_lines = []
@@ -591,7 +625,9 @@ class MonteCarloResultsAnalyzer:
 
         # Calculate overall success rate
         if success_rates:
-            overall_success = np.mean([s["success_rate"] for s in success_rates.values()])
+            overall_success = np.mean(
+                [s["success_rate"] for s in success_rates.values()]
+            )
         else:
             overall_success = 0.0
 
@@ -629,14 +665,20 @@ class MonteCarloResultsAnalyzer:
         elif fp_rate < 0.2 and fn_rate < 0.2:
             summary.append("Detection accuracy is good but could be improved.")
         else:
-            summary.append("Detection accuracy shows significant issues requiring attention.")
+            summary.append(
+                "Detection accuracy shows significant issues requiring attention."
+            )
 
         # Safety assessment
         h_margin = margins["avg_horizontal_margin"]
         if h_margin >= 5.0:
-            summary.append("Safety margins are well maintained above regulatory minimums.")
+            summary.append(
+                "Safety margins are well maintained above regulatory minimums."
+            )
         elif h_margin >= 3.0:
-            summary.append("Safety margins meet regulatory requirements but are close to limits.")
+            summary.append(
+                "Safety margins meet regulatory requirements but are close to limits."
+            )
         else:
             summary.append(
                 "**SAFETY CONCERN**: Average horizontal margins below 3 NM indicate potential safety issues.",
@@ -656,14 +698,18 @@ class MonteCarloResultsAnalyzer:
                 "✅ **False Positive Rate**: Excellent - very few unnecessary alerts.",
             )
         elif fp_rate < 0.15:
-            assessment.append("⚠️ **False Positive Rate**: Good - acceptable level of false alerts.")
+            assessment.append(
+                "⚠️ **False Positive Rate**: Good - acceptable level of false alerts."
+            )
         else:
             assessment.append(
                 "❌ **False Positive Rate**: Poor - too many false alerts may reduce trust.",
             )
 
         if fn_rate < 0.05:
-            assessment.append("✅ **False Negative Rate**: Excellent - very few missed conflicts.")
+            assessment.append(
+                "✅ **False Negative Rate**: Excellent - very few missed conflicts."
+            )
         elif fn_rate < 0.15:
             assessment.append(
                 "⚠️ **False Negative Rate**: Acceptable - some conflicts missed but manageable.",
@@ -755,7 +801,10 @@ class MonteCarloResultsAnalyzer:
         shift_analysis: dict[str, dict[str, float]],
     ) -> str:
         """Format distribution shift analysis as markdown."""
-        lines = ["Performance degradation analysis across distribution shift levels:", ""]
+        lines = [
+            "Performance degradation analysis across distribution shift levels:",
+            "",
+        ]
         lines.extend(
             [
                 "| Shift Level | Scenarios | FP Rate | FN Rate | Success Rate | H-Margin |",
@@ -798,7 +847,9 @@ class MonteCarloResultsAnalyzer:
 
         # Success rate recommendations
         if success_rates:
-            worst_scenario = min(success_rates.items(), key=lambda x: x[1]["success_rate"])
+            worst_scenario = min(
+                success_rates.items(), key=lambda x: x[1]["success_rate"]
+            )
             if worst_scenario[1]["success_rate"] < 0.7:
                 recommendations.append(
                     f"📊 **Focus on {worst_scenario[0]} Scenarios**: Success rate of {worst_scenario[1]['success_rate']:.1%} needs attention.",
@@ -851,7 +902,9 @@ class MonteCarloResultsAnalyzer:
             self.logger.warning("Empty results DataFrame provided")
             return self._create_empty_aggregated_metrics()
 
-        self.logger.info(f"Aggregating metrics from {len(results_df)} Monte Carlo scenarios")
+        self.logger.info(
+            f"Aggregating metrics from {len(results_df)} Monte Carlo scenarios"
+        )
 
         # Compute all metric categories
         fp_fn_rates = self.compute_false_positive_negative_rates(results_df)
@@ -884,12 +937,16 @@ class MonteCarloResultsAnalyzer:
         self.logger.info("Monte Carlo metrics aggregation completed")
         return aggregated_metrics
 
-    def _analyze_distribution_shift_performance(self, results_df: pd.DataFrame) -> dict[str, Any]:
+    def _analyze_distribution_shift_performance(
+        self, results_df: pd.DataFrame
+    ) -> dict[str, Any]:
         """Analyze performance across different distribution shift levels."""
         shift_analysis = {}
 
         for shift_level in results_df["distribution_shift_level"].unique():
-            shift_data = results_df[results_df["distribution_shift_level"] == shift_level]
+            shift_data = results_df[
+                results_df["distribution_shift_level"] == shift_level
+            ]
 
             # Calculate metrics for this shift level
             fp_fn = self.compute_false_positive_negative_rates(shift_data)
@@ -901,7 +958,9 @@ class MonteCarloResultsAnalyzer:
                 "false_positive_rate": fp_fn["false_positive_rate"],
                 "false_negative_rate": fp_fn["false_negative_rate"],
                 "avg_success_rate": (
-                    np.mean([s["success_rate"] for s in success.values()]) if success else 0.0
+                    np.mean([s["success_rate"] for s in success.values()])
+                    if success
+                    else 0.0
                 ),
                 "avg_horizontal_margin": margins["avg_horizontal_margin"],
                 "avg_vertical_margin": margins["avg_vertical_margin"],
@@ -943,7 +1002,9 @@ class MonteCarloVisualizer:
         self.logger = logging.getLogger(__name__)
 
         if not PLOTTING_AVAILABLE:
-            self.logger.warning("Plotting libraries not available - visualizations disabled")
+            self.logger.warning(
+                "Plotting libraries not available - visualizations disabled"
+            )
 
     def create_performance_summary_charts(
         self,
@@ -1048,7 +1109,9 @@ class MonteCarloVisualizer:
 
             scenario_types = list(success_data.keys())
             success_rates = [success_data[st]["success_rate"] for st in scenario_types]
-            total_scenarios = [success_data[st]["total_scenarios"] for st in scenario_types]
+            total_scenarios = [
+                success_data[st]["total_scenarios"] for st in scenario_types
+            ]
 
             bars = ax.bar(scenario_types, success_rates, alpha=0.8, color="skyblue")
 
@@ -1231,7 +1294,9 @@ class MonteCarloVisualizer:
             return str(save_path)
 
         except Exception as e:
-            self.logger.exception(f"Failed to create distribution shift scatter plot: {e}")
+            self.logger.exception(
+                f"Failed to create distribution shift scatter plot: {e}"
+            )
             return None
 
 
@@ -1269,8 +1334,12 @@ def analyze_monte_carlo_results(
             json.dump(aggregated_metrics, f, indent=2, default=str)
 
         # Create visualizations
-        summary_plots = visualizer.create_performance_summary_charts(aggregated_metrics, output_dir)
-        shift_plots = visualizer.create_distribution_shift_plots(aggregated_metrics, output_dir)
+        summary_plots = visualizer.create_performance_summary_charts(
+            aggregated_metrics, output_dir
+        )
+        shift_plots = visualizer.create_distribution_shift_plots(
+            aggregated_metrics, output_dir
+        )
 
         # Return complete analysis
         return {

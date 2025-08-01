@@ -65,7 +65,9 @@ Consider safety margins, operational efficiency, and standard ATC procedures."""
                             "response": answer,
                         },
                     )
-                    logging.warning(f"Potential hallucination - unexpected response: {answer}")
+                    logging.warning(
+                        f"Potential hallucination - unexpected response: {answer}"
+                    )
                     violation = True  # Err on side of caution
                 elif "yes" in answer:
                     violation = True
@@ -100,7 +102,9 @@ Consider safety margins, operational efficiency, and standard ATC procedures."""
 
     # Log hallucination events for analysis
     if hallucination_events:
-        logging.warning(f"Detected {len(hallucination_events)} potential hallucination events")
+        logging.warning(
+            f"Detected {len(hallucination_events)} potential hallucination events"
+        )
         for event in hallucination_events:
             logging.warning(f"Hallucination event: {json.dumps(event)}")
 

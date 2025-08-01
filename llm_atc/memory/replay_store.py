@@ -43,7 +43,9 @@ class ConflictExperience:
     timestamp: float = 0.0  # Add timestamp field with default
     scenario_context: dict[str, Any] = None  # Add scenario_context field
     conflict_geometry: dict[str, Any] = None  # Add conflict_geometry field
-    environmental_conditions: dict[str, Any] = None  # Add environmental_conditions field
+    environmental_conditions: dict[str, Any] = (
+        None  # Add environmental_conditions field
+    )
     llm_decision: dict[str, Any] = None  # Add llm_decision field
     baseline_decision: dict[str, Any] = None  # Add baseline_decision field
     actual_outcome: dict[str, Any] = None  # Add actual_outcome field
@@ -119,13 +121,17 @@ class VectorReplayStore:
             try:
                 self.embedding_model = SentenceTransformer("intfloat/e5-large-v2")
                 self.embedding_dim = 1024
-                self.logger.info("Initialized SentenceTransformer model: intfloat/e5-large-v2")
+                self.logger.info(
+                    "Initialized SentenceTransformer model: intfloat/e5-large-v2"
+                )
             except Exception as e:
                 self.logger.warning("Failed to initialize SentenceTransformer: %s", e)
                 self.embedding_model = None
                 self.embedding_dim = 1024
         else:
-            self.logger.warning("SentenceTransformers not available, using fallback embedding")
+            self.logger.warning(
+                "SentenceTransformers not available, using fallback embedding"
+            )
             self.embedding_model = None
             self.embedding_dim = 1024
 
@@ -144,9 +150,13 @@ class VectorReplayStore:
             self.collection = self.chroma_client.get_collection(
                 name=self.collection_name,
             )
-            self.logger.info("Connected to existing collection: %s", self.collection_name)
+            self.logger.info(
+                "Connected to existing collection: %s", self.collection_name
+            )
         except Exception:
-            self.logger.warning("Collection %s not found, creating new one", self.collection_name)
+            self.logger.warning(
+                "Collection %s not found, creating new one", self.collection_name
+            )
             self.collection = self.chroma_client.create_collection(
                 name=self.collection_name,
                 embedding_function=None,  # Use local embeddings
@@ -263,7 +273,9 @@ class VectorReplayStore:
                     )
                 except Exception:
                     # If both fail, skip metadata filtering
-                    self.logger.warning("Metadata filtering failed, retrieving all documents")
+                    self.logger.warning(
+                        "Metadata filtering failed, retrieving all documents"
+                    )
                     filtered_results = self.collection.get()
 
             if not filtered_results["ids"]:
@@ -307,15 +319,21 @@ class VectorReplayStore:
             if search_results["ids"] and search_results["ids"][0]:
                 for i, exp_id in enumerate(search_results["ids"][0]):
                     distance = (
-                        search_results["distances"][0][i] if search_results["distances"] else 1.0
+                        search_results["distances"][0][i]
+                        if search_results["distances"]
+                        else 1.0
                     )
                     similarity = 1.0 - distance  # Convert distance to similarity
 
                     metadata = (
-                        search_results["metadatas"][0][i] if search_results["metadatas"] else {}
+                        search_results["metadatas"][0][i]
+                        if search_results["metadatas"]
+                        else {}
                     )
                     document = (
-                        search_results["documents"][0][i] if search_results["documents"] else ""
+                        search_results["documents"][0][i]
+                        if search_results["documents"]
+                        else ""
                     )
 
                     # Filter by metadata if database query didn't work

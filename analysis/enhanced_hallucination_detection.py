@@ -42,7 +42,7 @@ class EnhancedHallucinationDetector:
     def __init__(self, prompt_engine: Optional[Any] = None) -> None:
         """
         Initialize the enhanced hallucination detector.
-        
+
         Args:
             prompt_engine: Optional LLMPromptEngine instance for sophisticated prompts
         """
@@ -114,7 +114,9 @@ class EnhancedHallucinationDetector:
             response_text = llm_response.get("decision_text", "")
 
             # 1. Aircraft existence check
-            aircraft_hallucination = self._check_aircraft_existence(response_text, context)
+            aircraft_hallucination = self._check_aircraft_existence(
+                response_text, context
+            )
             if aircraft_hallucination:
                 detected_types.append(HallucinationType.AIRCRAFT_EXISTENCE)
                 explanations.append("Referenced non-existent aircraft")
@@ -142,7 +144,9 @@ class EnhancedHallucinationDetector:
                 max_confidence = max(max_confidence, 0.7)
 
             # 5. Impossible maneuver check
-            maneuver_hallucination = self._check_impossible_maneuvers(response_text, context)
+            maneuver_hallucination = self._check_impossible_maneuvers(
+                response_text, context
+            )
             if maneuver_hallucination:
                 detected_types.append(HallucinationType.IMPOSSIBLE_MANEUVER)
                 explanations.append("Physically impossible maneuvers suggested")
@@ -164,7 +168,9 @@ class EnhancedHallucinationDetector:
                 confidence=max_confidence,
                 types=detected_types,
                 explanation=(
-                    "; ".join(explanations) if explanations else "No hallucinations detected"
+                    "; ".join(explanations)
+                    if explanations
+                    else "No hallucinations detected"
                 ),
                 severity=severity,
             )
@@ -179,7 +185,9 @@ class EnhancedHallucinationDetector:
                 severity="low",
             )
 
-    def _check_aircraft_existence(self, response_text: str, context: dict[str, Any]) -> bool:
+    def _check_aircraft_existence(
+        self, response_text: str, context: dict[str, Any]
+    ) -> bool:
         """Check if response references non-existent aircraft"""
         try:
             # Extract aircraft IDs from response
@@ -265,12 +273,16 @@ class EnhancedHallucinationDetector:
             self.logger.warning(f"Protocol violation check failed: {e}")
             return False
 
-    def _check_impossible_maneuvers(self, response_text: str, context: dict[str, Any]) -> bool:
+    def _check_impossible_maneuvers(
+        self, response_text: str, context: dict[str, Any]
+    ) -> bool:
         """Check for physically impossible maneuvers"""
         try:
             # Check for extreme climb/descent rates
             if re.search(
-                r"climb.*[5-9][0-9]{3}|descend.*[5-9][0-9]{3}", response_text, re.IGNORECASE,
+                r"climb.*[5-9][0-9]{3}|descend.*[5-9][0-9]{3}",
+                response_text,
+                re.IGNORECASE,
             ):
                 return True  # >5000 fpm is extreme
 
@@ -283,7 +295,9 @@ class EnhancedHallucinationDetector:
                 return True  # Too slow or too fast
 
             # Check for contradictory instructions
-            if re.search(r"climb.*descend|turn left.*turn right", response_text, re.IGNORECASE):
+            if re.search(
+                r"climb.*descend|turn left.*turn right", response_text, re.IGNORECASE
+            ):
                 return True  # Contradictory commands
 
             return False

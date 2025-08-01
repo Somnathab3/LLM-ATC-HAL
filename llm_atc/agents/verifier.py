@@ -55,7 +55,9 @@ class Verifier:
             "maximum_execution_time": 30.0,  # seconds
         }
 
-    def check(self, execution_result: ExecutionResult, timeout_seconds: float = 5.0) -> bool:
+    def check(
+        self, execution_result: ExecutionResult, timeout_seconds: float = 5.0
+    ) -> bool:
         """
         Perform verification check on execution result
 
@@ -105,10 +107,14 @@ class Verifier:
             # Determine final verification status
             if verification.failed_checks:
                 verification.status = VerificationStatus.FAILED
-                self.logger.warning("Verification failed: %s", verification.failed_checks)
+                self.logger.warning(
+                    "Verification failed: %s", verification.failed_checks
+                )
             elif verification.warnings:
                 verification.status = VerificationStatus.WARNING
-                self.logger.info("Verification passed with warnings: %s", verification.warnings)
+                self.logger.info(
+                    "Verification passed with warnings: %s", verification.warnings
+                )
             else:
                 verification.status = VerificationStatus.PASSED
                 self.logger.info("Verification passed successfully")
@@ -117,7 +123,10 @@ class Verifier:
             self.verification_history.append(verification)
 
             # Return True if passed or warning (warnings don't block execution)
-            return verification.status in [VerificationStatus.PASSED, VerificationStatus.WARNING]
+            return verification.status in [
+                VerificationStatus.PASSED,
+                VerificationStatus.WARNING,
+            ]
 
         except Exception:
             self.logger.exception("Error during verification")
@@ -178,7 +187,9 @@ class Verifier:
 
         if execution.success_rate >= min_success_rate:
             verification.passed_checks.append(check_name)
-        elif execution.success_rate >= min_success_rate * 0.8:  # 80% of minimum for warnings
+        elif (
+            execution.success_rate >= min_success_rate * 0.8
+        ):  # 80% of minimum for warnings
             verification.warnings.append(
                 f"{check_name}: Low success rate ({execution.success_rate:.2f} < {min_success_rate})",
             )
@@ -347,7 +358,9 @@ class Verifier:
         avg_safety_score = (
             sum(v.safety_score for v in self.verification_history) / total_verifications
         )
-        avg_confidence = sum(v.confidence for v in self.verification_history) / total_verifications
+        avg_confidence = (
+            sum(v.confidence for v in self.verification_history) / total_verifications
+        )
 
         return {
             "total_verifications": total_verifications,

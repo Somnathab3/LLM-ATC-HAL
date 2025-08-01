@@ -1,0 +1,35 @@
+{
+  "removed_files": [
+    "f:\\LLM-ATC-HAL\\__pycache__",
+    "f:\\LLM-ATC-HAL\\analysis\\__pycache__",
+    "f:\\LLM-ATC-HAL\\llm_atc\\__pycache__",
+    "f:\\LLM-ATC-HAL\\llm_interface\\__pycache__",
+    "f:\\LLM-ATC-HAL\\scenarios\\__pycache__",
+    "f:\\LLM-ATC-HAL\\llm_atc\\agents\\__pycache__",
+    "f:\\LLM-ATC-HAL\\llm_atc\\metrics\\__pycache__",
+    "f:\\LLM-ATC-HAL\\llm_atc\\tools\\__pycache__",
+    "f:\\LLM-ATC-HAL\\step4_final_analysis.py",
+    "f:\\LLM-ATC-HAL\\step4_performance_analysis.py",
+    "f:\\LLM-ATC-HAL\\step4_simple_analysis.py",
+    "f:\\LLM-ATC-HAL\\step5_cleanup.py",
+    "f:\\LLM-ATC-HAL\\monitor_tests.py",
+    "f:\\LLM-ATC-HAL\\analyze_dependencies.py",
+    "f:\\LLM-ATC-HAL\\analyze_failures.py",
+    "f:\\LLM-ATC-HAL\\test_models_fixed.py"
+  ],
+  "organized_files": [
+    "Copied f:\\LLM-ATC-HAL\\experiments\\monte_carlo_results to f:\\LLM-ATC-HAL\\experiments\\final_benchmarks\\base_model",
+    "Copied f:\\LLM-ATC-HAL\\experiments\\fine_tuned_results to f:\\LLM-ATC-HAL\\experiments\\final_benchmarks\\fine_tuned_model",
+    "Copied f:\\LLM-ATC-HAL\\experiments\\performance_analysis to f:\\LLM-ATC-HAL\\experiments\\analysis_results"
+  ],
+  "created_directories": [
+    "experiments/final_benchmarks/base_model",
+    "experiments/final_benchmarks/fine_tuned_model",
+    "experiments/analysis_results",
+    "experiments/archived"
+  ],
+  "git_operations": [
+    "Formatted code with black",
+    "Added organized files to git"
+  ]
+}

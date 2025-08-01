@@ -9,7 +9,11 @@ import time
 from typing import Any, Optional
 
 from analysis.enhanced_hallucination_detection import EnhancedHallucinationDetector
-from llm_atc.memory.replay_store import ConflictExperience, SimilarityResult, VectorReplayStore
+from llm_atc.memory.replay_store import (
+    ConflictExperience,
+    SimilarityResult,
+    VectorReplayStore,
+)
 from llm_atc.metrics.safety_margin_quantifier import SafetyMarginQuantifier
 
 
@@ -69,7 +73,10 @@ class ExperienceIntegrator:
             # Step 4: Prepare comprehensive guidance
             guidance = lessons_learned + pattern_warnings
 
-            logging.info("Processed conflict with %d similar experiences", len(similar_experiences))
+            logging.info(
+                "Processed conflict with %d similar experiences",
+                len(similar_experiences),
+            )
             return enhanced_decision, guidance
 
         except Exception:
@@ -113,7 +120,9 @@ class ExperienceIntegrator:
             logging.exception("Failed to find relevant experiences")
             return []
 
-    def _extract_lessons(self, similar_experiences: list[SimilarityResult]) -> list[str]:
+    def _extract_lessons(
+        self, similar_experiences: list[SimilarityResult]
+    ) -> list[str]:
         """Extract actionable lessons from similar experiences"""
 
         lessons = []
@@ -124,23 +133,33 @@ class ExperienceIntegrator:
 
                 # Add stored lessons
                 if experience.lessons_learned:
-                    lessons.append(f"Similar scenario lesson: {experience.lessons_learned}")
+                    lessons.append(
+                        f"Similar scenario lesson: {experience.lessons_learned}"
+                    )
 
                 # Analyze decision effectiveness
                 if experience.actual_outcome:
-                    outcome_success = experience.actual_outcome.get("resolution_success", False)
+                    outcome_success = experience.actual_outcome.get(
+                        "resolution_success", False
+                    )
                     llm_action = experience.llm_decision.get("action", "unknown")
 
                     if outcome_success:
-                        lessons.append(f"Effective action in similar case: {llm_action}")
+                        lessons.append(
+                            f"Effective action in similar case: {llm_action}"
+                        )
                     else:
-                        lessons.append(f"Avoid action from similar failed case: {llm_action}")
+                        lessons.append(
+                            f"Avoid action from similar failed case: {llm_action}"
+                        )
 
                 # Safety margin insights
                 if experience.safety_metrics:
                     safety_margin = experience.safety_metrics.get("effective_margin", 0)
                     if safety_margin < 0.5:
-                        lessons.append("Warning: Similar scenarios had low safety margins")
+                        lessons.append(
+                            "Warning: Similar scenarios had low safety margins"
+                        )
 
                 # Hallucination warnings
                 if experience.hallucination_detected:
@@ -201,10 +220,15 @@ class ExperienceIntegrator:
 
             # Check similar experience hallucination rate
             similar_hallucinations = sum(
-                1 for result in similar_experiences if result.experience.hallucination_detected
+                1
+                for result in similar_experiences
+                if result.experience.hallucination_detected
             )
 
-            if similar_experiences and similar_hallucinations / len(similar_experiences) > 0.5:
+            if (
+                similar_experiences
+                and similar_hallucinations / len(similar_experiences) > 0.5
+            ):
                 warnings.append(
                     "High hallucination risk: Similar scenarios had frequent hallucinations",
                 )
@@ -314,7 +338,9 @@ class ExperienceIntegrator:
                 if result.experience.actual_outcome.get(
                     "resolution_success",
                     False,
-                ) and result.experience.llm_decision.get("type") != llm_decision.get("type"):
+                ) and result.experience.llm_decision.get("type") != llm_decision.get(
+                    "type"
+                ):
                     alternative = {
                         "action": result.experience.llm_decision.get("action", ""),
                         "type": result.experience.llm_decision.get("type", ""),
@@ -325,7 +351,9 @@ class ExperienceIntegrator:
 
             if alternative_actions:
                 # Sort by similarity and limit to top 3
-                alternative_actions.sort(key=lambda x: x["similarity_score"], reverse=True)
+                alternative_actions.sort(
+                    key=lambda x: x["similarity_score"], reverse=True
+                )
                 enhanced_decision["alternative_actions"] = alternative_actions[:3]
 
             return enhanced_decision
@@ -427,7 +455,9 @@ class ExperienceIntegrator:
                 env_corr = patterns.get("environmental_correlations", {})
                 if env_corr:
                     risky_weather = max(env_corr, key=env_corr.get)
-                    insights.append(f"Highest hallucination risk weather: {risky_weather}")
+                    insights.append(
+                        f"Highest hallucination risk weather: {risky_weather}"
+                    )
 
             # Recommendations
             if total_exp < 100:
@@ -441,7 +471,9 @@ class ExperienceIntegrator:
                 )
 
             if stats.get("override_rate", 0) > 0.3:
-                insights.append("Alert: High override rate - LLM decisions may need improvement")
+                insights.append(
+                    "Alert: High override rate - LLM decisions may need improvement"
+                )
 
             return insights
 
@@ -460,7 +492,9 @@ class ExperienceIntegrator:
                 timestamp=time.time(),
                 scenario_context=experience_data.get("scenario", {}),
                 conflict_geometry=experience_data.get("conflict_geometry", {}),
-                environmental_conditions=experience_data.get("environmental_conditions", {}),
+                environmental_conditions=experience_data.get(
+                    "environmental_conditions", {}
+                ),
                 llm_decision=experience_data.get("action", {}),
                 baseline_decision=experience_data.get("baseline_decision", {}),
                 actual_outcome=experience_data.get("outcome", {}),

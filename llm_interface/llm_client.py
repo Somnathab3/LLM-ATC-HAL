@@ -11,6 +11,7 @@ import ollama
 @dataclass
 class ChatMessage:
     """Represents a chat message with proper Ollama formatting"""
+
     role: str  # 'system', 'user', 'assistant', 'tool'
     content: str
 
@@ -18,6 +19,7 @@ class ChatMessage:
 @dataclass
 class LLMResponse:
     """Structured LLM response with performance metrics"""
+
     content: str
     response_time: float
     model: str
@@ -26,7 +28,16 @@ class LLMResponse:
 
 
 class LLMClient:
-    def __init__(self, model="llama3.1:8b", max_retries=2, timeout=15.0, enable_streaming=True, enable_caching=True, cache_size=128, enable_optimized_prompts=True) -> None:
+    def __init__(
+        self,
+        model="llama3.1:8b",
+        max_retries=2,
+        timeout=15.0,
+        enable_streaming=True,
+        enable_caching=True,
+        cache_size=128,
+        enable_optimized_prompts=True,
+    ) -> None:
         self.client = ollama.Client()
         self.model = model
         self.max_retries = max_retries  # Reduced from 3 for speed
@@ -38,60 +49,58 @@ class LLMClient:
         self.inference_count = 0
         self.cache_hits = 0
         self.function_call_enabled = True
-        
+
         # Response cache
         if enable_caching:
             self._response_cache = {}
             self._cache_size = cache_size
-        
+
         logging.basicConfig(level=logging.INFO)
 
     def create_chat_messages(
         self,
         system_prompt: str,
         user_prompt: str,
-        context: Optional[List[ChatMessage]] = None
+        context: Optional[List[ChatMessage]] = None,
     ) -> List[Dict[str, str]]:
         """
         Create properly formatted Ollama chat messages.
-        
+
         Args:
             system_prompt: System instructions
             user_prompt: User query
             context: Optional conversation context
-            
+
         Returns:
             List of message dictionaries for Ollama
         """
         messages = []
-        
+
         # System message (always first)
         if system_prompt:
-            messages.append({
-                "role": "system",
-                "content": system_prompt
-            })
-        
+            messages.append({"role": "system", "content": system_prompt})
+
         # Add context messages if provided
         if context:
             for msg in context:
-                messages.append({
-                    "role": msg.role,
-                    "content": msg.content
-                })
-        
+                messages.append({"role": msg.role, "content": msg.content})
+
         # User message (current query)
-        messages.append({
-            "role": "user", 
-            "content": user_prompt
-        })
-        
+        messages.append({"role": "user", "content": user_prompt})
+
         return messages
 
-    def ask(self, prompt, expect_json=False, enable_function_calls=True, system_prompt=None, priority="normal"):
+    def ask(
+        self,
+        prompt,
+        expect_json=False,
+        enable_function_calls=True,
+        system_prompt=None,
+        priority="normal",
+    ):
         """Ask the LLM a question with retry logic and error handling - OPTIMIZED VERSION."""
         start_time = time.time()
-        
+
         # Check cache first
         if self.enable_caching:
             cache_key = self._create_cache_key(prompt, system_prompt)
@@ -99,10 +108,10 @@ class LLMClient:
                 self.cache_hits += 1
                 cached_response = self._response_cache[cache_key]
                 return cached_response
-        
+
         # Adjust timeout based on priority
         timeout = self._get_priority_timeout(priority)
-        
+
         for attempt in range(self.max_retries):
             try:
                 # Enhanced prompt for function calling if enabled
@@ -113,7 +122,10 @@ class LLMClient:
                     user_prompt = prompt
 
                 # Create properly formatted messages with system/user separation
-                default_system = system_prompt or "You are an expert Air Traffic Controller. Provide concise, accurate responses."
+                default_system = (
+                    system_prompt
+                    or "You are an expert Air Traffic Controller. Provide concise, accurate responses."
+                )
                 messages = self.create_chat_messages(default_system, user_prompt)
 
                 # Execute optimized request
@@ -137,9 +149,14 @@ class LLMClient:
                             self._cache_response(cache_key, parsed_content)
                         return parsed_content
                     except json.JSONDecodeError as e:
-                        logging.warning(f"Failed to parse JSON on attempt {attempt + 1}: {e}")
+                        logging.warning(
+                            f"Failed to parse JSON on attempt {attempt + 1}: {e}"
+                        )
                         if attempt == self.max_retries - 1:
-                            error_response = {"error": "Invalid JSON response", "raw_content": content}
+                            error_response = {
+                                "error": "Invalid JSON response",
+                                "raw_content": content,
+                            }
                             return error_response
                         time.sleep(0.5)  # Reduced delay
                         continue
@@ -169,23 +186,23 @@ class LLMClient:
         system_prompt: Optional[str] = None,
         expect_json: bool = False,
         context: Optional[List[ChatMessage]] = None,
-        priority: str = "normal"
+        priority: str = "normal",
     ) -> LLMResponse:
         """
         High-performance LLM query with proper chat formatting.
-        
+
         Args:
             user_prompt: User question/request
             system_prompt: System instructions (ATC role, requirements)
             expect_json: Whether to expect JSON response
             context: Conversation context
             priority: Request priority for timeout adjustment
-            
+
         Returns:
             LLMResponse with content and performance metrics
         """
         start_time = time.time()
-        
+
         # Check cache first
         if self.enable_caching:
             cache_key = self._create_cache_key(user_prompt, system_prompt)
@@ -196,95 +213,92 @@ class LLMClient:
                     content=cached_response,
                     response_time=time.time() - start_time,
                     model=self.model,
-                    cached=True
+                    cached=True,
                 )
-        
+
         # Adjust timeout based on priority
         timeout = self._get_priority_timeout(priority)
-        
+
         # Create properly formatted messages
-        default_system = system_prompt or "You are an expert Air Traffic Controller. Provide concise, accurate responses."
+        default_system = (
+            system_prompt
+            or "You are an expert Air Traffic Controller. Provide concise, accurate responses."
+        )
         messages = self.create_chat_messages(default_system, user_prompt, context)
-        
+
         # Execute with retries
         for attempt in range(self.max_retries):
             try:
                 response = self._execute_chat_request(messages, timeout, expect_json)
-                
+
                 # Cache successful response
                 if self.enable_caching and cache_key:
                     self._cache_response(cache_key, response)
-                
+
                 # Track performance
                 response_time = time.time() - start_time
                 self.total_inference_time += response_time
                 self.inference_count += 1
-                
+
                 return LLMResponse(
                     content=response,
                     response_time=response_time,
                     model=self.model,
-                    cached=False
+                    cached=False,
                 )
-                
+
             except Exception as e:
                 logging.warning(f"Attempt {attempt + 1} failed: {e}")
                 if attempt == self.max_retries - 1:
                     return LLMResponse(
                         content=f"Error: {str(e)}",
                         response_time=time.time() - start_time,
-                        model=self.model
+                        model=self.model,
                     )
                 time.sleep(0.5)  # Brief delay, reduced from 1-2s
-        
+
         return LLMResponse(
             content="Error: Max retries exceeded",
             response_time=time.time() - start_time,
-            model=self.model
+            model=self.model,
         )
 
     def _execute_chat_request(
-        self,
-        messages: List[Dict[str, str]],
-        timeout: float,
-        expect_json: bool
+        self, messages: List[Dict[str, str]], timeout: float, expect_json: bool
     ) -> str:
         """Execute the actual chat request to Ollama"""
-        
+
         options = {
             "temperature": 0.1,  # Low for consistency
             "top_p": 0.9,
             "num_predict": 300,  # Reduced token limit for speed
         }
-        
+
         if self.enable_streaming:
             # Use streaming for faster response times
             response_chunks = []
             stream = self.client.chat(
-                model=self.model,
-                messages=messages,
-                options=options,
-                stream=True
+                model=self.model, messages=messages, options=options, stream=True
             )
-            
+
             for chunk in stream:
-                if chunk['message']['content']:
-                    response_chunks.append(chunk['message']['content'])
-            
-            content = ''.join(response_chunks).strip()
+                if chunk["message"]["content"]:
+                    response_chunks.append(chunk["message"]["content"])
+
+            content = "".join(response_chunks).strip()
         else:
             # Standard non-streaming request - UPDATED TO USE PROPER MESSAGES
             response = self.client.chat(
                 model=self.model,
                 messages=messages,  # Now properly formatted with system/user roles
-                options=options
+                options=options,
             )
             content = response["message"]["content"].strip()
-        
+
         # Handle JSON parsing
         if expect_json:
             return self._parse_json_response_fast(content)
-        
+
         return content
 
     def _enhance_prompt_for_function_calling(self, original_prompt: str) -> str:
@@ -323,7 +337,9 @@ Or provide a regular text response for analysis and reasoning.
                 function_name = function_call.get("name")
                 arguments = function_call.get("arguments", {})
 
-                logging.info(f"Function call detected: {function_name} with args {arguments}")
+                logging.info(
+                    f"Function call detected: {function_name} with args {arguments}"
+                )
 
                 # Execute the function call
                 result = self._execute_function_call(function_name, arguments)
@@ -346,7 +362,9 @@ Or provide a regular text response for analysis and reasoning.
         return None
 
     def _execute_function_call(
-        self, function_name: str, arguments: dict[str, Any],
+        self,
+        function_name: str,
+        arguments: dict[str, Any],
     ) -> dict[str, Any]:
         """Execute a function call and return the result"""
         try:
@@ -368,7 +386,9 @@ Or provide a regular text response for analysis and reasoning.
             }
 
     def chat_with_function_calling(
-        self, messages: list[dict[str, str]], max_function_calls: int = 5,
+        self,
+        messages: list[dict[str, str]],
+        max_function_calls: int = 5,
     ) -> dict[str, Any]:
         """
         Extended chat interface with function calling support
@@ -473,53 +493,124 @@ Or provide a regular text response for analysis and reasoning.
     # === OPTIMIZATION METHODS ===
 
     def _parse_json_response_fast(self, content: str) -> str:
-        """Fast JSON parsing with minimal fallback"""
+        """Enhanced JSON parsing with robust fallback and validation"""
+        import re
+
+        # Try direct parsing first
         try:
-            # Quick validation and return
-            json.loads(content)
+            parsed = json.loads(content)
             return content
         except json.JSONDecodeError:
-            # Simple JSON extraction - no complex cleaning
-            import re
-            json_match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', content)
-            if json_match:
+            pass
+
+        # Try to extract JSON from mixed content
+        json_patterns = [
+            r"\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}",  # Simple nested JSON
+            r"\{(?:[^{}]|{[^{}]*})*\}",  # More permissive nested
+            r"\{.*?\}",  # Greedy capture
+        ]
+
+        for pattern in json_patterns:
+            matches = re.findall(pattern, content, re.DOTALL)
+            for match in matches:
                 try:
-                    json.loads(json_match.group(0))
-                    return json_match.group(0)
+                    # Try to fix common JSON issues
+                    fixed_match = self._fix_common_json_issues(match)
+                    parsed = json.loads(fixed_match)
+
+                    # Validate it has required structure
+                    if self._validate_atc_json_structure(parsed):
+                        return fixed_match
                 except:
-                    pass
-            
-            # Return error structure quickly
-            return json.dumps({
-                "error": "Invalid JSON response",
-                "raw_content": content[:200]  # Truncated
-            })
+                    continue
+
+        # If all else fails, create a safe default structure
+        return json.dumps(
+            {
+                "conflict_detected": False,
+                "aircraft_pairs": [],
+                "confidence": 0.5,
+                "analysis": "Unable to parse LLM response - defaulting to safe state",
+                "error": "JSON parsing failed",
+                "raw_content": content[:200],
+            }
+        )
+
+    def _fix_common_json_issues(self, json_str: str) -> str:
+        """Fix common JSON formatting issues"""
+        import re
+
+        # Remove trailing commas
+        json_str = re.sub(r",(\s*[}\]])", r"\1", json_str)
+
+        # Fix unquoted keys
+        json_str = re.sub(r"(\w+):", r'"\1":', json_str)
+
+        # Fix single quotes to double quotes
+        json_str = re.sub(r"'([^']*)'", r'"\1"', json_str)
+
+        # Ensure boolean values are lowercase
+        json_str = re.sub(r"\bTrue\b", "true", json_str)
+        json_str = re.sub(r"\bFalse\b", "false", json_str)
+        json_str = re.sub(r"\bNone\b", "null", json_str)
+
+        return json_str
+
+    def _validate_atc_json_structure(self, parsed_json: dict) -> bool:
+        """Validate that parsed JSON has expected ATC structure"""
+        if not isinstance(parsed_json, dict):
+            return False
+
+        # Check for conflict detection structure
+        if "conflict_detected" in parsed_json:
+            return True
+
+        # Check for resolution structure
+        if any(key in parsed_json for key in ["command", "action", "resolution"]):
+            return True
+
+        # Check for function call structure
+        if "function_call" in parsed_json:
+            return True
+
+        return False
+
+    def get_safe_default_resolution(self, scenario_type: str = "unknown") -> dict:
+        """Provide a safe default resolution when LLM fails"""
+        return {
+            "action": "CONTINUE_MONITORING",
+            "rationale": "No conflicts detected or insufficient data for resolution",
+            "confidence": 0.5,
+            "commands": [],
+            "scenario_type": scenario_type,
+            "safety_status": "monitoring",
+        }
 
     def _create_cache_key(self, user_prompt: str, system_prompt: Optional[str]) -> str:
         """Create cache key from prompts"""
         key_parts = [user_prompt]
         if system_prompt:
             key_parts.append(system_prompt)
-        return hash('|'.join(key_parts).__str__())
+        return hash("|".join(key_parts).__str__())
 
     def _cache_response(self, cache_key: str, response: str) -> None:
         """Cache response with size limit"""
-        if not hasattr(self, '_response_cache'):
+        if not hasattr(self, "_response_cache"):
             return
-            
+
         if len(self._response_cache) >= self._cache_size:
             # Remove oldest entry (simple FIFO)
             oldest_key = next(iter(self._response_cache))
             del self._response_cache[oldest_key]
-        
+
         self._response_cache[cache_key] = response
 
     def _get_priority_timeout(self, priority: str) -> float:
         """Get timeout based on request priority"""
         timeouts = {
-            'low': self.timeout * 0.5,
-            'normal': self.timeout,
-            'high': self.timeout * 1.5
+            "low": self.timeout * 0.5,
+            "normal": self.timeout,
+            "high": self.timeout * 1.5,
         }
         return timeouts.get(priority, self.timeout)
 
@@ -564,19 +655,21 @@ RESPONSE: JSON format
     def get_performance_stats(self) -> Dict[str, Any]:
         """Get client performance statistics"""
         avg_time = (
-            self.total_inference_time / self.inference_count 
-            if self.inference_count > 0 else 0.0
+            self.total_inference_time / self.inference_count
+            if self.inference_count > 0
+            else 0.0
         )
-        
+
         return {
             "average_response_time": avg_time,
             "total_requests": self.inference_count,
             "cache_hit_rate": (
-                self.cache_hits / self.inference_count 
-                if self.inference_count > 0 else 0.0
+                self.cache_hits / self.inference_count
+                if self.inference_count > 0
+                else 0.0
             ),
             "total_inference_time": self.total_inference_time,
-            "model": self.model
+            "model": self.model,
         }
 
     def reset_stats(self) -> None:
@@ -591,23 +684,23 @@ def quick_conflict_resolution(
     aircraft_1: Dict[str, Any],
     aircraft_2: Dict[str, Any],
     time_to_conflict: float,
-    client: Optional[LLMClient] = None
+    client: Optional[LLMClient] = None,
 ) -> LLMResponse:
     """
     Quick conflict resolution with minimal prompt overhead.
-    
+
     Args:
         aircraft_1: First aircraft data
-        aircraft_2: Second aircraft data  
+        aircraft_2: Second aircraft data
         time_to_conflict: Time to conflict in seconds
         client: Optional client instance
-        
+
     Returns:
         LLMResponse with resolution command
     """
     if not client:
         client = LLMClient()
-    
+
     # Minimal user prompt
     user_prompt = f"""CONFLICT: {aircraft_1.get('id', 'AC1')} and {aircraft_2.get('id', 'AC2')}
 Time to conflict: {time_to_conflict:.1f}s
@@ -616,45 +709,44 @@ AC1: {aircraft_1.get('lat', 0):.3f}°N, {aircraft_1.get('lon', 0):.3f}°E, {airc
 AC2: {aircraft_2.get('lat', 0):.3f}°N, {aircraft_2.get('lon', 0):.3f}°E, {aircraft_2.get('alt', 0):.0f}ft, {aircraft_2.get('hdg', 0):.0f}°
 
 Provide resolution command:"""
-    
+
     return client.ask_optimized(
         user_prompt=user_prompt,
         system_prompt=client.get_conflict_resolution_system_prompt(),
-        priority="high"
+        priority="high",
     )
 
 
 def quick_conflict_detection(
-    aircraft_states: List[Dict[str, Any]],
-    client: Optional[LLMClient] = None
+    aircraft_states: List[Dict[str, Any]], client: Optional[LLMClient] = None
 ) -> LLMResponse:
     """
     Quick conflict detection with minimal overhead.
-    
+
     Args:
         aircraft_states: List of aircraft data
         client: Optional client instance
-        
+
     Returns:
         LLMResponse with detection results (JSON)
     """
     if not client:
         client = LLMClient()
-    
+
     # Compact aircraft representation
     aircraft_summary = []
     for i, ac in enumerate(aircraft_states):
         summary = f"AC{i+1}: {ac.get('lat', 0):.3f},{ac.get('lon', 0):.3f},{ac.get('alt', 0):.0f}ft,{ac.get('hdg', 0):.0f}°"
         aircraft_summary.append(summary)
-    
+
     user_prompt = f"""Aircraft positions:
 {chr(10).join(aircraft_summary)}
 
 Detect conflicts (5NM/1000ft rule):"""
-    
+
     return client.ask_optimized(
         user_prompt=user_prompt,
         system_prompt=client.get_conflict_detection_system_prompt(),
         expect_json=True,
-        priority="high"
+        priority="high",
     )

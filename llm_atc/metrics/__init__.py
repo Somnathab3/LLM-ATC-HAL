@@ -51,7 +51,10 @@ def compute_metrics(log_file: str) -> dict[str, Any]:
                         # Direct JSON line
                         try:
                             parsed_entry = json.loads(log_entry)
-                            if "best_by_llm" in parsed_entry and "baseline_best" in parsed_entry:
+                            if (
+                                "best_by_llm" in parsed_entry
+                                and "baseline_best" in parsed_entry
+                            ):
                                 data.append(parsed_entry)
                         except json.JSONDecodeError as e:
                             logging.warning(
@@ -130,7 +133,9 @@ def compute_metrics(log_file: str) -> dict[str, Any]:
             "avg_fp_rate": np.mean(fp_rates) if fp_rates else 0,
             "avg_fn_rate": np.mean(fn_rates) if fn_rates else 0,
             "avg_safety_margin": np.mean(safety_margins) if safety_margins else 0,
-            "avg_efficiency_penalty": np.mean(efficiency_penalties) if efficiency_penalties else 0,
+            "avg_efficiency_penalty": (
+                np.mean(efficiency_penalties) if efficiency_penalties else 0
+            ),
             "hallucination_analysis": hallucination_analysis,
         }
 
@@ -151,7 +156,11 @@ def create_empty_metrics() -> dict[str, Any]:
         "avg_fn_rate": 0,
         "avg_safety_margin": 0,
         "avg_efficiency_penalty": 0,
-        "hallucination_analysis": {"total_hallucinations": 0, "by_type": {}, "by_model": {}},
+        "hallucination_analysis": {
+            "total_hallucinations": 0,
+            "by_type": {},
+            "by_model": {},
+        },
     }
 
 
@@ -246,7 +255,9 @@ def calc_path_extra(
                 lat_diff = curr_point["lat"] - prev_point["lat"]
                 lon_diff = curr_point["lon"] - prev_point["lon"]
                 # Rough conversion to nautical miles (more accurate calculation needed)
-                dist = math.sqrt(lat_diff**2 + lon_diff**2) * 60  # degrees to NM approximation
+                dist = (
+                    math.sqrt(lat_diff**2 + lon_diff**2) * 60
+                )  # degrees to NM approximation
                 total_dist += dist
 
         return total_dist
@@ -283,17 +294,27 @@ def aggregate_thesis_metrics(results_dir: str) -> dict[str, Any]:
     aggregated = {
         "total_tests": sum(m["total_tests"] for m in all_metrics),
         "total_hallucinations": sum(m["total_hallucinations"] for m in all_metrics),
-        "avg_llm_time": np.mean([m["avg_llm_time"] for m in all_metrics if m["avg_llm_time"] > 0]),
+        "avg_llm_time": np.mean(
+            [m["avg_llm_time"] for m in all_metrics if m["avg_llm_time"] > 0]
+        ),
         "avg_baseline_time": np.mean(
             [m["avg_baseline_time"] for m in all_metrics if m["avg_baseline_time"] > 0],
         ),
-        "avg_fp_rate": np.mean([m["avg_fp_rate"] for m in all_metrics if m["avg_fp_rate"] > 0]),
-        "avg_fn_rate": np.mean([m["avg_fn_rate"] for m in all_metrics if m["avg_fn_rate"] > 0]),
+        "avg_fp_rate": np.mean(
+            [m["avg_fp_rate"] for m in all_metrics if m["avg_fp_rate"] > 0]
+        ),
+        "avg_fn_rate": np.mean(
+            [m["avg_fn_rate"] for m in all_metrics if m["avg_fn_rate"] > 0]
+        ),
         "avg_safety_margin": np.mean(
             [m["avg_safety_margin"] for m in all_metrics if m["avg_safety_margin"] > 0],
         ),
         "avg_efficiency_penalty": np.mean(
-            [m["avg_efficiency_penalty"] for m in all_metrics if m["avg_efficiency_penalty"] > 0],
+            [
+                m["avg_efficiency_penalty"]
+                for m in all_metrics
+                if m["avg_efficiency_penalty"] > 0
+            ],
         ),
         "files_processed": len(all_metrics),
     }
@@ -345,7 +366,10 @@ def plot_metrics_comparison(
 
     # Response time comparison
     models = ["LLM", "Baseline"]
-    times = [llm_metrics.get("avg_llm_time", 0), baseline_metrics.get("avg_baseline_time", 0)]
+    times = [
+        llm_metrics.get("avg_llm_time", 0),
+        baseline_metrics.get("avg_baseline_time", 0),
+    ]
 
     axes[0, 1].bar(models, times, alpha=0.8, color=["blue", "orange"])
     axes[0, 1].set_ylabel("Time (seconds)")

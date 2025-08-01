@@ -36,7 +36,9 @@ class BaselineEvaluator:
         Args:
             model_dir: Directory containing trained baseline models
         """
-        self.model_dir = Path(model_dir) if model_dir else Path("baseline_models/trained")
+        self.model_dir = (
+            Path(model_dir) if model_dir else Path("baseline_models/trained")
+        )
         self.logger = logging.getLogger(__name__)
 
         # Initialize components
@@ -69,8 +71,12 @@ class BaselineEvaluator:
             resolution_maneuvers = []
             if detection_result.has_conflict:
                 # Prepare conflict scenario for resolver
-                conflict_scenario = self._prepare_conflict_scenario(scenario, detection_result)
-                resolution_maneuvers = self.resolver.resolve_conflicts(conflict_scenario)
+                conflict_scenario = self._prepare_conflict_scenario(
+                    scenario, detection_result
+                )
+                resolution_maneuvers = self.resolver.resolve_conflicts(
+                    conflict_scenario
+                )
 
             # 3. Calculate metrics
             metrics = self._calculate_metrics(
@@ -114,7 +120,9 @@ class BaselineEvaluator:
             return self._create_error_result(scenario, str(e))
 
     def evaluate_batch(
-        self, scenarios: list[dict[str, Any]], ground_truths: Optional[list[dict[str, Any]]] = None
+        self,
+        scenarios: list[dict[str, Any]],
+        ground_truths: Optional[list[dict[str, Any]]] = None,
     ) -> list[dict[str, Any]]:
         """
         Evaluate baseline models on a batch of scenarios.
@@ -129,7 +137,9 @@ class BaselineEvaluator:
         results = []
 
         for i, scenario in enumerate(scenarios):
-            ground_truth = ground_truths[i] if ground_truths and i < len(ground_truths) else None
+            ground_truth = (
+                ground_truths[i] if ground_truths and i < len(ground_truths) else None
+            )
             result = self.evaluate_scenario(scenario, ground_truth)
             results.append(result)
 
@@ -228,7 +238,11 @@ class BaselineEvaluator:
         if ground_truth:
             # Extract predicted and ground truth conflicts
             pred_conflicts = [
-                {"id1": pair[0], "id2": pair[1], "time": detection_result.time_to_conflict}
+                {
+                    "id1": pair[0],
+                    "id2": pair[1],
+                    "time": detection_result.time_to_conflict,
+                }
                 for pair in detection_result.conflict_pairs
             ]
             gt_conflicts = ground_truth.get("conflicts", [])
@@ -274,9 +288,9 @@ class BaselineEvaluator:
         # Risk assessment
         if detection_result.risk_factors:
             metrics["max_risk_factor"] = max(detection_result.risk_factors.values())
-            metrics["avg_risk_factor"] = sum(detection_result.risk_factors.values()) / len(
-                detection_result.risk_factors
-            )
+            metrics["avg_risk_factor"] = sum(
+                detection_result.risk_factors.values()
+            ) / len(detection_result.risk_factors)
         else:
             metrics["max_risk_factor"] = 0.0
             metrics["avg_risk_factor"] = 0.0
@@ -294,7 +308,9 @@ class BaselineEvaluator:
             except Exception as e:
                 self.logger.warning("Failed to load detector: %s", e)
 
-    def _create_error_result(self, scenario: dict[str, Any], error_msg: str) -> dict[str, Any]:
+    def _create_error_result(
+        self, scenario: dict[str, Any], error_msg: str
+    ) -> dict[str, Any]:
         """Create error result for failed evaluations"""
         return {
             "scenario_id": scenario.get("id", "unknown"),
@@ -326,7 +342,8 @@ class BaselineEvaluator:
 
 # Convenience functions for integration with experiment framework
 def evaluate_baseline_on_scenarios(
-    scenarios: list[dict[str, Any]], ground_truths: Optional[list[dict[str, Any]]] = None
+    scenarios: list[dict[str, Any]],
+    ground_truths: Optional[list[dict[str, Any]]] = None,
 ) -> list[dict[str, Any]]:
     """
     Convenience function to evaluate baseline models on scenarios.
