@@ -1,0 +1,28 @@
+bluesky:
+  connection_type: local
+  mock_data:
+    airspace_bounds:
+      lat_max: 53.0
+      lat_min: 51.0
+      lon_max: 6.0
+      lon_min: 3.0
+    altitude_range:
+      max_fl: 400
+      min_fl: 200
+    default_aircraft_count: 10
+    use_realistic_aircraft_count: true
+  network:
+    host: localhost
+    port: 8080
+    timeout: 10.0
+  simulation:
+    conflict_detection_method: SWARM
+    default_dt_mult: 1.0
+    max_simulation_time: 3600
+    separation_standards:
+      horizontal_nm: 5.0
+      vertical_ft: 1000.0
+logging:
+  level: INFO
+  log_aircraft_states: false
+  log_bluesky_commands: true
