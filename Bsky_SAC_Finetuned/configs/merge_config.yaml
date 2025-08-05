@@ -1,0 +1,113 @@
+# Merge Environment Configuration
+environment:
+  name: "MergeEnv-v0"
+  action_space: 2  # heading and speed changes
+  observation_space: 12  # 5 + 7*nac (assuming 1 aircraft)
+  max_aircraft: 6
+  scenario_types:
+    - "final_approach_merge"
+    - "traffic_flow_integration"
+    - "speed_adjustment_merge"
+    - "complex_merge_sequence"
+
+# SAC Model Configuration
+sac_model:
+  model_path: "F:/LLM-ATC-HAL/BSKY_GYM_LLM/models_backup/merge_sac"
+  policy_type: "MlpPolicy"
+  
+# Data Generation
+data_generation:
+  num_episodes: 1200
+  max_steps_per_episode: 350
+  samples_per_environment: 12000
+  expert_threshold: 0.8
+  
+# LLM Fine-tuning Configuration
+llm_training:
+  base_model: "meta-llama/Llama-2-7b-hf"
+  lora_config:
+    r: 32
+    lora_alpha: 64
+    target_modules: ["q_proj", "v_proj", "k_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+    lora_dropout: 0.1
+    bias: "none"
+    task_type: "CAUSAL_LM"
+  
+  training_args:
+    output_dir: "./models/merge_llama"
+    num_train_epochs: 3
+    per_device_train_batch_size: 4
+    per_device_eval_batch_size: 4
+    gradient_accumulation_steps: 8
+    learning_rate: 2e-4
+    warmup_steps: 100
+    logging_steps: 10
+    save_steps: 500
+    eval_steps: 500
+    evaluation_strategy: "steps"
+    load_best_model_at_end: true
+    metric_for_best_model: "eval_loss"
+    greater_is_better: false
+    fp16: true
+    dataloader_num_workers: 4
+    remove_unused_columns: false
+
+# Prompting Templates
+prompts:
+  system_prompt: |
+    You are an expert air traffic controller specializing in traffic merge operations. 
+    Your responsibility is to safely integrate aircraft into traffic flow, particularly 
+    during final approach sequences. You must coordinate both heading and speed changes 
+    to achieve smooth traffic flow while maintaining safe separation.
+    
+    Key principles:
+    - Maintain minimum 5 nautical mile horizontal separation
+    - Optimize merge sequence for traffic flow
+    - Balance merge efficiency with safety
+    - Consider approach spacing requirements
+    - Coordinate with existing traffic patterns
+    
+    Response format: Provide heading change in degrees and speed change in knots.
+    
+  user_prompt_template: |
+    Situation: Aircraft approaching merge point at position ({x_pos}, {y_pos}).
+    Current heading: {heading}°, speed: {airspeed}kts.
+    Merge waypoint: Bearing {waypoint_bearing}° at {waypoint_distance}nm.
+    Drift from optimal merge path: {drift}°.
+    
+    Traffic flow information:
+    - Lead aircraft: {lead_aircraft_info}
+    - Following aircraft: {trail_aircraft_info}
+    - Merge sequence position: {merge_position}
+    
+    Conflicting aircraft:
+    {conflict_info}
+    
+    What heading and speed changes should be made? Consider:
+    1. Safe integration into traffic flow
+    2. Maintaining proper approach spacing
+    3. Avoiding conflicts during merge
+    4. Efficient waypoint approach
+    
+    Provide your decisions as:
+    - Heading change: [X] degrees
+    - Speed change: [Y] knots
+
+# Safety and Performance Metrics
+evaluation:
+  safety_metrics:
+    - "separation_violations"
+    - "merge_conflict_incidents"
+    - "approach_spacing_violations"
+  
+  performance_metrics:
+    - "merge_efficiency"
+    - "waypoint_arrival_accuracy"
+    - "traffic_flow_integration"
+    - "approach_sequence_optimization"
+  
+  success_criteria:
+    min_separation: 5.0        # nautical miles
+    approach_spacing: 3.0      # nautical miles
+    merge_success_rate: 0.85   # fraction of successful merges
+    waypoint_accuracy: 0.5     # nautical miles

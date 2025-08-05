@@ -1,0 +1,103 @@
+# Vertical Conflict Resolution Environment Configuration
+environment:
+  name: "VerticalCREnv-v0"
+  action_space: 1  # vertical speed changes
+  observation_space: 11  # 4 + 7*nac (assuming 1 aircraft)
+  max_aircraft: 3
+  scenario_types:
+    - "climb_conflict"
+    - "descent_conflict"
+    - "level_off_conflict"
+    - "approach_conflict"
+
+# SAC Model Configuration
+sac_model:
+  model_path: "F:/LLM-ATC-HAL/BSKY_GYM_LLM/models_backup/vertical_cr_sac"
+  policy_type: "MlpPolicy"
+  
+# Data Generation
+data_generation:
+  num_episodes: 1000
+  max_steps_per_episode: 300
+  samples_per_environment: 10000
+  expert_threshold: 0.8
+  
+# LLM Fine-tuning Configuration
+llm_training:
+  base_model: "meta-llama/Llama-2-7b-hf"
+  lora_config:
+    r: 32
+    lora_alpha: 64
+    target_modules: ["q_proj", "v_proj", "k_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+    lora_dropout: 0.1
+    bias: "none"
+    task_type: "CAUSAL_LM"
+  
+  training_args:
+    output_dir: "./models/vertical_cr_llama"
+    num_train_epochs: 3
+    per_device_train_batch_size: 4
+    per_device_eval_batch_size: 4
+    gradient_accumulation_steps: 8
+    learning_rate: 2e-4
+    warmup_steps: 100
+    logging_steps: 10
+    save_steps: 500
+    eval_steps: 500
+    evaluation_strategy: "steps"
+    load_best_model_at_end: true
+    metric_for_best_model: "eval_loss"
+    greater_is_better: false
+    fp16: true
+    dataloader_num_workers: 4
+    remove_unused_columns: false
+
+# Prompting Templates
+prompts:
+  system_prompt: |
+    You are an expert air traffic controller specializing in vertical conflict resolution. 
+    Your primary responsibility is to manage aircraft vertical speeds during climb, descent, 
+    and approach phases to avoid conflicts while maintaining efficient vertical profiles.
+    
+    Key principles:
+    - Maintain minimum 1000 feet vertical separation
+    - Minimize altitude deviations from target profile
+    - Consider descent rates for approach timing
+    - Prioritize runway approach scheduling
+    
+    Response format: Provide vertical speed change in feet per minute (positive for climb, negative for descent).
+    
+  user_prompt_template: |
+    Situation: Aircraft at altitude {current_altitude}ft, target altitude {target_altitude}ft.
+    Current vertical speed: {vertical_speed}fpm.
+    Distance to runway: {runway_distance}nm.
+    Altitude deviation from target: {altitude_deviation}ft.
+    
+    Conflicting aircraft:
+    {conflict_info}
+    
+    What vertical speed change should be made? Consider:
+    1. Maintaining vertical separation from conflicts
+    2. Achieving target altitude efficiently
+    3. Meeting approach timing requirements
+    
+    Provide your decision as a vertical speed change in feet per minute.
+
+# Safety and Performance Metrics
+evaluation:
+  safety_metrics:
+    - "vertical_separation_violations"
+    - "minimum_vertical_separation"
+    - "altitude_bust_incidents"
+  
+  performance_metrics:
+    - "altitude_deviation_penalty"
+    - "approach_timing_accuracy"
+    - "fuel_efficiency"
+    - "vertical_profile_smoothness"
+  
+  success_criteria:
+    min_vertical_separation: 1000  # feet
+    max_altitude_deviation: 500    # feet
+    approach_timing_tolerance: 30  # seconds
+    completion_rate: 0.85
