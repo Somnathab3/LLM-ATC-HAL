@@ -1,0 +1,92 @@
+# BlueSky SAC Fine-tuning Configuration
+
+# Model Configuration
+model:
+  name: "meta-llama/Llama-3.1-8B-Instruct"
+  output_name: "llama3.1-bsky-sac"
+  context_length: 4096
+  max_sequence_length: 2048
+  quantization:
+    load_in_4bit: true
+    bnb_4bit_use_double_quant: true
+    bnb_4bit_quant_type: "nf4"
+    bnb_4bit_compute_dtype: "bfloat16"
+  
+# Training Configuration - Optimized for RTX 5070 Ti and speed
+training:
+  learning_rate: 0.0003  # Higher for faster convergence
+  batch_size: 32  # Increased significantly for better GPU utilization  
+  epochs: 2  # Reduced epochs for faster testing
+  gradient_accumulation_steps: 1  # Keep at 1 with large batch size
+  warmup_steps: 50  # Reduced for faster start
+  save_steps: 200  # More frequent saves
+  eval_steps: 100  # More frequent evaluation
+  logging_steps: 25  # More frequent logging
+  
+# Data Configuration - Optimized for speed
+data:
+  train_split: 0.8
+  validation_split: 0.15
+  test_split: 0.05
+  max_sequence_length: 512  # Reduced significantly for much faster training
+  include_environments:
+    - "HorizontalCREnv-v0"
+    - "VerticalCREnv-v0" 
+    - "SectorCREnv-v0"
+    - "MergeEnv-v0"
+  include_algorithms:
+    - "DDPG"
+    - "PPO"
+    - "SAC"
+    - "TD3"
+  deduplication:
+    enabled: true
+    similarity_threshold: 0.95
+    hash_method: "sha256"  # Faster than md5
+
+# LoRA Configuration (optimized for RTX 5070 Ti)
+lora:
+  enabled: true
+  rank: 32  # Increased from 16 for better performance
+  alpha: 64  # Increased proportionally
+  dropout: 0.05  # Reduced for better training
+  target_modules:
+    - "q_proj"
+    - "v_proj" 
+    - "k_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+
+# Evaluation Configuration
+evaluation:
+  metrics:
+    - "perplexity"
+    - "bleu"
+    - "rouge"
+    - "safety_score"
+  benchmark_scenarios: 100
+  
+# Output Configuration
+output:
+  model_dir: "models/fine_tuned"
+  checkpoint_dir: "models/checkpoints"
+  logs_dir: "logs"
+  
+# Hardware Configuration - Optimized for RTX 5070 Ti and speed
+hardware:
+  device: "cuda"  # Force CUDA for RTX 5070 Ti
+  fp16: false  # Use bf16 instead
+  bf16: true   # Better for RTX 5070 Ti
+  gradient_checkpointing: false  # Disable for speed (we have enough VRAM)
+  dataloader_num_workers: 0  # Single process for small datasets (faster)
+  pin_memory: true  # Faster GPU transfers
+  persistent_workers: false  # Don't keep workers alive for small datasets
+
+# Progress Tracking Configuration
+progress:
+  show_progress_bars: true
+  update_frequency: 10
+  save_training_curves: true
+  detailed_logging: true

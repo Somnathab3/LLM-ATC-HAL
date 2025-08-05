@@ -1,0 +1,18 @@
+{
+  "total_lines_processed": 26231,
+  "valid_examples": 12102,
+  "invalid_examples": 0,
+  "duplicate_examples": 14129,
+  "final_unique_examples": 12102,
+  "environment_distribution": {
+    "HorizontalCREnv-v0": 1069,
+    "VerticalCREnv-v0": 81,
+    "SectorCREnv-v0": 8151,
+    "MergeEnv-v0": 2801
+  },
+  "data_splits": {
+    "train": 9680,
+    "validation": 1816,
+    "test": 606
+  }
+}

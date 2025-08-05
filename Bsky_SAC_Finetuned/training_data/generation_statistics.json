@@ -1,0 +1,48 @@
+{
+  "generation_timestamp": "2025-08-05T17:41:01",
+  "generation_parameters": {
+    "episodes_per_env": 1000,
+    "samples_per_env": 10000,
+    "max_steps_per_episode": 500,
+    "parallel_workers": null,
+    "seed": 12345
+  },
+  "environments_processed": 1,
+  "environments_failed": 0,
+  "failed_environments": [],
+  "environment_stats": {
+    "VerticalCREnv-v0": {
+      "environment": "VerticalCREnv-v0",
+      "total_samples": 10000,
+      "unique_episodes": 1000,
+      "average_episode_length": 10.0,
+      "reward_stats": {
+        "mean": -1.1906975077311668,
+        "std": 3.158552367851515,
+        "min": -52.81652531666667,
+        "max": -0.000395218333333105
+      },
+      "safety_violation_rate": 0.0,
+      "validation": {
+        "total_samples": 10000,
+        "valid_samples": 10000,
+        "validation_passed": false,
+        "error_summary": {
+          "total_samples": 10000,
+          "valid_samples": 10000,
+          "validation_passed": false,
+          "error_counts": {
+            "schema_errors": 0,
+            "content_errors": 0,
+            "regex_errors": 0,
+            "consistency_errors": 0,
+            "uniqueness_errors": 9920,
+            "coverage_errors": 0,
+            "duplicate_errors": 0,
+            "perplexity_errors": 0
+          }
+        }
+      }
+    }
+  }
+}

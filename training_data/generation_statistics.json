@@ -1,0 +1,16 @@
+{
+  "generation_timestamp": "2025-08-05T17:16:00",
+  "generation_parameters": {
+    "episodes_per_env": 1000,
+    "samples_per_env": 10000,
+    "max_steps_per_episode": 500,
+    "parallel_workers": null,
+    "seed": 12345
+  },
+  "environments_processed": 0,
+  "environments_failed": 1,
+  "failed_environments": [
+    "vertical_config.yaml"
+  ],
+  "environment_stats": {}
+}

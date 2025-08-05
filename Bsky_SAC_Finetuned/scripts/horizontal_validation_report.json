@@ -1,0 +1,22 @@
+{
+  "validation_timestamp": "2025-08-05T17:13:38",
+  "overall_validation_passed": false,
+  "files_validated": 1,
+  "results": {
+    "..\\training_data\\horizontal_cr_samples.json": {
+      "total_samples": 3009,
+      "valid_samples": 3009,
+      "validation_passed": false,
+      "error_counts": {
+        "schema_errors": 0,
+        "content_errors": 0,
+        "regex_errors": 0,
+        "consistency_errors": 0,
+        "uniqueness_errors": 95,
+        "coverage_errors": 0,
+        "duplicate_errors": 0,
+        "perplexity_errors": 0
+      }
+    }
+  }
+}

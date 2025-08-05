@@ -1,0 +1,57 @@
+{
+  "generation_timestamp": "2025-08-05T21:32:25.904527",
+  "total_samples": 400,
+  "samples_per_environment": 100,
+  "environments": [
+    "HorizontalCREnv-v0",
+    "VerticalCREnv-v0",
+    "SectorCREnv-v0",
+    "MergeEnv-v0"
+  ],
+  "statistics": {
+    "HorizontalCREnv-v0_samples": 100,
+    "conflict_type_crossing": 75,
+    "severity_critical": 55,
+    "action_type_heading_change": 172,
+    "action_type_descend": 26,
+    "conflict_type_head_on": 73,
+    "severity_medium": 140,
+    "severity_high": 138,
+    "action_type_climb": 50,
+    "severity_low": 67,
+    "conflict_type_overtaking": 72,
+    "action_type_speed_reduction": 43,
+    "action_type_other": 79,
+    "VerticalCREnv-v0_samples": 100,
+    "conflict_type_converging": 180,
+    "action_type_maintain": 30,
+    "SectorCREnv-v0_samples": 100,
+    "MergeEnv-v0_samples": 100
+  },
+  "diversity_metrics": {
+    "instruction_diversity": {
+      "total": 400,
+      "unique": 10,
+      "duplication_rate": 0.975
+    },
+    "output_diversity": {
+      "total": 400,
+      "unique": 400,
+      "duplication_rate": 0.0
+    },
+    "input_diversity": {
+      "total": 400,
+      "unique": 400,
+      "duplication_rate": 0.0
+    },
+    "action_type_distribution": {
+      "heading_change": 172,
+      "descend": 26,
+      "climb": 50,
+      "speed_reduction": 43,
+      "other": 79,
+      "maintain": 30
+    },
+    "unique_action_types": 6
+  }
+}

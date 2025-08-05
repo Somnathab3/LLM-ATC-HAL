@@ -1,0 +1,28 @@
+{
+  "generation_timestamp": "2025-08-05T16:21:07",
+  "generation_parameters": {
+    "episodes_per_env": 3,
+    "samples_per_env": 10000,
+    "max_steps_per_episode": 500,
+    "parallel_workers": null,
+    "seed": 42
+  },
+  "environments_processed": 1,
+  "environments_failed": 0,
+  "failed_environments": [],
+  "environment_stats": {
+    "SectorCREnv-v0": {
+      "environment": "SectorCREnv-v0",
+      "total_samples": 387,
+      "unique_episodes": 3,
+      "average_episode_length": 129.0,
+      "reward_stats": {
+        "mean": -0.15792108499132892,
+        "std": 0.3748747431155497,
+        "min": -2.1444666818963096,
+        "max": -0.0005020476529926275
+      },
+      "safety_violation_rate": 0.0
+    }
+  }
+}

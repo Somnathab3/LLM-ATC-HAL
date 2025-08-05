@@ -1,0 +1,87 @@
+# Enhanced synonym variants for training data generation
+# These provide linguistic diversity to reduce repetitive patterns
+
+synonym_variants:
+  navigation_verbs:
+    - "navigating toward"
+    - "proceeding to"
+    - "heading for"
+    - "approaching"
+    - "tracking to"
+    - "routing to"
+    - "advancing toward"
+    - "vectoring to"
+    - "directing toward"
+    - "steering for"
+  
+  conflict_terms:
+    - "conflicting traffic"
+    - "intruding aircraft"
+    - "traffic conflicts"
+    - "separation challenges"
+    - "proximate aircraft"
+    - "convergent traffic"
+    - "threatening aircraft"
+    - "interfering traffic"
+    - "nearby aircraft"
+    - "converging traffic"
+  
+  urgency_levels:
+    - "immediate attention required"
+    - "monitoring situation"
+    - "standard separation procedures"
+    - "proactive avoidance"
+    - "heightened awareness"
+    - "tactical response"
+    - "priority handling"
+    - "urgent coordination"
+    - "routine management"
+    - "active monitoring"
+  
+  position_terms:
+    - "bearing"
+    - "relative position" 
+    - "azimuth"
+    - "direction"
+    - "track angle"
+    - "heading reference"
+    - "compass bearing"
+    - "radial position"
+    - "angular position"
+    - "directional reference"
+  
+  distance_terms:
+    - "distance"
+    - "range"
+    - "separation"
+    - "spacing"
+    - "proximity"
+    - "interval"
+    - "gap"
+    - "clearance"
+    - "offset"
+    - "margin"
+  
+  altitude_terms:
+    - "flight level"
+    - "altitude"
+    - "vertical position"
+    - "height"
+    - "elevation"
+    - "level"
+    - "vertical separation"
+    - "altitude assignment"
+    - "flight altitude"
+    - "cruise level"
+  
+  speed_terms:
+    - "airspeed"
+    - "ground speed"
+    - "velocity"
+    - "speed"
+    - "rate"
+    - "pace"
+    - "tempo"
+    - "velocity profile"
+    - "speed assignment"
+    - "target speed"

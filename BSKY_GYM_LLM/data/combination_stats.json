@@ -1,0 +1,10 @@
+{
+  "total_samples": 26231,
+  "environments": {
+    "HorizontalCREnv-v0": 3009,
+    "VerticalCREnv-v0": 10000,
+    "SectorCREnv-v0": 10000,
+    "MergeEnv-v0": 3222
+  },
+  "generation_timestamp": "2025-08-05T20:21:36.785754"
+}

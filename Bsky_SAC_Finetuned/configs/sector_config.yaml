@@ -12,7 +12,7 @@ environment:
 
 # SAC Model Configuration
 sac_model:
-  model_path: "F:/LLM-ATC-HAL/BSKY_GYM_LLM/models_backup/sector_cr_sac"
+  model_path: "data_generation/models_backup/SectorCREnv-v0/SectorCREnv-v0_SAC/model.zip"
   policy_type: "MlpPolicy"
   
 # Data Generation
@@ -25,6 +25,7 @@ data_generation:
 # LLM Fine-tuning Configuration
 llm_training:
   base_model: "meta-llama/Llama-2-7b-hf"
+  ollama_model: "llama3.1:8b"  # Updated to use Llama 3.1 8B
   lora_config:
     r: 32
     lora_alpha: 64
@@ -44,7 +45,7 @@ llm_training:
     logging_steps: 10
     save_steps: 500
     eval_steps: 500
-    evaluation_strategy: "steps"
+    eval_strategy: "steps"
     load_best_model_at_end: true
     metric_for_best_model: "eval_loss"
     greater_is_better: false

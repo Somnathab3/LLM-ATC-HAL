@@ -1,0 +1,87 @@
+{
+  "processing_timestamp": "2025-08-05 20:53:17",
+  "input_file": "F:\\LLM-ATC-HAL\\Bsky_SAC_Finetuned\\data\\combined_atc_training.jsonl",
+  "total_lines_processed": 26231,
+  "valid_examples": 12102,
+  "invalid_examples": 0,
+  "parse_errors": 0,
+  "deduplication_stats": {
+    "total": 26231,
+    "duplicates": 14129,
+    "unique": 12102,
+    "by_environment": {
+      "HorizontalCREnv-v0": 1069,
+      "VerticalCREnv-v0": 81,
+      "SectorCREnv-v0": 8151,
+      "MergeEnv-v0": 2801
+    },
+    "duplicate_pairs": [
+      {
+        "index": 31,
+        "instruction": "As an air traffic controller, analyze the current situation and provide the appropriate action with ...",
+        "environment": "HorizontalCREnv-v0"
+      },
+      {
+        "index": 65,
+        "instruction": "As an air traffic controller, analyze the current situation and provide the appropriate action with ...",
+        "environment": "HorizontalCREnv-v0"
+      },
+      {
+        "index": 91,
+        "instruction": "As an air traffic controller, analyze the current situation and provide the appropriate action with ...",
+        "environment": "HorizontalCREnv-v0"
+      },
+      {
+        "index": 97,
+        "instruction": "As an air traffic controller, analyze the current situation and provide the appropriate action with ...",
+        "environment": "HorizontalCREnv-v0"
+      },
+      {
+        "index": 99,
+        "instruction": "As an air traffic controller, analyze the current situation and provide the appropriate action with ...",
+        "environment": "HorizontalCREnv-v0"
+      },
+      {
+        "index": 117,
+        "instruction": "As an air traffic controller, analyze the current situation and provide the appropriate action with ...",
+        "environment": "HorizontalCREnv-v0"
+      },
+      {
+        "index": 132,
+        "instruction": "As an air traffic controller, analyze the current situation and provide the appropriate action with ...",
+        "environment": "HorizontalCREnv-v0"
+      },
+      {
+        "index": 138,
+        "instruction": "As an air traffic controller, analyze the current situation and provide the appropriate action with ...",
+        "environment": "HorizontalCREnv-v0"
+      },
+      {
+        "index": 142,
+        "instruction": "As an air traffic controller, analyze the current situation and provide the appropriate action with ...",
+        "environment": "HorizontalCREnv-v0"
+      },
+      {
+        "index": 144,
+        "instruction": "As an air traffic controller, analyze the current situation and provide the appropriate action with ...",
+        "environment": "HorizontalCREnv-v0"
+      }
+    ]
+  },
+  "final_unique_examples": 12102,
+  "environment_distribution": {
+    "HorizontalCREnv-v0": 1069,
+    "VerticalCREnv-v0": 81,
+    "SectorCREnv-v0": 8151,
+    "MergeEnv-v0": 2801
+  },
+  "data_splits": {
+    "train": 9680,
+    "validation": 1816,
+    "test": 606
+  },
+  "quality_metrics": {
+    "validation_rate": 0.4613625100072433,
+    "duplication_rate": 0.5386374899927566
+  }
+}

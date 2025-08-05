@@ -1,0 +1,82 @@
+{
+  "validation_timestamp": "2025-08-05T17:11:56",
+  "overall_validation_passed": false,
+  "files_validated": 5,
+  "results": {
+    "..\\training_data\\generation_statistics.json": {
+      "total_samples": 0,
+      "valid_samples": 0,
+      "validation_passed": false,
+      "error_counts": {
+        "schema_errors": 1,
+        "content_errors": 0,
+        "regex_errors": 0,
+        "consistency_errors": 0,
+        "uniqueness_errors": 0,
+        "coverage_errors": 0,
+        "duplicate_errors": 0,
+        "perplexity_errors": 0
+      }
+    },
+    "..\\training_data\\horizontal_cr_samples.json": {
+      "total_samples": 3009,
+      "valid_samples": 3009,
+      "validation_passed": false,
+      "error_counts": {
+        "schema_errors": 0,
+        "content_errors": 0,
+        "regex_errors": 0,
+        "consistency_errors": 0,
+        "uniqueness_errors": 95,
+        "coverage_errors": 0,
+        "duplicate_errors": 0,
+        "perplexity_errors": 0
+      }
+    },
+    "..\\training_data\\merge_samples.json": {
+      "total_samples": 3222,
+      "valid_samples": 3222,
+      "validation_passed": false,
+      "error_counts": {
+        "schema_errors": 0,
+        "content_errors": 0,
+        "regex_errors": 0,
+        "consistency_errors": 0,
+        "uniqueness_errors": 422,
+        "coverage_errors": 0,
+        "duplicate_errors": 0,
+        "perplexity_errors": 0
+      }
+    },
+    "..\\training_data\\sector_cr_samples.json": {
+      "total_samples": 10000,
+      "valid_samples": 10000,
+      "validation_passed": false,
+      "error_counts": {
+        "schema_errors": 0,
+        "content_errors": 0,
+        "regex_errors": 0,
+        "consistency_errors": 0,
+        "uniqueness_errors": 1850,
+        "coverage_errors": 0,
+        "duplicate_errors": 0,
+        "perplexity_errors": 0
+      }
+    },
+    "..\\training_data\\vertical_cr_samples.json": {
+      "total_samples": 4016,
+      "valid_samples": 4016,
+      "validation_passed": false,
+      "error_counts": {
+        "schema_errors": 0,
+        "content_errors": 0,
+        "regex_errors": 0,
+        "consistency_errors": 0,
+        "uniqueness_errors": 3938,
+        "coverage_errors": 0,
+        "duplicate_errors": 0,
+        "perplexity_errors": 0
+      }
+    }
+  }
+}
