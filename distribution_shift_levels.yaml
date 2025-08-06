@@ -1,0 +1,92 @@
+# Distribution Shift Levels Configuration
+# Defines how parameters shift away from nominal distributions
+
+distribution_shift_tiers:
+  in_distribution:
+    # Baseline - no shifts applied
+    description: "Nominal operating conditions with standard parameter ranges"
+    
+  moderate_shift:
+    description: "Moderate shifts representing operational variations"
+    
+    # Traffic density changes
+    traffic_density_multiplier: 1.3
+    
+    # Aircraft mix shifts
+    aircraft:
+      use_baseline_pool: false
+      alternative_pool:
+        types: ["B737", "A320", "B777", "A330", "B748", "A350"]
+        weights: [0.2, 0.2, 0.2, 0.15, 0.15, 0.1]
+    
+    # Weather variations
+    weather:
+      wind:
+        speed_shift_kts: [5, 15]
+        direction_shift_deg: [-30, 30]
+      turbulence:
+        intensity_shift: [0.1, 0.2]
+      visibility:
+        degradation_factor: 0.8
+    
+    # Airspace modifications
+    airspace:
+      sector_density_multiplier: 1.2
+    
+    # Navigation system variations
+    navigation:
+      error_injection_rate: 0.05
+      error_magnitude_nm: [0.1, 0.3]
+      system_reliability: 0.98
+      
+  extreme_shift:
+    description: "Extreme shifts representing edge cases and stress conditions"
+    
+    # High traffic density
+    traffic_density_multiplier: 2.0
+    
+    # Unusual aircraft mix
+    aircraft:
+      use_baseline_pool: false
+      alternative_pool:
+        types: ["A380", "B747", "A350", "B787", "C130", "BE20"]
+        weights: [0.2, 0.2, 0.2, 0.2, 0.1, 0.1]
+    
+    # Adverse weather conditions
+    weather:
+      wind:
+        speed_shift_kts: [20, 40]
+        direction_shift_deg: [-60, 60]
+      turbulence:
+        intensity_shift: [0.3, 0.5]
+      visibility:
+        degradation_factor: 0.5
+    
+    # Complex airspace
+    airspace:
+      sector_density_multiplier: 1.8
+    
+    # Degraded navigation
+    navigation:
+      error_injection_rate: 0.15
+      error_magnitude_nm: [0.5, 1.5]
+      system_reliability: 0.92
+    
+    # Geographic expansion
+    geography:
+      radius_expansion_factor: 1.5
+
+# Shift Application Weights
+# Controls how often each shift tier appears in batch generation
+shift_weights:
+  in_distribution: 0.5
+  moderate_shift: 0.3
+  extreme_shift: 0.2
+
+# Validation Thresholds
+# Used to ensure shifts don't create impossible scenarios
+validation:
+  max_aircraft_count: 25
+  min_separation_nm: 3.0
+  max_wind_speed_kts: 100
+  min_visibility_nm: 0.5

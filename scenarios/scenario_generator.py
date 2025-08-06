@@ -378,7 +378,7 @@ class ScenarioGenerator:
             )
         elif not conflict:
             modified_commands.extend(
-                self._avoid_vertical_conflicts_enhanced(modified_states, climb_rates),
+                self._avoid_vertical_conflicts(modified_states, climb_rates),
             )
 
         # Add environmental commands
@@ -538,49 +538,7 @@ class ScenarioGenerator:
 
         return commands
 
-    def _create_vertical_conflicts(
-        self, aircraft_states: list[dict[str, Any]]
-    ) -> list[str]:
-        """Create altitude/climb commands to generate vertical conflicts"""
-        commands = []
 
-        if len(aircraft_states) >= 2:
-            # First aircraft climbs, second descends to create vertical conflict
-            ac1 = aircraft_states[0]
-            ac2 = aircraft_states[1]
-
-            # Aircraft 1 climbs from lower altitude
-            target_alt1 = ac2["altitude"]  # Climb to AC2's altitude
-            commands.append(f"ALT {ac1['callsign']} {target_alt1}")
-
-            # Aircraft 2 descends slightly to create near-miss
-            target_alt2 = ac1["altitude"]  # Descend to AC1's altitude
-            commands.append(f"ALT {ac2['callsign']} {target_alt2}")
-
-            # Add vertical rates for realism
-            commands.append(f"VS {ac1['callsign']} 1500")  # 1500 fpm climb
-            commands.append(f"VS {ac2['callsign']} -1500")  # 1500 fpm descent
-
-            # Update states to reflect commands
-            aircraft_states[0]["vertical_rate"] = 1500
-            aircraft_states[1]["vertical_rate"] = -1500
-
-        return commands
-
-    def _avoid_vertical_conflicts(
-        self, aircraft_states: list[dict[str, Any]]
-    ) -> list[str]:
-        """Ensure safe vertical separation"""
-        commands = []
-
-        # Ensure all aircraft have safe vertical separation (>1000 ft)
-        for i, aircraft in enumerate(aircraft_states):
-            safe_altitude = 33000 + (i * 2000)  # 2000 ft separation
-            if aircraft["altitude"] != safe_altitude:
-                commands.append(f"ALT {aircraft['callsign']} {safe_altitude}")
-                aircraft["altitude"] = safe_altitude
-
-        return commands
 
     def _create_vertical_conflicts_enhanced(
         self,
@@ -613,12 +571,12 @@ class ScenarioGenerator:
 
         return commands
 
-    def _avoid_vertical_conflicts_enhanced(
+    def _avoid_vertical_conflicts(
         self,
         aircraft_states: list[dict[str, Any]],
         climb_rates: list[int],
     ) -> list[str]:
-        """Enhanced vertical conflict avoidance ensuring >1000ft separation"""
+        """Vertical conflict avoidance with dynamic climb rates ensuring >1000ft separation"""
         commands = []
 
         # Calculate safe altitudes ensuring no vertical conflicts

@@ -268,6 +268,83 @@ def calc_path_extra(
     return max(0.0, actual_distance - original_distance)
 
 
+def process_detailed_results(detailed_results_file: str) -> dict[str, Any]:
+    """Process detailed_results.json files for comprehensive metrics."""
+    try:
+        with open(detailed_results_file, 'r') as f:
+            data = json.load(f)
+        
+        scenarios = data.get("scenarios", [])
+        if not scenarios:
+            return create_empty_metrics()
+        
+        # Extract metrics from scenarios
+        total_scenarios = len(scenarios)
+        successful_scenarios = sum(1 for s in scenarios if s.get("success", False))
+        
+        # Conflict detection metrics
+        all_fp_rates = []
+        all_fn_rates = []
+        detection_accuracies = []
+        
+        for scenario in scenarios:
+            detection_perf = scenario.get("detection_performance", {})
+            if detection_perf:
+                all_fp_rates.append(detection_perf.get("false_positive_rate", 0))
+                all_fn_rates.append(detection_perf.get("false_negative_rate", 0))
+                detection_accuracies.append(detection_perf.get("detection_accuracy", 0))
+        
+        return {
+            "total_tests": total_scenarios,
+            "success_rate": successful_scenarios / total_scenarios if total_scenarios > 0 else 0,
+            "average_fp_rate": np.mean(all_fp_rates) if all_fp_rates else 0,
+            "average_fn_rate": np.mean(all_fn_rates) if all_fn_rates else 0,
+            "average_detection_accuracy": np.mean(detection_accuracies) if detection_accuracies else 0,
+            "total_hallucinations": sum(len(s.get("detected_conflicts", [])) for s in scenarios),
+            "detailed_metrics": {
+                "scenarios_analyzed": total_scenarios,
+                "fp_rate_std": np.std(all_fp_rates) if all_fp_rates else 0,
+                "fn_rate_std": np.std(all_fn_rates) if all_fn_rates else 0,
+            }
+        }
+        
+    except Exception as e:
+        logging.error(f"Failed to process detailed results {detailed_results_file}: {e}")
+        return create_empty_metrics()
+
+
+def process_benchmark_summary(benchmark_summary_file: str) -> dict[str, Any]:
+    """Process benchmark_summary.json files for aggregate metrics."""
+    try:
+        with open(benchmark_summary_file, 'r') as f:
+            data = json.load(f)
+        
+        # Extract aggregate metrics
+        aggregate_metrics = data.get("aggregate_metrics", {})
+        scenario_metrics = data.get("scenario_metrics", {})
+        
+        total_scenarios = aggregate_metrics.get("total_scenarios", 0)
+        successful_scenarios = aggregate_metrics.get("successful_scenarios", 0)
+        
+        return {
+            "total_tests": total_scenarios,
+            "success_rate": successful_scenarios / total_scenarios if total_scenarios > 0 else 0,
+            "average_fp_rate": aggregate_metrics.get("average_false_positive_rate", 0),
+            "average_fn_rate": aggregate_metrics.get("average_false_negative_rate", 0),
+            "average_detection_accuracy": aggregate_metrics.get("average_detection_accuracy", 0),
+            "total_hallucinations": aggregate_metrics.get("total_false_positives", 0),
+            "detailed_metrics": {
+                "by_scenario_type": scenario_metrics,
+                "execution_time": data.get("execution_time", "unknown"),
+                "configuration": data.get("configuration", {})
+            }
+        }
+        
+    except Exception as e:
+        logging.error(f"Failed to process benchmark summary {benchmark_summary_file}: {e}")
+        return create_empty_metrics()
+
+
 def aggregate_thesis_metrics(results_dir: str) -> dict[str, Any]:
     """Aggregate metrics from multiple test result files for thesis analysis."""
     results_path = Path(results_dir)

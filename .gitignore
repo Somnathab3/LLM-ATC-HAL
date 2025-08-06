@@ -178,6 +178,8 @@ experiments/*/
 reports/
 visualizations/
 outputs/
+test_output/
+test_baseline*/
 
 # Generated documentation
 docs/notebooks/**.ipynb
@@ -189,6 +191,11 @@ docs/notebooks/**.ipynb
 bluesky_outputs/
 simulation_data/
 benchmark_results/
+# BlueSky simulator data
+bluesky_data/
+scenario_cache/
+simulation_logs/
+logs/
 
 # Configuration overrides
 *local.yaml

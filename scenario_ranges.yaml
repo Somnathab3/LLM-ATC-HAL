@@ -1,0 +1,78 @@
+# Scenario Ranges Configuration
+# Parameter ranges for Monte Carlo scenario generation
+
+aircraft:
+  count:
+    simple: [2, 3]
+    moderate: [4, 6]
+    complex: [8, 12]
+    extreme: [18, 25]
+  types:
+    pool: ["B737", "A320", "A321", "B777", "A330", "B738"]
+    weights: [0.25, 0.25, 0.15, 0.15, 0.10, 0.10]
+
+geography:
+  airspace_regions:
+    EHAM_TMA:
+      center: [52.3086, 4.7639]  # Amsterdam Schiphol TMA
+      radius_nm: [40, 60]
+    EGLL_TMA:
+      center: [51.4700, -0.4543]  # London Heathrow TMA
+      radius_nm: [35, 55]
+    KJFK_TRACON:
+      center: [40.6413, -73.7781]  # New York JFK TRACON
+      radius_nm: [45, 65]
+    LFPG_TMA:
+      center: [49.0097, 2.5479]  # Paris Charles de Gaulle TMA
+      radius_nm: [40, 60]
+
+altitude:
+  min_fl: 100     # FL100 (10,000 ft)
+  max_fl: 410     # FL410 (41,000 ft)
+  step_fl: 10     # 1,000 ft increments
+
+speed:
+  cas_range_kts: [250, 480]  # Calibrated Airspeed in knots
+  typical_cruise_kts: [420, 480]
+  approach_speed_kts: [180, 250]
+
+heading:
+  range_degrees: [0, 360]
+
+simulation:
+  duration_minutes: [5, 15]
+  time_step_seconds: [1.0, 5.0]
+
+weather:
+  wind:
+    speed_kts: [0, 80]
+    direction_deg: [0, 360]
+  turbulence_factor: [0.0, 0.3]
+  visibility:
+    clear_nm: [8, 15]
+    reduced_nm: [2, 6]
+
+traffic:
+  density_multiplier: [0.5, 2.0]
+  flow_patterns:
+    - "convergent"
+    - "parallel"
+    - "crossing"
+    - "random"
+
+# Conflict Parameters
+conflict:
+  probability: [0.3, 0.8]  # Probability of generating conflicts
+  severity_levels: ["low", "medium", "high", "critical"]
+  time_to_conflict_minutes: [1, 10]
+
+# Communication and Navigation
+navigation:
+  accuracy_nm: [0.1, 0.5]
+  update_frequency_seconds: [1, 5]
+
+# Environmental Factors
+environment:
+  time_of_day: ["morning", "afternoon", "evening", "night"]
+  weather_conditions: ["clear", "cloudy", "precipitation", "fog"]
+  traffic_density: ["light", "moderate", "heavy", "extreme"]

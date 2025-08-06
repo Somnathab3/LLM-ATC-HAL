@@ -28,7 +28,7 @@ import time
 import traceback
 import uuid
 import csv
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional, List, Dict
@@ -38,6 +38,12 @@ import pandas as pd
 
 from llm_atc.tools import bluesky_tools
 from llm_atc.tools.llm_prompt_engine import LLMPromptEngine
+from llm_atc.tools.bluesky_command_validator import get_validator, auto_correct_command
+from llm_atc.tools.baseline_resolution_strategy import (
+    get_baseline_strategy, 
+    ConflictGeometry as BaselineConflictGeometry,
+    ResolutionCommand
+)
 from scenarios.monte_carlo_framework import (
     ComplexityTier,
 )
@@ -108,9 +114,9 @@ class BenchmarkConfiguration:
     # Scenario parameters - NEW: per-type scenario counts
     num_scenarios_per_type: int = 50  # Kept for backward compatibility
     scenario_counts: Optional[dict[str, int]] = None  # New: per-type counts
-    scenario_types: list[ScenarioType] = None
-    complexity_tiers: list[ComplexityTier] = None
-    distribution_shift_levels: list[str] = None
+    scenario_types: Optional[List[ScenarioType]] = None
+    complexity_tiers: Optional[List[ComplexityTier]] = None
+    distribution_shift_levels: Optional[List[str]] = None
 
     # Simulation parameters - NEW: exposed configuration fields
     time_horizon_minutes: float = 10.0
@@ -130,6 +136,13 @@ class BenchmarkConfiguration:
     # Validation and strict mode
     strict_mode: bool = False  # If True, fail on mock data or LLM failures
     validate_llm_responses: bool = True  # If True, fail on invalid LLM responses
+    enable_planner_crosscheck: bool = True  # If True, use Planner.assess_conflict for cross-validation
+    
+    # Baseline resolution configuration
+    baseline_resolution_mode: bool = False  # If True, use baseline strategy instead of LLM
+    baseline_preferred_method: Optional[str] = None  # "horizontal", "vertical", "speed", or None for automatic
+    baseline_asas_mode: bool = False  # If True, use ASAS-like automated resolution logic
+    enable_baseline_comparison: bool = True  # If True, generate baseline resolutions for comparison
 
     # Performance thresholds
     min_separation_nm: float = 5.0
@@ -206,42 +219,61 @@ class ScenarioResult:
     total_delay_seconds: float
     fuel_penalty_percent: float
 
-    # Performance metrics
+    # Performance metrics - Enhanced FP/FN standardization
     false_positives: int
     false_negatives: int
     true_positives: int
     true_negatives: int
+    false_positive_rate: float  # Standardized FP rate from calc_fp_fn
+    false_negative_rate: float  # Standardized FN rate from calc_fp_fn  
     detection_accuracy: float
     precision: float
     recall: float
 
-    # Execution metadata - NEW: success flag
-    success: bool = False  # Overall scenario execution success
-    execution_time_seconds: float = 0.0
-    errors: list[str] = None
-    warnings: list[str] = None
-    timestamp: str = ""
-
     # Environmental factors
-    wind_speed_kts: float = 0.0
-    visibility_nm: float = 0.0
-    turbulence_level: float = 0.0
+    wind_speed_kts: float
+    visibility_nm: float
+    turbulence_level: float
 
     # LLM interaction logs for detailed analysis
-    llm_prompt: str = ""
-    llm_response: str = ""
-    resolution_prompt: str = ""
-    resolution_response: str = ""
-    bluesky_conflicts: list[dict[str, Any]] = None
+    llm_prompt: str
+    llm_response: str
+    resolution_prompt: str
+    resolution_response: str
+
+    # Fields with defaults must come after fields without defaults
+    # CPA-based Resolution Metrics
+    cpa_post_resolution: list[dict[str, Any]] = field(default_factory=list)  # CPA data after resolutions
+    cpa_pre_resolution: list[dict[str, Any]] = field(default_factory=list)   # CPA data before resolutions
+    resolution_effectiveness: dict[str, Any] = field(default_factory=dict)   # Per-conflict resolution analysis
+    insufficient_cpa_resolutions: int = 0             # Count of resolutions with CPA < threshold
+    average_cpa_improvement_nm: float = 0.0           # Average improvement in CPA distance
+    successful_cpa_resolutions: int = 0               # Count of resolutions with safe CPA
+
+    # Enhanced Safety Margin Quality Assessment
+    safety_margin_quality: str = "unknown"  # critical, marginal, adequate, excellent
+    separation_breach_count: int = 0  # Number of separation violations
+    worst_case_separation_nm: float = 999.0  # Minimum separation achieved
+    worst_case_separation_ft: float = 999999.0  # Minimum vertical separation achieved
+    resolution_quality_score: float = 0.0  # Quality score for LLM resolutions (0-1)
+    low_quality_resolutions: int = 0  # Count of resolutions with <0.5 NM margin
+
+    # Execution metadata
+    success: bool = False  # Overall scenario execution success
+    execution_time_seconds: float = 0.0
+    errors: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    timestamp: str = ""
+
+    # Detection tracking for enhanced analysis
+    detected_conflicts: list[dict[str, Any]] = field(default_factory=list)  # All detected conflicts with metadata
+    bluesky_conflicts: list[dict[str, Any]] = field(default_factory=list)
 
     def __post_init__(self):
         """Set defaults for mutable fields"""
-        if self.errors is None:
-            self.errors = []
-        if self.warnings is None:
-            self.warnings = []
-        if self.bluesky_conflicts is None:
-            self.bluesky_conflicts = []
+        # No longer needed since we use field(default_factory=list) 
+        # All mutable fields are properly initialized
+        pass
 
 
 class MonteCarloBenchmark:
@@ -403,6 +435,15 @@ class MonteCarloBenchmark:
                         "detection_accuracy",
                         "resolution_success",
                         "execution_time_ms",
+                        # CPA-based metrics
+                        "cpa_pre_resolution_count",
+                        "cpa_post_resolution_count", 
+                        "successful_cpa_resolutions",
+                        "insufficient_cpa_resolutions",
+                        "average_cpa_improvement_nm",
+                        "cpa_success_rate_percent",
+                        "min_cpa_distance_post_resolution",
+                        "cpa_analysis_details",
                     ]
                 )
         except Exception as e:
@@ -794,6 +835,13 @@ class MonteCarloBenchmark:
                 extra_distance_nm=verification_results.get("extra_distance_nm", 0.0),
                 total_delay_seconds=verification_results.get("total_delay", 0.0),
                 fuel_penalty_percent=verification_results.get("fuel_penalty", 0.0),
+                # CPA-based Resolution Metrics
+                cpa_post_resolution=verification_results.get("cpa_post_resolution", []),
+                cpa_pre_resolution=verification_results.get("cpa_pre_resolution", []),
+                resolution_effectiveness=verification_results.get("resolution_effectiveness", {}),
+                insufficient_cpa_resolutions=verification_results.get("insufficient_cpa_resolutions", 0),
+                average_cpa_improvement_nm=verification_results.get("average_cpa_improvement_nm", 0.0),
+                successful_cpa_resolutions=verification_results.get("successful_cpa_resolutions", 0),
                 # Performance metrics
                 **metrics,
                 # Execution metadata - Initialize success as False, will be updated in _run_single_scenario
@@ -885,23 +933,65 @@ class MonteCarloBenchmark:
             raise
 
     def _extract_ground_truth_conflicts(self, scenario: Any) -> list[dict[str, Any]]:
-        """Extract ground truth conflicts from scenario"""
+        """Extract ground truth conflicts from scenario or generate them from simulation"""
         try:
-            if hasattr(scenario, "ground_truth_conflicts"):
+            # First, try to get ground truth from the scenario object
+            if hasattr(scenario, "ground_truth_conflicts") and scenario.ground_truth_conflicts:
                 return [
                     asdict(conflict) for conflict in scenario.ground_truth_conflicts
                 ]
-            # Create mock ground truth for testing
-            return [
-                {
-                    "aircraft_pair": ("AC001", "AC002"),
-                    "conflict_type": "horizontal",
-                    "time_to_conflict": 120.0,
-                    "min_separation": {"horizontal_nm": 3.5, "vertical_ft": 0},
-                    "severity": "medium",
-                    "is_actual_conflict": True,
-                },
-            ]
+            
+            # If no ground truth available, generate it using EnhancedConflictDetector
+            # This ensures we always have accurate ground truth rather than using mock data
+            self.logger.warning("Scenario missing ground truth conflicts - generating from simulation state")
+            
+            try:
+                from llm_atc.tools.enhanced_conflict_detector import EnhancedConflictDetector
+                
+                # Run the simulation briefly to establish aircraft states
+                # Most scenario files should include RESET and aircraft creation commands
+                if hasattr(scenario, 'commands') or hasattr(scenario, 'bluesky_commands'):
+                    # Let the scenario commands execute first (this happens in _load_scenario_commands)
+                    # Then extract ground truth from the resulting simulation state
+                    
+                    enhanced_detector = EnhancedConflictDetector()
+                    
+                    # Generate comprehensive ground truth using all detection methods
+                    comprehensive_conflicts = enhanced_detector.detect_conflicts_comprehensive()
+                    
+                    ground_truth_conflicts = []
+                    for conflict in comprehensive_conflicts:
+                        # Convert to standard ground truth format
+                        ground_truth_conflicts.append({
+                            "aircraft_pair": [conflict.aircraft_1, conflict.aircraft_2],
+                            "horizontal_separation": conflict.current_horizontal_separation,
+                            "vertical_separation": conflict.current_vertical_separation,
+                            "time_to_cpa": conflict.time_to_cpa,
+                            "min_horizontal_separation": conflict.min_horizontal_separation,
+                            "min_vertical_separation": conflict.min_vertical_separation,
+                            "violates_icao": conflict.violates_icao_separation,
+                            "severity": conflict.severity,
+                            "confidence": conflict.confidence,
+                            "detection_method": "generated_from_simulation",
+                            "source": "enhanced_detector_ground_truth"
+                        })
+                    
+                    if ground_truth_conflicts:
+                        self.logger.info(f"Generated {len(ground_truth_conflicts)} ground truth conflicts from simulation")
+                        return ground_truth_conflicts
+                    else:
+                        self.logger.info("No conflicts detected in simulation - scenario appears conflict-free")
+                        return []
+                        
+            except Exception as e:
+                self.logger.warning(f"Failed to generate ground truth from simulation: {e}")
+                # Fall back to empty list rather than mock data
+                return []
+            
+            # Final fallback - empty list (no mock data)
+            self.logger.info("No conflicts detected - returning empty ground truth")
+            return []
+            
         except Exception as e:
             self.logger.warning(f"Failed to extract ground truth: {e}")
             return []
@@ -1007,25 +1097,70 @@ class MonteCarloBenchmark:
                         if self.config.strict_mode:
                             raise Exception(error_msg)
 
-                    # Cross-validate LLM conflicts with enhanced detector
-                    validated_pairs = enhanced_detector.validate_llm_conflicts(
+                    # Enhanced LLM vs BlueSky conflict comparison for false positive prevention
+                    detected_pairs = [(pair[0], pair[1]) for pair in aircraft_pairs if len(pair) >= 2]
+                    
+                    # Get BlueSky conflicts for comparison
+                    bs_conflicts = bluesky_tools.get_conflict_info().get("conflicts", [])
+                    bs_pairs = [(c['aircraft_1'], c['aircraft_2']) for c in bs_conflicts]
+                    
+                    # Cross-validate LLM predictions with BlueSky ground truth
+                    validated_pairs = self._validate_llm_conflicts_with_bluesky(detected_pairs, bs_pairs)
+                    
+                    # Calculate and log false positive statistics
+                    original_count = len(detected_pairs)
+                    validated_count = len(validated_pairs)
+                    false_positives = original_count - validated_count
+                    
+                    if false_positives > 0:
+                        false_positive_rate = (false_positives / original_count) * 100 if original_count > 0 else 0
+                        self.logger.warning(
+                            f"LLM conflict detection false positives: {false_positives}/{original_count} "
+                            f"({false_positive_rate:.1f}%) conflicts dropped as hallucinations"
+                        )
+                        
+                        # Log detailed false positive analysis
+                        false_positive_pairs = [pair for pair in detected_pairs if pair not in validated_pairs]
+                        for fp_pair in false_positive_pairs:
+                            self.logger.debug(f"False positive conflict dropped: {fp_pair[0]} <-> {fp_pair[1]}")
+                    else:
+                        self.logger.info(f"LLM conflict detection: All {validated_count} conflicts validated by BlueSky")
+
+                    # Use unified enhanced detector validation to reduce hallucinations
+                    # This replaces the old _validate_llm_conflicts_with_bluesky method for confidence scoring
+                    enhanced_validated_pairs = enhanced_detector.validate_llm_conflicts(
                         aircraft_pairs
                     )
 
-                    for pair_data in validated_pairs:
+                    for pair_data in enhanced_validated_pairs:
                         ac1, ac2, confidence = pair_data
-                        detected_conflicts.append(
-                            {
-                                "source": "llm_enhanced_validated",
-                                "aircraft_1": ac1,
-                                "aircraft_2": ac2,
-                                "confidence": confidence,
-                                "priority": llm_detection.get("priority", "unknown"),
-                                "validation": "enhanced_detector_confirmed",
-                                "uses_icao_standards": True,
-                                "cpa_analysis_provided": bool(cpa_data),
-                            },
-                        )
+                        # Only add conflicts that passed both BlueSky and enhanced validation
+                        if (ac1, ac2) in validated_pairs or (ac2, ac1) in validated_pairs:
+                            detected_conflicts.append(
+                                {
+                                    "source": "llm_enhanced_validated",
+                                    "aircraft_1": ac1,
+                                    "aircraft_2": ac2,
+                                    "confidence": confidence,
+                                    "priority": llm_detection.get("priority", "unknown"),
+                                    "validation": "bluesky_and_enhanced_confirmed",
+                                    "uses_icao_standards": True,
+                                    "cpa_analysis_provided": bool(cpa_data),
+                                    "false_positive_filtered": True,
+                                },
+                            )
+
+            # Optional: Cross-verify all detected conflicts with Planner assessment
+            if self.config.enable_planner_crosscheck and detected_conflicts:
+                planner_verification = self._verify_conflicts_with_planner(detected_conflicts)
+                self.logger.info(f"Planner cross-verification completed: {len(planner_verification)} conflicts verified")
+                
+                # Add planner verification metadata to existing conflicts
+                for conflict in detected_conflicts:
+                    conflict["planner_verified"] = any(
+                        pv["aircraft_1"] == conflict["aircraft_1"] and pv["aircraft_2"] == conflict["aircraft_2"]
+                        for pv in planner_verification
+                    )
 
         except Exception as e:
             self.logger.exception(f"Enhanced conflict detection failed: {e}")
@@ -1036,10 +1171,11 @@ class MonteCarloBenchmark:
 
     def _basic_conflict_detection_fallback(self) -> list[dict[str, Any]]:
         """Basic conflict detection fallback when enhanced detection fails"""
+        detected_conflicts = []
+        
         try:
             # Method 1: BlueSky built-in conflict detection
             bluesky_conflicts = bluesky_tools.get_conflict_info()
-            detected_conflicts = []
             for conflict in bluesky_conflicts.get("conflicts", []):
                 detected_conflicts.append(
                     {
@@ -1052,9 +1188,202 @@ class MonteCarloBenchmark:
                         "severity": conflict["severity"],
                     },
                 )
-            return detected_conflicts
+                
+            # Method 2: Planner.assess_conflict as backup/cross-check
+            if not detected_conflicts or self.config.enable_planner_crosscheck:
+                planner_conflicts = self._detect_conflicts_with_planner()
+                detected_conflicts.extend(planner_conflicts)
+                
         except Exception as e:
             self.logger.exception(f"Fallback conflict detection also failed: {e}")
+            
+        return detected_conflicts
+
+    def _validate_llm_conflicts_with_bluesky(
+        self, 
+        llm_pairs: list[tuple[str, str]], 
+        bs_pairs: list[tuple[str, str]]
+    ) -> list[tuple[str, str]]:
+        """
+        Validate LLM-detected conflicts against BlueSky ground truth.
+        
+        Args:
+            llm_pairs: List of aircraft pairs detected by LLM
+            bs_pairs: List of aircraft pairs detected by BlueSky ASAS
+            
+        Returns:
+            List of validated aircraft pairs that are confirmed by BlueSky
+        """
+        validated_pairs = []
+        
+        # Normalize pairs to ensure consistent comparison (sorted order)
+        normalized_bs_pairs = set()
+        for pair in bs_pairs:
+            normalized_bs_pairs.add(tuple(sorted([pair[0], pair[1]])))
+        
+        # Check each LLM pair against BlueSky ground truth
+        for llm_pair in llm_pairs:
+            normalized_llm_pair = tuple(sorted([llm_pair[0], llm_pair[1]]))
+            
+            if normalized_llm_pair in normalized_bs_pairs:
+                # True positive - LLM correctly detected conflict confirmed by BlueSky
+                validated_pairs.append(llm_pair)  # Keep original order
+                self.logger.debug(f"LLM conflict validated by BlueSky: {llm_pair[0]} <-> {llm_pair[1]}")
+            else:
+                # False positive - LLM detected conflict not confirmed by BlueSky ASAS
+                self.logger.debug(f"LLM false positive filtered out: {llm_pair[0]} <-> {llm_pair[1]}")
+        
+        return validated_pairs
+
+    def _detect_conflicts_with_planner(self) -> list[dict[str, Any]]:
+        """Use Planner.assess_conflict for independent conflict detection"""
+        try:
+            from llm_atc.agents.planner import Planner
+            
+            planner = Planner()
+            aircraft_info = bluesky_tools.get_all_aircraft_info()
+            
+            if not aircraft_info or not aircraft_info.get("aircraft"):
+                self.logger.warning("No aircraft data available for planner assessment")
+                return []
+            
+            # Use planner's conflict assessment
+            assessment = planner.assess_conflict(aircraft_info)
+            
+            if not assessment:
+                self.logger.info("Planner detected no conflicts")
+                return []
+            
+            # Convert planner assessment to standard format
+            planner_conflicts = []
+            if len(assessment.aircraft_involved) >= 2:
+                aircraft_1 = assessment.aircraft_involved[0]
+                aircraft_2 = assessment.aircraft_involved[1]
+                
+                # Get separation data from planner's internal calculation
+                ac1_data = aircraft_info["aircraft"].get(aircraft_1, {})
+                ac2_data = aircraft_info["aircraft"].get(aircraft_2, {})
+                
+                # Calculate separation using planner's method for consistency
+                separation = self._calculate_planner_separation(ac1_data, ac2_data)
+                
+                conflict_data = {
+                    "source": "planner_assessment",
+                    "aircraft_1": aircraft_1,
+                    "aircraft_2": aircraft_2,
+                    "horizontal_separation": separation.get("horizontal", 999),
+                    "vertical_separation": separation.get("vertical", 999),
+                    "time_to_cpa": assessment.time_to_conflict,
+                    "severity": assessment.severity,
+                    "confidence": assessment.confidence,
+                    "recommended_action": assessment.recommended_action.value,
+                    "reasoning": assessment.reasoning,
+                    "uses_icao_standards": True,  # Planner uses same ICAO standards
+                    "conflict_id": assessment.conflict_id,
+                }
+                planner_conflicts.append(conflict_data)
+                
+                self.logger.info(
+                    f"Planner detected conflict: {aircraft_1}-{aircraft_2}, "
+                    f"severity={assessment.severity}, confidence={assessment.confidence}"
+                )
+            
+            return planner_conflicts
+            
+        except Exception as e:
+            self.logger.exception(f"Planner conflict detection failed: {e}")
+            return []
+
+    def _calculate_planner_separation(self, ac1_data: dict, ac2_data: dict) -> dict[str, float]:
+        """Calculate separation using same method as Planner for consistency"""
+        try:
+            # Simplified calculation matching planner.py implementation
+            lat1, lon1, alt1 = (
+                ac1_data.get("lat", 0),
+                ac1_data.get("lon", 0),
+                ac1_data.get("alt", 0),
+            )
+            lat2, lon2, alt2 = (
+                ac2_data.get("lat", 0),
+                ac2_data.get("lon", 0),
+                ac2_data.get("alt", 0),
+            )
+
+            # Horizontal distance in nautical miles (simplified, matches planner.py)
+            DEGREES_TO_NM_FACTOR = 60.0
+            horizontal_nm = (
+                (lat2 - lat1) ** 2 + (lon2 - lon1) ** 2
+            ) ** 0.5 * DEGREES_TO_NM_FACTOR
+
+            # Vertical separation in feet
+            vertical_ft = abs(alt2 - alt1)
+
+            return {
+                "horizontal": horizontal_nm,
+                "vertical": vertical_ft,
+            }
+        except Exception as e:
+            self.logger.warning(f"Failed to calculate planner separation: {e}")
+            return {"horizontal": 999, "vertical": 999}
+
+    def _verify_conflicts_with_planner(self, detected_conflicts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Use Planner.assess_conflict to cross-verify detected conflicts"""
+        try:
+            from llm_atc.agents.planner import Planner
+            
+            planner = Planner()
+            aircraft_info = bluesky_tools.get_all_aircraft_info()
+            
+            if not aircraft_info or not aircraft_info.get("aircraft"):
+                self.logger.warning("No aircraft data available for planner verification")
+                return []
+            
+            # Get planner's independent assessment
+            assessment = planner.assess_conflict(aircraft_info)
+            
+            if not assessment:
+                self.logger.info("Planner verification: no conflicts detected")
+                return []
+            
+            # Cross-check planner's conflicts against our detected conflicts
+            verified_conflicts = []
+            
+            if len(assessment.aircraft_involved) >= 2:
+                planner_ac1 = assessment.aircraft_involved[0]
+                planner_ac2 = assessment.aircraft_involved[1]
+                
+                # Check if planner's conflict matches any of our detected conflicts
+                for conflict in detected_conflicts:
+                    conflict_ac1 = conflict.get("aircraft_1", "")
+                    conflict_ac2 = conflict.get("aircraft_2", "")
+                    
+                    # Check both orderings
+                    if ((planner_ac1 == conflict_ac1 and planner_ac2 == conflict_ac2) or
+                        (planner_ac1 == conflict_ac2 and planner_ac2 == conflict_ac1)):
+                        
+                        verified_conflicts.append({
+                            "aircraft_1": planner_ac1,
+                            "aircraft_2": planner_ac2,
+                            "severity": assessment.severity,
+                            "confidence": assessment.confidence,
+                            "planner_conflict_id": assessment.conflict_id,
+                            "time_to_conflict": assessment.time_to_conflict,
+                            "recommended_action": assessment.recommended_action.value,
+                            "reasoning": assessment.reasoning,
+                            "source": "planner_verification",
+                            "original_source": conflict.get("source", "unknown"),
+                        })
+                        
+                        self.logger.info(
+                            f"Planner verified conflict: {planner_ac1}-{planner_ac2}, "
+                            f"severity={assessment.severity} (matches {conflict.get('source', 'unknown')})"
+                        )
+                        break
+            
+            return verified_conflicts
+            
+        except Exception as e:
+            self.logger.exception(f"Planner verification failed: {e}")
             return []
 
     def _get_aircraft_states_for_llm(self) -> list[dict[str, Any]]:
@@ -1092,89 +1421,42 @@ class MonteCarloBenchmark:
                 raise
             return []
 
-    def _validate_llm_conflicts_with_bluesky(
-        self, llm_pairs: list[tuple[str, str]], bluesky_conflicts: list[dict[str, Any]]
-    ) -> list[tuple[str, str]]:
-        """
-        Validate LLM-detected conflicts against BlueSky ground truth
-        to eliminate false positives.
-
-        Args:
-            llm_pairs: Aircraft pairs detected by LLM
-            bluesky_conflicts: Conflicts detected by BlueSky
-
-        Returns:
-            Validated aircraft pairs confirmed by BlueSky
-        """
-        if not self.config.validate_llm_responses:
-            # If validation disabled, return all LLM pairs
-            return llm_pairs
-
-        validated_pairs = []
-        false_positives = 0
-
-        for llm_pair in llm_pairs:
-            # Normalize pair format
-            if isinstance(llm_pair, (list, tuple)) and len(llm_pair) >= 2:
-                ac1, ac2 = llm_pair[0], llm_pair[1]
-            else:
-                self.logger.warning(f"Invalid LLM pair format: {llm_pair}")
-                continue
-
-            # Check if this pair matches any BlueSky conflict
-            bluesky_confirmed = False
-            for bs_conflict in bluesky_conflicts:
-                bs_ac1 = bs_conflict.get("aircraft_1", "")
-                bs_ac2 = bs_conflict.get("aircraft_2", "")
-
-                # Check both orderings of the pair
-                if (ac1 == bs_ac1 and ac2 == bs_ac2) or (
-                    ac1 == bs_ac2 and ac2 == bs_ac1
-                ):
-                    bluesky_confirmed = True
-                    break
-
-            if bluesky_confirmed:
-                validated_pairs.append((ac1, ac2))
-                self.logger.info(f"LLM conflict validated by BlueSky: {ac1}-{ac2}")
-            else:
-                false_positives += 1
-                self.logger.warning(f"LLM false positive filtered out: {ac1}-{ac2}")
-
-        if false_positives > 0:
-            self.logger.info(
-                f"Prevented {false_positives} LLM false positives using BlueSky validation"
-            )
-
-        return validated_pairs
-
     def _resolve_conflicts(
         self,
         conflicts: list[dict[str, Any]],
         scenario: Any,
     ) -> list[dict[str, Any]]:
-        """Generate LLM-based conflict resolutions"""
+        """Generate conflict resolutions using LLM or baseline strategy"""
         resolutions = []
 
         for conflict in conflicts:
             try:
-                # Create conflict info for LLM
-                conflict_info = self._format_conflict_for_llm(conflict, scenario)
+                resolution_command = None
+                baseline_command = None
+                
+                # Generate baseline resolution if enabled
+                if self.config.enable_baseline_comparison or self.config.baseline_resolution_mode:
+                    baseline_command = self._generate_baseline_resolution(conflict)
+                
+                # Generate LLM resolution unless in baseline-only mode
+                if not self.config.baseline_resolution_mode:
+                    # Create conflict info for LLM
+                    conflict_info = self._format_conflict_for_llm(conflict, scenario)
 
-                # Get LLM resolution with prompts
-                resolution_data = self.llm_engine.get_conflict_resolution_with_prompts(
-                    conflict_info
-                )
-                resolution_command = resolution_data.get("command")
-
-                # Store resolution prompt and response for CSV output (only for first conflict)
-                if (
-                    not self.current_resolution_prompt
-                ):  # Only store first resolution's data
-                    self.current_resolution_prompt = resolution_data.get(
-                        "resolution_prompt", ""
+                    # Get LLM resolution with prompts
+                    resolution_data = self.llm_engine.get_conflict_resolution_with_prompts(
+                        conflict_info
                     )
-                    self.current_resolution_response = resolution_data.get(
+                    resolution_command = resolution_data.get("command")
+
+                    # Store resolution prompt and response for CSV output (only for first conflict)
+                    if (
+                        not self.current_resolution_prompt
+                    ):  # Only store first resolution's data
+                        self.current_resolution_prompt = resolution_data.get(
+                            "resolution_prompt", ""
+                        )
+                        self.current_resolution_response = resolution_data.get(
                         "resolution_response", ""
                     )
 
@@ -1188,19 +1470,30 @@ class MonteCarloBenchmark:
                         raise Exception(error_msg)
 
                 if resolution_command:
-                    # Validate command format
-                    if (
-                        self.config.validate_llm_responses
-                        and not self._is_valid_bluesky_command(
-                            resolution_command,
+                    # Enhanced command validation with auto-correction
+                    validator = get_validator()
+                    is_valid, error_msg, suggestion = validator.validate_command(resolution_command)
+                    
+                    if not is_valid:
+                        self.logger.warning(f"Invalid command: {resolution_command}. Error: {error_msg}")
+                        
+                        # Attempt auto-correction
+                        corrected_command, warnings = auto_correct_command(
+                            resolution_command, 
+                            strict_mode=self.config.strict_mode
                         )
-                    ):
-                        error_msg = (
-                            f"LLM generated invalid command: {resolution_command}"
-                        )
-                        self.logger.error(error_msg)
-                        if self.config.strict_mode:
-                            raise Exception(error_msg)
+                        
+                        if corrected_command:
+                            self.logger.info(f"Auto-corrected command: {resolution_command} -> {corrected_command}")
+                            for warning in warnings:
+                                self.logger.warning(warning)
+                            resolution_command = corrected_command
+                        else:
+                            error_msg = f"LLM generated invalid command that could not be corrected: {resolution_command}"
+                            self.logger.error(error_msg)
+                            if self.config.strict_mode:
+                                raise Exception(error_msg)
+                            continue  # Skip this command
 
                     # Execute the command
                     execution_result = bluesky_tools.send_command(resolution_command)
@@ -1222,6 +1515,117 @@ class MonteCarloBenchmark:
                     raise  # Re-raise in strict mode
 
         return resolutions
+
+    def _generate_baseline_resolution(self, conflict: dict[str, Any]) -> Optional[str]:
+        """Generate baseline resolution command using conventional ATC strategies"""
+        try:
+            # Convert conflict data to baseline format
+            baseline_conflict = self._convert_conflict_to_baseline_format(conflict)
+            
+            # Get baseline strategy
+            baseline_strategy = get_baseline_strategy()
+            
+            # Generate baseline resolution commands
+            baseline_commands = baseline_strategy.generate_baseline_resolution(
+                baseline_conflict,
+                preferred_method=self.config.baseline_preferred_method,
+                asas_mode=self.config.baseline_asas_mode
+            )
+            
+            if baseline_commands:
+                # Return the first (highest priority) command
+                primary_command = baseline_commands[0]
+                self.logger.info(
+                    f"Generated baseline resolution: {primary_command.command} "
+                    f"(rationale: {primary_command.rationale})"
+                )
+                return primary_command.command
+            else:
+                self.logger.warning("No baseline resolution generated")
+                return None
+                
+        except Exception as e:
+            self.logger.exception(f"Failed to generate baseline resolution: {e}")
+            return None
+    
+    def _convert_conflict_to_baseline_format(self, conflict: dict[str, Any]) -> BaselineConflictGeometry:
+        """Convert internal conflict format to baseline strategy format"""
+        # Extract aircraft information - try different key formats
+        aircraft_ids = conflict.get("aircraft_ids", [])
+        if len(aircraft_ids) < 2:
+            # Try alternative format
+            ac1_id = conflict.get("aircraft_1")
+            ac2_id = conflict.get("aircraft_2")
+            if not ac1_id or not ac2_id:
+                raise ValueError("Conflict must involve at least 2 aircraft")
+            aircraft_ids = [ac1_id, ac2_id]
+        
+        # Get aircraft data from current simulation state
+        aircraft_data = bluesky_tools.get_all_aircraft_info()
+        
+        # Find the two aircraft involved in the conflict
+        ac1_id = aircraft_ids[0]
+        ac2_id = aircraft_ids[1]
+        
+        # Aircraft data is a dict where keys are aircraft IDs and values are aircraft info
+        aircraft_dict = aircraft_data.get("aircraft", {})
+        
+        ac1_data = aircraft_dict.get(ac1_id)
+        ac2_data = aircraft_dict.get(ac2_id)
+        
+        if not ac1_data or not ac2_data:
+            raise ValueError(f"Could not find aircraft data for {ac1_id} or {ac2_id}")
+        
+        # Calculate conflict geometry
+        horizontal_distance = conflict.get("horizontal_distance_nm", 0.0)
+        vertical_separation = abs(ac1_data.get("alt", 0) - ac2_data.get("alt", 0))
+        time_to_cpa = conflict.get("time_to_closest_approach_min", 5.0)
+        
+        # Calculate relative bearing
+        ac1_lat = ac1_data.get("lat", 0.0)
+        ac1_lon = ac1_data.get("lon", 0.0)
+        ac2_lat = ac2_data.get("lat", 0.0)
+        ac2_lon = ac2_data.get("lon", 0.0)
+        
+        relative_bearing = self._calculate_bearing(ac1_lat, ac1_lon, ac2_lat, ac2_lon)
+        
+        # Calculate closing speed
+        ac1_speed = ac1_data.get("spd", 250.0)
+        ac2_speed = ac2_data.get("spd", 250.0)
+        closing_speed = abs(ac1_speed - ac2_speed)  # Simplified calculation
+        
+        return BaselineConflictGeometry(
+            aircraft1_id=ac1_id,
+            aircraft2_id=ac2_id,
+            horizontal_distance_nm=horizontal_distance,
+            vertical_separation_ft=vertical_separation,
+            time_to_closest_approach_min=time_to_cpa,
+            relative_bearing_deg=relative_bearing,
+            aircraft1_heading=ac1_data.get("hdg", 0.0),
+            aircraft2_heading=ac2_data.get("hdg", 0.0),
+            aircraft1_altitude=ac1_data.get("alt", 35000.0),
+            aircraft2_altitude=ac2_data.get("alt", 35000.0),
+            aircraft1_speed=ac1_speed,
+            aircraft2_speed=ac2_speed,
+            closing_speed_kts=closing_speed
+        )
+    
+    def _calculate_bearing(self, lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+        """Calculate bearing from point 1 to point 2"""
+        import math
+        
+        lat1_rad = math.radians(lat1)
+        lat2_rad = math.radians(lat2)
+        delta_lon_rad = math.radians(lon2 - lon1)
+        
+        y = math.sin(delta_lon_rad) * math.cos(lat2_rad)
+        x = math.cos(lat1_rad) * math.sin(lat2_rad) - math.sin(lat1_rad) * math.cos(lat2_rad) * math.cos(delta_lon_rad)
+        
+        bearing_rad = math.atan2(y, x)
+        bearing_deg = math.degrees(bearing_rad)
+        
+        # Normalize to 0-360
+        return (bearing_deg + 360) % 360
 
     def _is_valid_bluesky_command(self, command: str) -> bool:
         """Validate if a command is a valid BlueSky command"""
@@ -1298,9 +1702,23 @@ class MonteCarloBenchmark:
             "extra_distance_nm": 0.0,
             "total_delay": 0.0,
             "fuel_penalty": 0.0,
+            # NEW: CPA-based metrics
+            "cpa_metrics": {},
+            "cpa_post_resolution": [],
+            "cpa_pre_resolution": [],
+            "resolution_effectiveness": {},
+            "insufficient_cpa_resolutions": 0,
+            "successful_cpa_resolutions": 0,
+            "average_cpa_improvement_nm": 0.0,
         }
 
         try:
+            # Capture pre-resolution CPA data for comparison
+            if resolutions:
+                pre_resolution_cpa = self._capture_cpa_data("pre_resolution")
+                verification_results["cpa_pre_resolution"] = pre_resolution_cpa
+                self.logger.debug(f"Captured pre-resolution CPA data: {len(pre_resolution_cpa)} conflicts")
+
             # Calculate adaptive time stepping
             time_horizon_seconds = self.config.time_horizon_minutes * 60
 
@@ -1348,6 +1766,20 @@ class MonteCarloBenchmark:
                     ):
                         verification_results["violations"] += 1
 
+            # Capture post-resolution CPA data
+            if resolutions:
+                post_resolution_cpa = self._capture_cpa_data("post_resolution")
+                verification_results["cpa_post_resolution"] = post_resolution_cpa
+                self.logger.debug(f"Captured post-resolution CPA data: {len(post_resolution_cpa)} conflicts")
+
+                # Calculate CPA-based resolution effectiveness
+                cpa_effectiveness = self._analyze_cpa_resolution_effectiveness(
+                    verification_results["cpa_pre_resolution"],
+                    post_resolution_cpa,
+                    resolutions
+                )
+                verification_results.update(cpa_effectiveness)
+
             # Calculate final metrics
             if min_separation_recorded:
                 verification_results["min_separation_nm"] = min(
@@ -1377,6 +1809,181 @@ class MonteCarloBenchmark:
             self.logger.exception(f"Verification failed: {e}")
 
         return verification_results
+
+    def _capture_cpa_data(self, stage: str) -> list[dict[str, Any]]:
+        """
+        Capture CPA (Closest Point of Approach) data from BlueSky conflict detection.
+        
+        Args:
+            stage: "pre_resolution" or "post_resolution" for logging purposes
+            
+        Returns:
+            List of CPA data for each detected conflict
+        """
+        cpa_data = []
+        
+        try:
+            # Get BlueSky conflict information with CPA data
+            bs_conflicts = bluesky_tools.get_conflict_info()
+            
+            for conflict in bs_conflicts.get("conflicts", []):
+                cpa_info = {
+                    "aircraft_1": conflict.get("aircraft_1", ""),
+                    "aircraft_2": conflict.get("aircraft_2", ""),
+                    "time_to_cpa": conflict.get("time_to_cpa", 999.0),
+                    "distance_at_cpa": conflict.get("distance_at_cpa", 999.0),
+                    "horizontal_separation": conflict.get("horizontal_separation", 999.0),
+                    "vertical_separation": conflict.get("vertical_separation", 999999.0),
+                    "stage": stage,
+                    "timestamp": time.time(),
+                    "violates_icao": (
+                        conflict.get("distance_at_cpa", 999.0) < self.config.min_separation_nm
+                        and conflict.get("vertical_separation", 999999.0) < self.config.min_separation_ft
+                    ),
+                }
+                cpa_data.append(cpa_info)
+                
+            self.logger.debug(f"Captured {len(cpa_data)} CPA conflicts at {stage}")
+            
+        except Exception as e:
+            self.logger.warning(f"Failed to capture CPA data at {stage}: {e}")
+            
+        return cpa_data
+
+    def _analyze_cpa_resolution_effectiveness(
+        self,
+        pre_resolution_cpa: list[dict[str, Any]],
+        post_resolution_cpa: list[dict[str, Any]], 
+        resolutions: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        """
+        Analyze resolution effectiveness using CPA metrics.
+        
+        Args:
+            pre_resolution_cpa: CPA data before resolutions
+            post_resolution_cpa: CPA data after resolutions
+            resolutions: List of resolution commands applied
+            
+        Returns:
+            Dictionary with CPA-based effectiveness metrics
+        """
+        analysis = {
+            "resolution_effectiveness": {},
+            "insufficient_cpa_resolutions": 0,
+            "successful_cpa_resolutions": 0,
+            "average_cpa_improvement_nm": 0.0,
+            "cpa_metrics": {},
+        }
+        
+        try:
+            # Create lookup maps for aircraft pairs
+            pre_cpa_map = {}
+            for cpa in pre_resolution_cpa:
+                pair_key = tuple(sorted([cpa["aircraft_1"], cpa["aircraft_2"]]))
+                pre_cpa_map[pair_key] = cpa
+                
+            post_cpa_map = {}
+            for cpa in post_resolution_cpa:
+                pair_key = tuple(sorted([cpa["aircraft_1"], cpa["aircraft_2"]]))
+                post_cpa_map[pair_key] = cpa
+            
+            improvements = []
+            per_conflict_analysis = {}
+            
+            # Analyze each conflict that had a resolution
+            for pair_key in pre_cpa_map.keys():
+                pre_cpa = pre_cpa_map[pair_key]
+                post_cpa = post_cpa_map.get(pair_key)
+                
+                if post_cpa:
+                    # Calculate CPA improvement
+                    pre_distance = pre_cpa["distance_at_cpa"]
+                    post_distance = post_cpa["distance_at_cpa"]
+                    improvement = post_distance - pre_distance
+                    
+                    improvements.append(improvement)
+                    
+                    # Determine if resolution was sufficient
+                    is_safe_cpa = (
+                        post_distance >= self.config.min_separation_nm
+                        and post_cpa["vertical_separation"] >= self.config.min_separation_ft
+                    )
+                    
+                    if is_safe_cpa:
+                        analysis["successful_cpa_resolutions"] += 1
+                    else:
+                        analysis["insufficient_cpa_resolutions"] += 1
+                        self.logger.warning(
+                            f"Insufficient CPA resolution for {pair_key}: "
+                            f"CPA distance {post_distance:.2f} NM < {self.config.min_separation_nm} NM"
+                        )
+                    
+                    # Store per-conflict analysis
+                    conflict_id = f"{pair_key[0]}-{pair_key[1]}"
+                    per_conflict_analysis[conflict_id] = {
+                        "pre_cpa_distance": pre_distance,
+                        "post_cpa_distance": post_distance,
+                        "improvement_nm": improvement,
+                        "pre_time_to_cpa": pre_cpa["time_to_cpa"],
+                        "post_time_to_cpa": post_cpa["time_to_cpa"],
+                        "is_safe_resolution": is_safe_cpa,
+                        "violates_icao_pre": pre_cpa["violates_icao"],
+                        "violates_icao_post": post_cpa["violates_icao"],
+                    }
+                    
+                    self.logger.debug(
+                        f"CPA analysis for {conflict_id}: "
+                        f"pre={pre_distance:.2f}nm, post={post_distance:.2f}nm, "
+                        f"improvement={improvement:.2f}nm, safe={is_safe_cpa}"
+                    )
+                else:
+                    # Conflict resolved completely (no longer detected)
+                    analysis["successful_cpa_resolutions"] += 1
+                    conflict_id = f"{pair_key[0]}-{pair_key[1]}"
+                    per_conflict_analysis[conflict_id] = {
+                        "pre_cpa_distance": pre_cpa["distance_at_cpa"],
+                        "post_cpa_distance": 999.0,  # No conflict detected
+                        "improvement_nm": 999.0 - pre_cpa["distance_at_cpa"],
+                        "pre_time_to_cpa": pre_cpa["time_to_cpa"],
+                        "post_time_to_cpa": 999.0,
+                        "is_safe_resolution": True,
+                        "violates_icao_pre": pre_cpa["violates_icao"],
+                        "violates_icao_post": False,
+                        "conflict_resolved_completely": True,
+                    }
+                    
+                    self.logger.info(f"Conflict {conflict_id} resolved completely - no longer detected")
+            
+            # Calculate average improvement
+            if improvements:
+                analysis["average_cpa_improvement_nm"] = sum(improvements) / len(improvements)
+            
+            analysis["resolution_effectiveness"] = per_conflict_analysis
+            
+            # Overall CPA metrics summary
+            total_conflicts = len(pre_cpa_map)
+            analysis["cpa_metrics"] = {
+                "total_conflicts_with_cpa_data": total_conflicts,
+                "successful_cpa_resolutions": analysis["successful_cpa_resolutions"],
+                "insufficient_cpa_resolutions": analysis["insufficient_cpa_resolutions"],
+                "cpa_success_rate": (
+                    analysis["successful_cpa_resolutions"] / total_conflicts * 100 
+                    if total_conflicts > 0 else 0.0
+                ),
+                "average_improvement_nm": analysis["average_cpa_improvement_nm"],
+                "resolutions_applied": len(resolutions),
+            }
+            
+            self.logger.info(
+                f"CPA Resolution Analysis: {analysis['successful_cpa_resolutions']}/{total_conflicts} "
+                f"successful ({analysis['cpa_metrics']['cpa_success_rate']:.1f}%), "
+                f"avg improvement: {analysis['average_cpa_improvement_nm']:.2f} NM"
+            )
+            
+        except Exception as e:
+            self.logger.exception(f"Failed to analyze CPA resolution effectiveness: {e}")
+            
+        return analysis
 
     def _calculate_all_separations(
         self, aircraft_info: dict[str, Any]
@@ -1438,11 +2045,36 @@ class MonteCarloBenchmark:
             ac2 = det.get("aircraft_2", "AC002")
             detected_conflicts.add(tuple(sorted([ac1, ac2])))
 
-        # Calculate confusion matrix
+        # Calculate confusion matrix using both methods for comparison
         tp = len(true_conflicts.intersection(detected_conflicts))
         fp = len(detected_conflicts - true_conflicts)
         fn = len(true_conflicts - detected_conflicts)
         tn = max(0, 10 - tp - fp - fn)  # Estimate based on potential pairs
+
+        # Also use standardized metrics.calc_fp_fn for consistency
+        try:
+            from llm_atc.metrics import calc_fp_fn
+            
+            # Convert conflicts to standard format for calc_fp_fn
+            pred_conflicts_list = [
+                {"aircraft_1": pair[0], "aircraft_2": pair[1]} 
+                for pair in detected_conflicts
+            ]
+            gt_conflicts_list = [
+                {"aircraft_1": pair[0], "aircraft_2": pair[1]} 
+                for pair in true_conflicts
+            ]
+            
+            fp_rate, fn_rate = calc_fp_fn(pred_conflicts_list, gt_conflicts_list)
+            
+            self.logger.debug(
+                f"Metrics comparison - Local FP/FN: {fp}/{fn}, "
+                f"Standardized FP/FN rates: {fp_rate:.3f}/{fn_rate:.3f}"
+            )
+            
+        except ImportError:
+            fp_rate, fn_rate = fp / max(1, tp + fp), fn / max(1, tp + fn)
+            self.logger.warning("Using fallback FP/FN calculation")
 
         # Calculate metrics
         accuracy = (tp + tn) / max(1, tp + tn + fp + fn)
@@ -1452,12 +2084,74 @@ class MonteCarloBenchmark:
         return {
             "false_positives": fp,
             "false_negatives": fn,
+            "false_positive_rate": fp_rate,
+            "false_negative_rate": fn_rate,
             "true_positives": tp,
             "true_negatives": tn,
             "detection_accuracy": accuracy,
             "precision": precision,
             "recall": recall,
+            # Enhanced safety margin quality assessment
+            "safety_margin_quality": self._assess_safety_margin_quality(verification),
+            "separation_breach_count": verification.get("violations", 0),
+            "worst_case_separation_nm": verification.get("min_separation_nm", 999.0),
+            "worst_case_separation_ft": verification.get("min_separation_ft", 999999.0),
+            "resolution_quality_score": self._calculate_resolution_quality_score(verification),
+            "low_quality_resolutions": self._count_low_quality_resolutions(verification),
         }
+
+    def _assess_safety_margin_quality(self, verification: dict[str, Any]) -> str:
+        """Assess the quality of safety margins based on ICAO standards."""
+        min_sep_nm = verification.get("min_separation_nm", 999.0)
+        min_sep_ft = verification.get("min_separation_ft", 999999.0)
+        violations = verification.get("violations", 0)
+        
+        # If there are violations, it's critical
+        if violations > 0:
+            return "critical"
+        
+        # Assess based on minimum separations achieved
+        # ICAO standard: 5 NM horizontal, 1000 ft vertical
+        horizontal_margin = min_sep_nm - 5.0
+        vertical_margin = min_sep_ft - 1000.0
+        
+        if horizontal_margin < 0 or vertical_margin < 0:
+            return "critical"
+        elif horizontal_margin < 1.0 or vertical_margin < 500.0:  # <20% buffer
+            return "marginal"
+        elif horizontal_margin < 2.5 or vertical_margin < 1000.0:  # <50% buffer  
+            return "adequate"
+        else:
+            return "excellent"
+    
+    def _calculate_resolution_quality_score(self, verification: dict[str, Any]) -> float:
+        """Calculate a quality score for LLM resolutions (0-1 scale)."""
+        min_sep_nm = verification.get("min_separation_nm", 999.0)
+        min_sep_ft = verification.get("min_separation_ft", 999999.0)
+        violations = verification.get("violations", 0)
+        resolution_success = verification.get("resolution_success", False)
+        
+        # Base score from resolution success
+        base_score = 0.8 if resolution_success else 0.2
+        
+        # Penalty for violations
+        violation_penalty = min(violations * 0.3, 0.6)
+        
+        # Bonus for good safety margins
+        horizontal_bonus = min((min_sep_nm - 5.0) / 5.0 * 0.1, 0.1)  # Up to 0.1 bonus
+        vertical_bonus = min((min_sep_ft - 1000.0) / 1000.0 * 0.1, 0.1)  # Up to 0.1 bonus
+        
+        score = base_score - violation_penalty + horizontal_bonus + vertical_bonus
+        return max(0.0, min(1.0, score))
+    
+    def _count_low_quality_resolutions(self, verification: dict[str, Any]) -> int:
+        """Count resolutions that left less than 0.5 NM safety margin."""
+        min_sep_nm = verification.get("min_separation_nm", 999.0)
+        
+        # Count as low quality if horizontal separation < 5.5 NM (0.5 NM buffer)
+        if min_sep_nm < 5.5:
+            return 1
+        return 0
 
     def _create_error_result(
         self,
@@ -1501,11 +2195,19 @@ class MonteCarloBenchmark:
             fuel_penalty_percent=0.0,
             false_positives=0,
             false_negatives=0,
+            false_positive_rate=0.0,
+            false_negative_rate=0.0,
             true_positives=0,
             true_negatives=0,
             detection_accuracy=0.0,
             precision=0.0,
             recall=0.0,
+            safety_margin_quality="critical",
+            separation_breach_count=999,
+            worst_case_separation_nm=0.0,
+            worst_case_separation_ft=0.0,
+            resolution_quality_score=0.0,
+            low_quality_resolutions=999,
             success=False,  # Error results are never successful
             execution_time_seconds=0.0,
             errors=[error],
