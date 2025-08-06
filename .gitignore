@@ -1,8 +1,7 @@
-# Virtual environment
-venv/
-llm/
-
-# Python cache and compiled files
+# =============================================================================
+# Python Artifacts
+# =============================================================================
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
@@ -22,9 +21,11 @@ parts/
 sdist/
 var/
 wheels/
+share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
 # PyInstaller
 *.manifest
@@ -37,73 +38,185 @@ pip-delete-this-directory.txt
 # Unit test / coverage reports
 htmlcov/
 .tox/
+.nox/
 .coverage
 .coverage.*
 .cache
 nosetests.xml
 coverage.xml
 *.cover
+*.py,cover
 .hypothesis/
 .pytest_cache/
+cover/
 
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# Environment variables
+# =============================================================================
+# Python Environments
+# =============================================================================
+# Virtual environments
+venv/
+env/
+ENV/
 .env
 .venv
-ENV/
-env/
+llm/
 
-# IDE
+# Conda environments
+.conda/
+
+# pipenv
+Pipfile.lock
+
+# Poetry
+poetry.lock
+
+# =============================================================================
+# IDE and Editor Files
+# =============================================================================
+# Visual Studio Code
 .vscode/
+.history/
+
+# PyCharm
 .idea/
+
+# Vim/Neovim
 *.swp
 *.swo
 *~
+.netrwhist
 
-# OS generated files
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# Sublime Text
+*.sublime-workspace
+*.sublime-project
+
+# =============================================================================
+# Operating System Files
+# =============================================================================
+# macOS
 .DS_Store
 .DS_Store?
 ._*
 .Spotlight-V100
 .Trashes
+.AppleDouble
+.LSOverride
+
+# Windows
 ehthumbs.db
 Thumbs.db
+desktop.ini
 
-# Project specific
+# Linux
+*~
+
+# =============================================================================
+# Jupyter Notebooks
+# =============================================================================
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+
+# IPython
+profile_default/
+ipython_config.py
+
+# =============================================================================
+# Logs and Output Files
+# =============================================================================
+# Application logs
 logs/
-output/
-Debugs/
-debug_logging.py
-simulation.log
 *.log
-reports/
+
+# Debug files
+debug_logging.py
+Debugs/
+
+# Temporary files
 temp/
 tmp/
+output/
 
-# Model files and data
+# =============================================================================
+# Machine Learning and Data Science
+# =============================================================================
+# Model files
 models/
 *.bin
 *.safetensors
 *.onnx
+*.pt
+*.pth
+*.pkl
+*.pickle
 
-# Research data (keep structure, ignore large datasets)
+# Data files (keep structure, ignore large datasets)
 data/large_datasets/
 data/simulated/large/
+
+# ChromaDB and vector databases
+.chroma_experience_library/
+memory/replay_data/
+chroma_db/
+
+# =============================================================================
+# Research and Experiment Outputs
+# =============================================================================
+# Experiment results and reports
 test_results/
 thesis_results/
-memory/replay_data/
-experiments/
+experiments/*/
+reports/
 visualizations/
-notebooks/
-.github/instructions/
-
-# generated
-.chroma_experience_library/
-docs/notebooks/**.ipynb
 outputs/
-__pycache__/
-*.pyc
-*.log
-*.png
+
+# Generated documentation
+docs/notebooks/**.ipynb
+
+# =============================================================================
+# Project-Specific Files
+# =============================================================================
+# LLM-ATC specific
+bluesky_outputs/
+simulation_data/
+benchmark_results/
+
+# Configuration overrides
+*local.yaml
+*local.yml
+*local.json
+
+# =============================================================================
+# Security and Credentials
+# =============================================================================
+# API keys and secrets
+.env
+.env.local
+.env.*.local
+secrets.yaml
+secrets.yml
+*.key
+*.pem
+*.p12
+*.pfx
+
+# =============================================================================
+# Archive and Backup Files
+# =============================================================================
+*.zip
+*.tar.gz
+*.tar.bz2
+*.rar
+*.7z
+*.backup
+*.bak
+*.orig

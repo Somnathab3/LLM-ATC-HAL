@@ -435,11 +435,43 @@ def analyze(log_file: str | None, results_dir: str) -> None:
         prompt_engine = LLMPromptEngine(model="llama3.1:8b", enable_function_calls=True)
 
         if log_file:
-            click.echo(
-                f"📄 Analyzing single file with sophisticated metrics: {log_file}"
-            )
-            metrics = compute_metrics(log_file)
-            print_metrics_summary(metrics)
+            # Check if log_file is actually a directory
+            log_path = Path(log_file)
+            if log_path.is_dir():
+                click.echo(f"⚠️  '{log_file}' is a directory. Searching for log files within it...")
+                log_files = list(log_path.glob("*.log")) + list(log_path.glob("*.json"))
+                if not log_files:
+                    click.echo(f"❌ No log files found in directory: {log_file}")
+                    return
+                
+                click.echo(f"📁 Found {len(log_files)} log files in directory")
+                for single_log in log_files:
+                    click.echo(f"📄 Analyzing: {single_log.name}")
+                    try:
+                        metrics = compute_metrics(str(single_log))
+                        if metrics["total_tests"] > 0:
+                            print_metrics_summary(metrics)
+                        else:
+                            click.echo(f"   ⚠️  No valid test data found in {single_log.name}")
+                    except Exception as e:
+                        click.echo(f"   ❌ Failed to analyze {single_log.name}: {e}")
+            else:
+                click.echo(
+                    f"📄 Analyzing single file with sophisticated metrics: {log_file}"
+                )
+                
+                # Check if this is a special result file that needs specific processing
+                log_path = Path(log_file)
+                if log_path.name == "detailed_results.json":
+                    from llm_atc.metrics import process_detailed_results
+                    metrics = process_detailed_results(log_file)
+                elif log_path.name == "benchmark_summary.json":
+                    from llm_atc.metrics import process_benchmark_summary
+                    metrics = process_benchmark_summary(log_file)
+                else:
+                    metrics = compute_metrics(log_file)
+                
+                print_metrics_summary(metrics)
 
             # Additional sophisticated analysis
             click.echo("🔬 Running sophisticated prompt analysis...")

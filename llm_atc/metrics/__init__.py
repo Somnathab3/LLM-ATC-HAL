@@ -276,15 +276,45 @@ def aggregate_thesis_metrics(results_dir: str) -> dict[str, Any]:
         return create_empty_metrics()
 
     all_metrics = []
-    log_files = list(results_path.glob("*.log")) + list(results_path.glob("*.json"))
+    
+    # Search recursively for log and JSON files
+    log_files = list(results_path.glob("**/*.log"))
+    json_files = list(results_path.glob("**/*.json"))
+    
+    # Also check for specific result files
+    detailed_results = list(results_path.glob("**/detailed_results.json"))
+    summary_files = list(results_path.glob("**/benchmark_summary.json"))
+    
+    all_files = log_files + json_files
+    
+    # If we have detailed results, prioritize those
+    if detailed_results:
+        all_files.extend(detailed_results)
+    if summary_files:
+        all_files.extend(summary_files)
+    
+    # Remove duplicates
+    all_files = list(set(all_files))
+    
+    logging.info(f"Found {len(all_files)} files to analyze in {results_dir}")
 
-    for log_file in log_files:
+    for result_file in all_files:
         try:
-            metrics = compute_metrics(str(log_file))
+            if result_file.name == "detailed_results.json":
+                # Handle detailed results file specifically
+                metrics = process_detailed_results(str(result_file))
+            elif result_file.name == "benchmark_summary.json":
+                # Handle summary file specifically
+                metrics = process_benchmark_summary(str(result_file))
+            else:
+                # Regular log/json processing
+                metrics = compute_metrics(str(result_file))
+            
             if metrics["total_tests"] > 0:
                 all_metrics.append(metrics)
+                logging.info(f"Processed {result_file.name}: {metrics['total_tests']} tests")
         except Exception as e:
-            logging.warning("Failed to process %s: %s", log_file, e)
+            logging.warning("Failed to process %s: %s", result_file, e)
 
     if not all_metrics:
         logging.warning("No valid metrics found in results directory")
@@ -294,29 +324,34 @@ def aggregate_thesis_metrics(results_dir: str) -> dict[str, Any]:
     aggregated = {
         "total_tests": sum(m["total_tests"] for m in all_metrics),
         "total_hallucinations": sum(m["total_hallucinations"] for m in all_metrics),
-        "avg_llm_time": np.mean(
+        "avg_llm_time": np.nanmean(
             [m["avg_llm_time"] for m in all_metrics if m["avg_llm_time"] > 0]
-        ),
-        "avg_baseline_time": np.mean(
-            [m["avg_baseline_time"] for m in all_metrics if m["avg_baseline_time"] > 0],
-        ),
-        "avg_fp_rate": np.mean(
+        ) if any(m["avg_llm_time"] > 0 for m in all_metrics) else 0,
+        "avg_baseline_time": np.nanmean(
+            [m["avg_baseline_time"] for m in all_metrics if m["avg_baseline_time"] > 0]
+        ) if any(m["avg_baseline_time"] > 0 for m in all_metrics) else 0,
+        "avg_fp_rate": np.nanmean(
             [m["avg_fp_rate"] for m in all_metrics if m["avg_fp_rate"] > 0]
-        ),
-        "avg_fn_rate": np.mean(
+        ) if any(m["avg_fp_rate"] > 0 for m in all_metrics) else 0,
+        "avg_fn_rate": np.nanmean(
             [m["avg_fn_rate"] for m in all_metrics if m["avg_fn_rate"] > 0]
-        ),
-        "avg_safety_margin": np.mean(
-            [m["avg_safety_margin"] for m in all_metrics if m["avg_safety_margin"] > 0],
-        ),
-        "avg_efficiency_penalty": np.mean(
+        ) if any(m["avg_fn_rate"] > 0 for m in all_metrics) else 0,
+        "avg_safety_margin": np.nanmean(
+            [m["avg_safety_margin"] for m in all_metrics if m["avg_safety_margin"] > 0]
+        ) if any(m["avg_safety_margin"] > 0 for m in all_metrics) else 0,
+        "avg_efficiency_penalty": np.nanmean(
             [
                 m["avg_efficiency_penalty"]
                 for m in all_metrics
                 if m["avg_efficiency_penalty"] > 0
-            ],
-        ),
+            ]
+        ) if any(m["avg_efficiency_penalty"] > 0 for m in all_metrics) else 0,
         "files_processed": len(all_metrics),
+        "hallucination_analysis": {
+            "total_hallucinations": sum(m["total_hallucinations"] for m in all_metrics),
+            "by_type": {},
+            "by_model": {},
+        }
     }
 
     # Calculate overall hallucination rate
@@ -328,6 +363,95 @@ def aggregate_thesis_metrics(results_dir: str) -> dict[str, Any]:
         aggregated["avg_hallucinations_per_test"] = 0
 
     return aggregated
+
+
+def process_detailed_results(file_path: str) -> dict[str, Any]:
+    """Process detailed_results.json file to extract metrics."""
+    try:
+        with open(file_path, 'r') as f:
+            detailed_results = json.load(f)
+        
+        if not isinstance(detailed_results, list):
+            return create_empty_metrics()
+        
+        total_tests = len(detailed_results)
+        success_count = sum(1 for result in detailed_results if result.get("success", False))
+        
+        # Extract performance metrics
+        conflicts_detected = []
+        safety_margins = []
+        efficiency_metrics = []
+        
+        for result in detailed_results:
+            # Count conflicts
+            predicted_conflicts = result.get("predicted_conflicts", [])
+            true_conflicts = result.get("true_conflicts", [])
+            conflicts_detected.append(len(predicted_conflicts))
+            
+            # Safety margins
+            if "safety_assessment" in result:
+                safety_data = result["safety_assessment"]
+                if "horizontal_margin_nm" in safety_data:
+                    safety_margins.append(safety_data["horizontal_margin_nm"])
+            
+            # Efficiency metrics
+            if "efficiency_assessment" in result:
+                eff_data = result["efficiency_assessment"]
+                if "path_deviation_nm" in eff_data:
+                    efficiency_metrics.append(eff_data["path_deviation_nm"])
+        
+        return {
+            "total_tests": total_tests,
+            "avg_llm_time": 0,  # Not available in this format
+            "avg_baseline_time": 0,
+            "avg_hallucinations_per_test": 0,  # Not tracked in this format
+            "total_hallucinations": 0,
+            "avg_fp_rate": 0,  # Would need more analysis
+            "avg_fn_rate": 0,
+            "avg_safety_margin": np.mean(safety_margins) if safety_margins else 0,
+            "avg_efficiency_penalty": np.mean(efficiency_metrics) if efficiency_metrics else 0,
+            "success_rate": success_count / total_tests if total_tests > 0 else 0,
+            "hallucination_analysis": {"total_hallucinations": 0, "by_type": {}, "by_model": {}},
+        }
+    except Exception as e:
+        logging.warning(f"Failed to process detailed results {file_path}: {e}")
+        return create_empty_metrics()
+
+
+def process_benchmark_summary(file_path: str) -> dict[str, Any]:
+    """Process benchmark_summary.json file to extract metrics."""
+    try:
+        with open(file_path, 'r') as f:
+            summary = json.load(f)
+        
+        # Extract metrics from summary
+        scenario_counts = summary.get("scenario_counts", {})
+        total_tests = scenario_counts.get("total_scenarios", 0)
+        success_count = scenario_counts.get("successful_scenarios", 0)
+        
+        # Get performance metrics if available
+        performance = summary.get("overall_performance", {})
+        
+        return {
+            "total_tests": total_tests,
+            "avg_llm_time": 0,  # Not typically available in summary
+            "avg_baseline_time": 0,
+            "avg_hallucinations_per_test": 0,
+            "total_hallucinations": 0,
+            "avg_fp_rate": 1 - performance.get("precision", 0) if performance.get("precision", 0) > 0 else 0,
+            "avg_fn_rate": 1 - performance.get("recall", 0) if performance.get("recall", 0) > 0 else 0,
+            "avg_safety_margin": performance.get("avg_min_separation_nm", 0),
+            "avg_efficiency_penalty": 0,  # Not available in this format
+            "success_rate": scenario_counts.get("success_rate", 0),
+            "detection_accuracy": performance.get("detection_accuracy", 0),
+            "precision": performance.get("precision", 0),
+            "recall": performance.get("recall", 0),
+            "total_violations": performance.get("total_violations", 0),
+            "hallucination_analysis": {"total_hallucinations": 0, "by_type": {}, "by_model": {}},
+        }
+    except Exception as e:
+        logging.warning(f"Failed to process benchmark summary {file_path}: {e}")
+        return create_empty_metrics()
 
 
 # Visualization functions (if plotting is available)
