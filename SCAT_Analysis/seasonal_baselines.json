@@ -1,0 +1,118 @@
+{
+  "Q1_2017": {
+    "weeks": [
+      "2017_W01",
+      "2017_W02",
+      "2017_W07",
+      "2017_W08",
+      "2017_W09",
+      "2017_W10",
+      "2017_W13"
+    ],
+    "metrics": {
+      "total_flights": 38450,
+      "avg_weekly_flights": 5492.857142857143,
+      "avg_hourly_traffic": 228.86904761904765,
+      "peak_traffic_hours": [
+        "9",
+        "13",
+        "10",
+        "10",
+        "9",
+        "10",
+        "9"
+      ],
+      "most_common_peak_hour": "9",
+      "aircraft_type_diversity": 3.0652230687085766,
+      "route_complexity": 1156.7142857142858,
+      "total_weeks": 7,
+      "avg_altitude": 20866.24085068217
+    }
+  },
+  "Q2_2017": {
+    "weeks": [
+      "2017_W14",
+      "2017_W17",
+      "2017_W18",
+      "2017_W21",
+      "2017_W22",
+      "2017_W25",
+      "2017_W26"
+    ],
+    "metrics": {
+      "total_flights": 50917,
+      "avg_weekly_flights": 7273.857142857143,
+      "avg_hourly_traffic": 303.077380952381,
+      "peak_traffic_hours": [
+        "9",
+        "9",
+        "9",
+        "9",
+        "11",
+        "9",
+        "10"
+      ],
+      "most_common_peak_hour": "9",
+      "aircraft_type_diversity": 3.0048550562048173,
+      "route_complexity": 1366.2857142857142,
+      "total_weeks": 7,
+      "avg_altitude": 21050.65971057633
+    }
+  },
+  "Q3_2017": {
+    "weeks": [
+      "2017_W29",
+      "2017_W30",
+      "2017_W33",
+      "2017_W34",
+      "2017_W37",
+      "2017_W38"
+    ],
+    "metrics": {
+      "total_flights": 41536,
+      "avg_weekly_flights": 6922.666666666667,
+      "avg_hourly_traffic": 288.4444444444444,
+      "peak_traffic_hours": [
+        "10",
+        "10",
+        "10",
+        "9",
+        "10",
+        "11"
+      ],
+      "most_common_peak_hour": "10",
+      "aircraft_type_diversity": 3.0687039185263507,
+      "route_complexity": 1416.1666666666667,
+      "total_weeks": 6,
+      "avg_altitude": 21528.857873267767
+    }
+  },
+  "Q4_2016": {
+    "weeks": [
+      "2016_W41",
+      "2016_W42",
+      "2016_W45",
+      "2016_W46",
+      "2016_W49",
+      "2016_W50"
+    ],
+    "metrics": {
+      "total_flights": 37743,
+      "avg_weekly_flights": 6290.5,
+      "avg_hourly_traffic": 262.1041666666667,
+      "peak_traffic_hours": [
+        "10",
+        "11",
+        "9",
+        "12",
+        "9",
+        "12"
+      ],
+      "most_common_peak_hour": "9",
+      "aircraft_type_diversity": 3.084128082811372,
+      "route_complexity": 1175.6666666666667,
+      "total_weeks": 6,
+      "avg_altitude": 20532.89792955155
+    }
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "low_stress": {
+    "weeks": [
+      "2016_W41",
+      "2016_W45",
+      "2016_W49",
+      "2017_W01",
+      "2017_W09",
+      "2017_W13",
+      "2017_W17"
+    ],
+    "criteria": {
+      "flight_count": "< 3210",
+      "hourly_traffic": "< 133.8"
+    },
+    "characteristics": [
+      "Peak traffic typically at 09:00",
+      "Dominated by B738 aircraft",
+      "Average 1063 unique routes per week",
+      "Most frequent in Q4"
+    ]
+  },
+  "normal_stress": {
+    "weeks": [
+      "2016_W46",
+      "2016_W50",
+      "2017_W02",
+      "2017_W07",
+      "2017_W08",
+      "2017_W10",
+      "2017_W21",
+      "2017_W25",
+      "2017_W29",
+      "2017_W30",
+      "2017_W33",
+      "2017_W37"
+    ],
+    "criteria": {
+      "flight_count": "3210 - 9802",
+      "hourly_traffic": "133.8 - 408.4"
+    },
+    "characteristics": [
+      "Peak traffic typically at 10:00",
+      "Dominated by B738 aircraft",
+      "Average 1286 unique routes per week",
+      "Most frequent in Q1"
+    ]
+  },
+  "high_stress": {
+    "weeks": [
+      "2016_W42",
+      "2017_W14",
+      "2017_W18",
+      "2017_W22",
+      "2017_W26",
+      "2017_W34",
+      "2017_W38"
+    ],
+    "criteria": {
+      "flight_count": "> 9802",
+      "hourly_traffic": "> 408.4"
+    },
+    "characteristics": [
+      "Peak traffic typically at 09:00",
+      "Dominated by B738 aircraft",
+      "Average 1477 unique routes per week",
+      "Most frequent in Q2"
+    ]
+  }
+}

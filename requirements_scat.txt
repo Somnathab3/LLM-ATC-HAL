@@ -1,0 +1,49 @@
+# SCAT Comprehensive Analysis Dependencies
+# Core requirements for the SCAT EDA notebook
+
+# Core data processing libraries
+pandas>=2.3.1
+numpy>=2.3.2
+json5  # For JSON handling (json is built-in)
+
+# Geospatial analysis libraries
+geopandas>=1.0.0
+folium>=0.17.0
+shapely>=2.0.0
+geopy>=2.4.0
+haversine>=2.8.0
+
+# Visualization libraries
+matplotlib>=3.10.3
+seaborn>=0.13.2
+plotly>=5.0.0
+
+# Analysis and ML tools
+scikit-learn>=1.7.1
+scipy>=1.16.1
+networkx>=3.5
+
+# Configuration and utilities
+pyyaml>=6.0.2
+tqdm>=4.67.1
+
+# Note: The following are built-in Python modules and don't need installation:
+# - json, zipfile, pathlib, gc, warnings, datetime, typing, collections
+# - time, pickle, os, multiprocessing, functools
+
+# Additional dependencies from existing requirements.txt
+openai>=1.54.3
+chromadb>=0.5.23
+pymilvus>=2.5.3
+jsonschema>=4.25.0
+ollama>=0.5.1
+psutil>=7.0.0
+sentence-transformers>=5.0.0
+transformers>=4.54.0
+
+# PyTorch (nightly build as in original)
+--pre
+--index-url https://download.pytorch.org/whl/nightly/cu128
+torch
+torchaudio
+torchvision
